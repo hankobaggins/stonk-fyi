@@ -1,0 +1,28 @@
+# Vercel's Hobby plan only allows daily cron jobs, so the 5-minute snapshot tick runs from here.
+# Needs repository secrets: SNAPSHOT_URL (https://stonk.fyi) and CRON_SECRET (same value as on Vercel).
+name: snapshot
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+concurrency:
+  group: snapshot
+  cancel-in-progress: false
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call /api/cron/snapshot
+        env:
+          SNAPSHOT_URL: ${{ secrets.SNAPSHOT_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          full=""
+          # top of the hour → full token walk
+          if [ "$(date -u +%M)" -lt 5 ]; then full="?full=1"; fi
+          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time 280 \
+            -H "Authorization: Bearer $CRON_SECRET" "$SNAPSHOT_URL/api/cron/snapshot$full")
+          echo "HTTP $code"; cat /tmp/out.json | head -c 4000; echo
+          [ "$code" = "200" ]
