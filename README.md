@@ -1,4 +1,6 @@
-# StonkFun Metrics — $STONK performance
+# stonk.fyi — $STONK metrics, scored live
+
+**Live at [stonk.fyi](https://stonk.fyi).** Methodology and data sources: [stonk.fyi/about](https://stonk.fyi/about).
 
 A live dashboard centered on **$STONK**, the platform token of the [StonkFun](https://www.stonkfun.xyz) launchpad on Solana. The home page is a bull-case scorecard — supply burned, burn velocity, buyback pressure, revenue growth, STONK-denominated demand, valuation multiple — each computed live from the API and colored by its actual state, plus price, burn and buyback charts and a "what to watch" block. The rest of the site covers the platform that feeds the flywheel. Unofficial; built on StonkFun's public API.
 
@@ -21,6 +23,7 @@ A live dashboard centered on **$STONK**, the platform token of the [StonkFun](ht
 | `/pairs` | Volume and market cap aggregated by quote asset and pair category (StonkFun's unique angle) |
 | `/flywheel` | Revenue → buyback → burn: totals, burn sources, buyback spend by quote, holder rewards |
 | `/launches` | Launch ledger, launches per hour, mode and launchpad split |
+| `/about` | Methodology, data sources, scorecard thresholds, projection model, known gaps |
 
 ## Run locally
 
