@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
+/* Dark-first dashboard palette. Series colors follow the validated dark steps
+   from the dataviz reference palette (blue, orange, aqua, yellow, magenta, green, violet, red). */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+  --bg: #0f1012;
+  --surface-1: #1a1a19;
+  --surface-2: #232322;
+  --border: #2e2e2c;
+  --border-strong: #3d3d3a;
+  --text-primary: #ffffff;
+  --text-secondary: #c3c2b7;
+  --text-muted: #8a8a82;
+  --accent: #3987e5;
+  --up: #2fbf71;
+  --down: #e66767;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --grid: #2a2a28;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-primary: var(--text-primary);
+  --color-secondary: var(--text-secondary);
+  --color-muted: var(--text-muted);
+  --color-accent: var(--accent);
+  --color-up: var(--up);
+  --color-down: var(--down);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+html { background: var(--bg); }
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-feature-settings: "tnum" 1, "cv11" 1;
 }
+
+.num { font-variant-numeric: tabular-nums; }
+
+.card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.table-wrap { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data th {
+  text-align: left; font-weight: 500; color: var(--text-muted);
+  padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+}
+table.data td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+table.data tr:last-child td { border-bottom: 0; }
+table.data tbody tr:hover { background: var(--surface-2); }
+table.data td.r, table.data th.r { text-align: right; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; line-height: 1; padding: 4px 8px; border-radius: 999px;
+  border: 1px solid var(--border-strong); color: var(--text-secondary); white-space: nowrap;
+}
+.pill.accent { border-color: color-mix(in oklab, var(--accent) 50%, transparent); color: var(--accent); }
+.pill.up { border-color: color-mix(in oklab, var(--up) 50%, transparent); color: var(--up); }
+
+.filterbar a, .filterbar button {
+  font-size: 12px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+  color: var(--text-secondary); background: var(--surface-1);
+}
+.filterbar a[aria-current="true"] { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-strong); }
+.filterbar a:hover { color: var(--text-primary); }
+
+.recharts-cartesian-grid line { stroke: var(--grid); }
+.recharts-text { fill: var(--text-muted); font-size: 11px; }
+.recharts-tooltip-cursor { stroke: var(--border-strong); }
+
+@keyframes pulse-dot { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
