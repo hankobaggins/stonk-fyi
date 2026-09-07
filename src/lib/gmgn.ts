@@ -1,10 +1,13 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { STONK_MINT } from "./api";
 
 // GMGN OpenAPI client (https://openapi.gmgn.ai, docs: github.com/GMGNAI/gmgn-skills). Read-only
 // routes need X-APIKEY plus timestamp/client_id query params. Rate limit is a 20/s leaky bucket
 // (token info/security weight 1, holders weight 5), so results are memoised for 60s per instance.
 // Returns null whenever GMGN_API_KEY is unset or any call fails; the site never depends on it.
+// The result is shared across serverless instances through Next's data cache (unstable_cache,
+// 60s) so a burst of cold starts does not each hit GMGN; a per-instance memo backs that up.
 
 const HOST = process.env.GMGN_API_BASE ?? "https://openapi.gmgn.ai";
 const USE_FIXTURES = process.env.DATA_SOURCE === "fixture";
@@ -35,7 +38,7 @@ async function call<T>(path: string, params: Record<string, string | number>): P
   if (!key) throw new Error("GMGN_API_KEY not set");
   const q = new URLSearchParams({ ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])), timestamp: String(Math.floor(Date.now() / 1000)), client_id: crypto.randomUUID() });
   const res = await fetch(`${HOST}${path}?${q}`, { headers: { "X-APIKEY": key, "User-Agent": "stonk.fyi/1.0" }, cache: "no-store", signal: AbortSignal.timeout(8_000) });
-  if (!res.ok) throw new Error(`GMGN ${path} ${res.status}`);
+  if (!res.ok) throw new Error(`GMGN ${path} ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`);
   const body = (await res.json()) as Envelope<T>;
   if (body.code !== 0) throw new Error(`GMGN ${path} code ${body.code} ${body.message ?? ""}`);
   return body.data;
@@ -77,6 +80,27 @@ function normalize(info: any, sec: any, smart: any): GmgnData {
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
 let memo: { at: number; data: GmgnData | null } | null = null;
+export let lastGmgnError: string | null = null;
+
+async function fetchGmgnStonk(): Promise<GmgnData | null> {
+  try {
+    const base = { chain: "sol", address: STONK_MINT };
+    // token_top_holders (weight 5) is skipped: wallet_tags_stat in token info already carries the
+    // smart-money/KOL counts, and the per-holder aggregate was not worth 5/7 of the quota.
+    const [info, sec] = await Promise.all([
+      call<unknown>("/v1/token/info", base),
+      call<unknown>("/v1/token/security", base).catch(() => null),
+    ]);
+    lastGmgnError = null;
+    return normalize(info, sec, null);
+  } catch (e) {
+    lastGmgnError = e instanceof Error ? e.message : String(e);
+    console.error("[gmgn]", lastGmgnError);
+    return null;
+  }
+}
+
+const cachedGmgnStonk = unstable_cache(fetchGmgnStonk, ["gmgn-stonk-v1"], { revalidate: 60 });
 
 export async function getGmgnStonk(): Promise<GmgnData | null> {
   if (USE_FIXTURES) {
@@ -85,21 +109,10 @@ export async function getGmgnStonk(): Promise<GmgnData | null> {
   }
   if (!process.env.GMGN_API_KEY) return null;
   if (memo && Date.now() - memo.at < TTL_MS) return memo.data;
-  try {
-    const base = { chain: "sol", address: STONK_MINT };
-    const [info, sec, smart] = await Promise.all([
-      call<unknown>("/v1/token/info", base),
-      call<unknown>("/v1/token/security", base).catch(() => null),
-      call<unknown>("/v1/market/token_top_holders", { ...base, limit: 20, tag: "smart_degen", order_by: "amount_percentage", direction: "desc" }).catch(() => null),
-    ]);
-    const data = normalize(info, sec, smart);
-    memo = { at: Date.now(), data };
-    return data;
-  } catch (e) {
-    console.error("[gmgn]", e instanceof Error ? e.message : e);
-    memo = { at: Date.now(), data: null };
-    return null;
-  }
+  const data = await cachedGmgnStonk();
+  // A null (failed) result is memoised only briefly so a transient 429 clears itself.
+  memo = { at: data ? Date.now() : Date.now() - TTL_MS + 15_000, data };
+  return data;
 }
 
 export const GMGN_TOKEN_URL = `https://gmgn.ai/sol/token/${STONK_MINT}`;

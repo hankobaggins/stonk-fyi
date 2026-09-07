@@ -137,7 +137,8 @@ export async function getToken(mint: string): Promise<ApiEnvelope<TokenDetail> |
     if (!detail) throw new ApiError(502, `Unexpected /tokens/${mint} response shape: keys=${Object.keys((res.data as object) ?? {}).join(",")}`);
     return { data: detail, meta: res.meta };
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return null;
+    // 404 = unknown mint; 400 = StonkFun rejects the address (bots crawl /tokens/<junk>). Both are "not found" for the page.
+    if (e instanceof ApiError && (e.status === 404 || e.status === 400)) return null;
     throw e;
   }
 }

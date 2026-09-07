@@ -3,14 +3,43 @@
   "athPriceUsd": 0.21528047,
   "holderCount": 32800,
   "liquidityUsd": 2451670.98,
-  "biggestPool": { "address": "AfrddTGYwCVEQB1gxCAhR8i48o6qtxYqksdVkeLudEhg", "exchange": "orca", "quoteSymbol": "SOL", "liquidityUsd": 2451670.98 },
-  "vol24h": { "buyUsd": 31537769.88, "sellUsd": 32164151.14, "buys": 65965, "sells": 51667, "totalUsd": 63701921.02 },
-  "vol1h": { "buyUsd": 503013.1, "sellUsd": 607608.17, "buys": 1489, "sells": 1309 },
+  "biggestPool": {
+    "address": "AfrddTGYwCVEQB1gxCAhR8i48o6qtxYqksdVkeLudEhg",
+    "exchange": "orca",
+    "quoteSymbol": "SOL",
+    "liquidityUsd": 2451670.98
+  },
+  "vol24h": {
+    "buyUsd": 31537769.88,
+    "sellUsd": 32164151.14,
+    "buys": 65965,
+    "sells": 51667,
+    "totalUsd": 63701921.02
+  },
+  "vol1h": {
+    "buyUsd": 503013.1,
+    "sellUsd": 607608.17,
+    "buys": 1489,
+    "sells": 1309
+  },
   "top10HolderRate": 0.1807,
   "freshWalletRate": 0.1045,
   "botDegenRate": 0.3577,
-  "wallets": { "smart": 318, "kol": 61, "whale": 381, "sniper": 20, "ratTrader": 29 },
-  "security": { "mintRenounced": true, "freezeRenounced": true, "lpBurned": true, "lpBurnedPct": 95, "buyTax": 0, "sellTax": 0 },
-  "smartTop": { "n": 20, "pctHeld": 0.0031, "buyUsd": 10703, "sellUsd": 14838, "unrealizedUsd": 240 },
+  "wallets": {
+    "smart": 318,
+    "kol": 61,
+    "whale": 381,
+    "sniper": 20,
+    "ratTrader": 29
+  },
+  "security": {
+    "mintRenounced": true,
+    "freezeRenounced": true,
+    "lpBurned": true,
+    "lpBurnedPct": 95,
+    "buyTax": 0,
+    "sellTax": 0
+  },
+  "smartTop": null,
   "fetchedAt": "2026-09-07T22:40:00.000Z"
 }
