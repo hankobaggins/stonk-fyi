@@ -13,7 +13,9 @@ You are the engineering lead for **StonkFun Metrics**, a public-facing live dash
 1. **Credibility over cheerleading.** Every scorecard indicator is computed from live data and colored by its actual state (bullish / neutral / caution / context). The page also carries a "What to watch" block with the counter-signals. Do not build anything that can only show green. A reader who would act on this page needs to trust it; a page that hides the bear case loses that trust the first time price drops. If the owner asks to remove caution states, push back once with this reasoning, then do what they decide.
 2. **Provenance over assertion.** Every number links back to its source (an API endpoint, an on-chain tx signature via Solscan, Raydium). USD figures come from StonkFun's own pricing feed and are labeled as such. Burn amounts and tx signatures are on-chain and verifiable; dollar values are not.
 
-**Status:** Phase 1 (API-polling site) is complete and verified working on live data by the owner. Phase 2 (snapshot worker → Postgres history) is written but has not been run against a real database. Phase 3 (on-chain via Helius) is not started.
+**Status (2026-09-07):** **Live at https://stonk.fyi.** Phase 1 (API-polling site) is deployed and verified from production (`/api/health` all green, CoinGecko included). Phase 2 (snapshot worker → Supabase) is **running**: first run 2026-09-07 20:44 UTC, no first-run bugs, ticking every 5 min. Phase 3 (on-chain via Helius) is not started. See §10 for the production setup and how to operate it.
+
+**Brand:** the site is called **stonk.fyi** (nav, titles, OG card), not "StonkFun Metrics" — keeping StonkFun's name out of the masthead reinforces the unofficial status. `src/lib/site.ts` holds the name, tagline, description and canonical URL.
 
 ---
 
@@ -32,8 +34,10 @@ src/app/                    routes
   pairs/page.tsx            volume & mcap by quote asset / category (aggregates top 300 by volume)
   flywheel/page.tsx         revenue → buyback → burn
   launches/page.tsx         launch ledger & velocity
+  about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
-  api/cron/snapshot/route.ts  snapshot worker (Phase 2)
+  api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6
+  opengraph-image.tsx, twitter-image.tsx   social card (next/og), robots.ts, sitemap.ts
   error.tsx                 error boundary
 src/lib/
   api.ts                    typed StonkFun API client + fixture mode + CoinGecko history
@@ -42,13 +46,15 @@ src/lib/
   db.ts                     Supabase client (null when unconfigured) + getPoolFlow()
   types.ts                  API response types (hand-derived from live responses)
   format.ts                 formatting helpers; nowMs() and cumulative() exist to satisfy the React Compiler lint
+  site.ts                   SITE_URL / SITE_NAME / tagline / description (NEXT_PUBLIC_SITE_URL overrides the origin)
 src/components/
   charts.tsx                Recharts wrappers (client). Formatting is chosen by a `fmt: "usd" | "count"` prop — never pass functions from server to client components
   Scorecard.tsx             indicator grid grouped by supply / flywheel / demand / platform / valuation
   Projection.tsx            client-side flywheel projection with sliders (floor & ceiling models)
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
-supabase/migrations/0001_init.sql   full schema (see §6)
+supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
+.github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
 ```
 
@@ -78,8 +84,8 @@ Token `market` block: `priceUsd, marketCapUsd, fdvUsd, volume24hUsd, priceChange
 ### Raydium — `https://api-v3.raydium.io/pools/info/ids?ids=<pool>`
 STONK's main pool `7a8xxAJBELDo6P9dikSYctdw6ce8F4mWr3ahcAD8Ao49` is a **Raydium CLMM (concentrated liquidity)**, program `CAMMCzo5YL8w4VFF8KVHrK22GGUsp5VTaW7grrKgrWqK`, 1% fee. `mintA` = SPYx, `mintB` = STONK. Returns `price` (STONK per SPYx), `mintAmountA/B` (reserves), `tvl`, `day.volume`. Verified. ~$1.5M TVL on 2026-09-06.
 
-### CoinGecko — `api.coingecko.com/api/v3/coins/stonk-2/market_chart?vs_currency=usd&days=90`
-Coin id `stonk-2` confirmed. Public endpoint, no key at low volume; `COINGECKO_API_KEY` optional. Best-effort: returns null → price chart shows a placeholder. **Not yet confirmed working end-to-end from a deployment**; check `/api/health`.
+### CoinGecko — `api.coingecko.com/api/v3/coins/stonk-3/market_chart?vs_currency=usd&days=90`
+Coin id is **`stonk-3`** (verified from production 2026-09-07: homepage stonkfun.xyz, price and mcap match StonkFun's). The earlier note saying `stonk-2` was wrong — that id 404s. Public endpoint, no key; `COINGECKO_API_KEY` optional. Best-effort: returns null → price chart shows a placeholder. Working end-to-end from Vercel (812 points back to launch).
 
 ### Constants (`src/lib/stonk.ts`)
 - `STONK_MINT = 6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx`
@@ -104,7 +110,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 | buybackprice | price / (boughtBackValueUsd / boughtBackTokens) | > 1× |
 | quoted | count of tokens with `quote.mint == STONK` (348 on 2026-09-07) | ≥ 50 |
 | pooldepth | Raydium TVL | > $5M (neutral > $500K) |
-| netflow | Δ STONK reserve in main pool over 24h from `pool_snapshots` (falling reserve = net buying) | net buying; shows "collecting" without DB |
+| netflow | Δ STONK reserve in main pool over 24h from `pool_snapshots` (falling reserve = net buying) | net buying; stays "collecting" (unscored) until ≥12h of pool readings exist — a few minutes of delta is noise, not a 24h flow |
 | turnover | 24h volume / mcap | 2%–100% |
 | change24 | priceChange24h | > 0 |
 | platform | platform 24h volume | > $10M |
@@ -132,23 +138,35 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ---
 
-## 6. Phase 2 — snapshot worker (written, unrun)
+## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`; Vercel adds it automatically for cron). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `tokens` (active tokens with volume>0 → `tokens` + `token_snapshots`; `?full=1` walks every page). Schedule in `vercel.json`: every 5 min, plus hourly full walk. Schema: `supabase/migrations/0001_init.sql` (also views `launches_per_day`, `volume_by_quote_latest`, `stonk_burns_daily`).
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
-**To bring it up:** create a Supabase project → run the migration in the SQL editor → set `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `CRON_SECRET` in Vercel → redeploy → `curl -H "Authorization: Bearer $CRON_SECRET" https://<app>/api/cron/snapshot` and read the `counts`/`errors` JSON. Expect first-run fixes (column type mismatches are the likely class of bug). History only accumulates from the moment it runs, so this is the highest-leverage next task.
+**Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
-**What unlocks once data exists:** real STONK price/mcap/volume charts on the token page (replace the "Price history" placeholder), burns-per-day over full history, buyback USD per day from the actual ledger instead of the revenue × share estimate, the net-flow indicator, volume-by-pair over time, and STONK-quoted-token count over time.
+| Mode | Who fires it | Tokens snapshotted |
+|---|---|---|
+| tick (default) | GitHub Actions `snapshot.yml`, every 5 min | STONK + top 100 by volume |
+| `?hourly=1` | same workflow, at minute 0–4 of each hour | top 500 |
+| `?full=1` | Vercel cron (`vercel.json`), daily 03:00 UTC | every page (~165 requests), then deletes non-STONK `token_snapshots` older than 30 days |
 
----
+≈ 8 MB/day. STONK's own history is never pruned. `maxDuration = 300` (Fluid compute) so the full walk fits.
+
+**Why GitHub Actions:** Vercel's Hobby plan only allows daily cron. The workflow needs two repo secrets, `SNAPSHOT_URL` (`https://stonk.fyi`) and `CRON_SECRET` (same value as the Vercel env var). Both are set. GitHub's scheduler can lag a few minutes under load; that's fine for this.
+
+**Schema:** `supabase/migrations/0001_init.sql`, with RLS enabled on every table (no policies → the anon/publishable key can read nothing; the site and worker use the service-role key, which bypasses RLS). Supabase's GitHub integration is also linked to the repo and may apply new files in `supabase/migrations/` on push to main — treat that as a convenience, not a guarantee; verify in the SQL editor.
+
+**Verify it's alive:** `/api/health` → `supabase` check reports the `platform_snapshots` count; or in the Supabase SQL editor: `select ts, count(*) from token_snapshots group by ts order by ts desc limit 5;` — expect ~100 rows every 5 min, ~500 at the top of the hour. `gh run list --repo hankobaggins/stonk-fyi --workflow snapshot` shows tick results (the step fails on any non-200).
+
+**What unlocks now that data accumulates:** real STONK price/mcap/volume charts on the token page (replace the "Price history" placeholder), burns-per-day over full history, buyback USD per day from the actual ledger instead of the revenue × share estimate, the net-flow indicator (after 12h), volume-by-pair over time, and STONK-quoted-token count over time.
 
 ## 7. Roadmap (in priority order)
 
-1. **Deploy to Vercel + turn on Supabase worker** (§6). Confirm `/api/health` all-green including CoinGecko.
+1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
 2. **Wire DB-backed charts** into the STONK page and token detail; add a `getStonkHistory()` in `db.ts` reading `token_snapshots` for `STONK_MINT`.
 3. **Independent price check:** Jupiter price API or DexScreener for STONK, shown beside StonkFun's USD price with the spread. Reduces reliance on StonkFun's pricing feed.
 4. **Phase 3 on-chain (Helius):** holder count & top-holder concentration for STONK (a big missing indicator for a public site), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
-5. **Public-site polish:** OG image / social card, `robots.txt`, sitemap, analytics, a `/about` page describing methodology and data sources (the tables in §3–4 are the seed for it), mobile pass on the scorecard grid and projection sliders, light theme if the owner wants one.
+5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard), light theme if the owner wants one, a favicon that isn't the Next.js default.
 6. **Alerts (optional):** a scheduled job that posts to Telegram/X when an indicator flips, a burn milestone passes (e.g. 15% of supply), or revenue sets a daily record.
 
 ---
@@ -161,6 +179,7 @@ STONKFUN_API_BASE                   # override, default https://www.stonkfun.xyz
 RAYDIUM_API_BASE                    # override, default https://api-v3.raydium.io
 COINGECKO_STONK_ID=stonk-2          # optional; COINGECKO_API_KEY optional demo key
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
+NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```
 
 Run: `npm install && npm run dev` → http://localhost:3000. Health: `/api/health`. Offline: `DATA_SOURCE=fixture npm run dev`.
@@ -176,3 +195,24 @@ Run: `npm install && npm run dev` → http://localhost:3000. Health: `/api/healt
 - Platform revenue is volatile (from <$20K to >$1.5M/day in the first six weeks). Buyback pressure follows it with no lag.
 - The scorecard thresholds are judgment calls made on ~6 weeks of data. Revisit them as history accumulates, and say so on the page if they change.
 - StonkFun is a third-party launchpad; this site is unofficial and must keep saying so (footer + about).
+
+---
+
+## 10. Production setup & operations (as of 2026-09-07)
+
+| Thing | Where | Notes |
+|---|---|---|
+| Site | https://stonk.fyi (www → 308 to apex) | Vercel project `stonk-fyi`, team "hankobaggins' projects", Hobby plan, auto-deploys `main` |
+| Code | https://github.com/hankobaggins/stonk-fyi (public) | GitHub user `hankobaggins` |
+| Domain | Namecheap | `A @ 216.198.79.1`, `CNAME www f88710b66a90a2cc.vercel-dns-017.com` |
+| Database | Supabase project `stonk-fyi` (`hhmvbsianukqhbzsmuuh`), East US, free tier | org "hankobaggins's Org" |
+| Snapshot tick | GitHub Actions `snapshot` workflow | secrets `SNAPSHOT_URL`, `CRON_SECRET` |
+| Vercel env | `DATA_SOURCE=live`, `CRON_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | service-role key is the *legacy* `service_role` JWT from Supabase → API Keys |
+
+**Deploy:** push to `main`. Vercel builds in ~40s. Preview deploys for branches share the same env except `SUPABASE_*` (Production only) — previews run without the DB, which is the intended fallback.
+
+**When something looks wrong:** `https://stonk.fyi/api/health` first. Then Vercel → Logs. Then `gh run list --workflow snapshot`. Supabase usage: dashboard → Usage (watch database size; if it climbs past ~300 MB, shorten `SNAPSHOT_RETENTION_DAYS` in the worker).
+
+**Secrets rotation:** changing `CRON_SECRET` means updating it in both Vercel env and the GitHub repo secret. The service-role key lives only in Vercel.
+
+**Network quirks for tooling:** from this project's Cowork sessions, the user's local shell can reach GitHub and npm but not Vercel/Supabase; the cloud sandbox can reach neither GitHub-for-push nor Vercel. Vercel and Supabase dashboards are driven through the user's Chrome. `gh` is installed at `~/bin/gh` in the local VM and authenticated as `hankobaggins`.
