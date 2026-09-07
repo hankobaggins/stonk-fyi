@@ -85,6 +85,9 @@ export async function getStonkData(): Promise<StonkData> {
   const supply = { initial: STONK_INITIAL_SUPPLY, burned, burnedPct: (burned / STONK_INITIAL_SUPPLY) * 100, circulating, impliedFromMarket };
   const sides = pool ? poolSides(pool, STONK_MINT, m.priceUsd) : null;
   const flow = await getPoolFlow(STONK_POOL, 24, m.priceUsd);
+  // A reserve delta over a few minutes is noise, not a 24h flow: only score once the window has real coverage.
+  const flowHours = flow ? (new Date(flow.to).getTime() - new Date(flow.from).getTime()) / 3.6e6 : 0;
+  const flowReady = flowHours >= 12;
   const burnRate = burns ? computeBurnRate(burns.burns, circulating) : null;
 
   // ---- Revenue / buyback pressure ----
@@ -202,11 +205,13 @@ export async function getStonkData(): Promise<StonkData> {
     {
       key: "netflow",
       label: "Net flow through main pool (24h)",
-      value: flow ? `${flow.netStonkIntoPool <= 0 ? "" : "−"}${usd(Math.abs(flow.netStonkUsd))} ${flow.netStonkIntoPool <= 0 ? "net buying" : "net selling"}` : "collecting",
-      detail: flow
-        ? `Pool's STONK reserve moved from ${num(flow.stonkReserveStart)} to ${num(flow.stonkReserveEnd)} across ${flow.samples} snapshots. Reserve falling = STONK leaving the pool = net buying.`
-        : "Needs the snapshot worker running against Supabase; the first reading appears after ~24h of pool snapshots.",
-      signal: flow ? (flow.netStonkIntoPool < 0 ? "bull" : flow.netStonkIntoPool > 0 ? "bear" : "neutral") : "info",
+      value: flowReady && flow ? `${flow.netStonkIntoPool <= 0 ? "" : "−"}${usd(Math.abs(flow.netStonkUsd))} ${flow.netStonkIntoPool <= 0 ? "net buying" : "net selling"}` : "collecting",
+      detail: flowReady && flow
+        ? `Pool's STONK reserve moved from ${num(flow.stonkReserveStart)} to ${num(flow.stonkReserveEnd)} over ${flowHours.toFixed(0)}h (${flow.samples} snapshots). Reserve falling = STONK leaving the pool = net buying.`
+        : flow
+          ? `${flowHours < 1 ? `${Math.round(flowHours * 60)} minutes` : `${flowHours.toFixed(0)}h`} of pool snapshots so far (${flow.samples}); scored once 12h of readings exist.`
+          : "Needs the snapshot worker running against Supabase; the first reading appears after ~12h of pool snapshots.",
+      signal: flowReady && flow ? (flow.netStonkIntoPool < 0 ? "bull" : flow.netStonkIntoPool > 0 ? "bear" : "neutral") : "info",
       group: "demand",
       source: "pool_snapshots",
     },
