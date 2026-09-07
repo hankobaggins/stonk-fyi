@@ -20,7 +20,7 @@ export type Indicator = {
   value: string;
   detail: string;
   signal: Signal;
-  group: "supply" | "flywheel" | "demand" | "holders" | "platform" | "valuation";
+  group: "flywheel" | "demand" | "holders" | "platform" | "valuation";
   source?: string;
 };
 
@@ -131,15 +131,6 @@ async function computeStonkData(): Promise<StonkData> {
 
   const indicators: Indicator[] = [
     {
-      key: "burned",
-      label: "Supply permanently burned",
-      value: `${supply.burnedPct.toFixed(2)}%`,
-      detail: `${num(burned)} of 1B STONK destroyed across ${num(burns?.totals.burnCount ?? 0)} on-chain burns. Mint and freeze authority are null, so supply can only fall.`,
-      signal: supply.burnedPct > 5 ? "bull" : supply.burnedPct > 1 ? "neutral" : "info",
-      group: "supply",
-      source: "/tokens/{mint}/burns",
-    },
-    {
       key: "burnrate",
       label: "Current burn velocity",
       value: burnRate ? `${burnRate.pctSupplyPerDay.toFixed(2)}% / day` : "—",
@@ -147,7 +138,7 @@ async function computeStonkData(): Promise<StonkData> {
         ? `${num(burnRate.tokensPerHour)} STONK/hour over the last ${burnRate.sample} burns (${burnRate.windowHours.toFixed(1)}h window) ≈ ${burnRate.annualizedPct.toFixed(0)}% of supply annualized at this pace.`
         : "Burn ledger unavailable.",
       signal: burnRate ? (burnRate.pctSupplyPerDay > 0.3 ? "bull" : burnRate.pctSupplyPerDay > 0.05 ? "neutral" : "bear") : "info",
-      group: "supply",
+      group: "flywheel",
       source: "/tokens/{mint}/burns",
     },
     {
@@ -188,10 +179,11 @@ async function computeStonkData(): Promise<StonkData> {
     },
     {
       key: "quoted",
-      label: "Tokens priced in STONK",
-      value: `${num(quotedTotal)}`,
-      detail: `${quotedGraduated} graduated, ${quotedNew24h} launched in the last 24h. ${usd(quotedVolume)} 24h volume and ${usd(quotedMcap)} market cap denominated in STONK. These pools need STONK as a base asset, which is demand beyond speculation on STONK itself.`,
-      signal: quotedTotal >= 50 ? "bull" : quotedTotal >= 10 ? "neutral" : "info",
+      label: "STONK-quoted activity (24h)",
+      value: `${usd(quotedVolume)}`,
+      detail: `Traded through the ${num(quotedTotal)} pools quoted in STONK (${quotedGraduated} graduated, ${quotedNew24h} launched in the last 24h; ${usd(quotedMcap)} market cap denominated in STONK). These pools need STONK as a base asset, which is demand beyond speculation on STONK itself.`,
+      // Total-ever count only rises, so it is not the score; 24h volume through STONK-quoted pools is.
+      signal: quotedVolume >= 1_000_000 ? "bull" : quotedVolume >= 100_000 ? "neutral" : "bear",
       group: "demand",
       source: "/tokens?quoteMint=STONK",
     },
@@ -236,12 +228,12 @@ async function computeStonkData(): Promise<StonkData> {
       group: "demand",
     },
     // ---- Holders & flow (GMGN) ----
-    ...(gmgn ? gmgnIndicators(gmgn, gmgnHistory, m.priceUsd) : []),
+    ...(gmgn ? gmgnIndicators(gmgn, gmgnHistory) : []),
     {
       key: "platform",
-      label: "Platform scale",
-      value: `${num(stats.tokens.total)} tokens`,
-      detail: `${num(stats.tokens.graduated)} graduated · ${usd(stats.tokens.totalMarketCapUsd)} total market cap · ${usd(stats.tokens.totalVolume24hUsd)} 24h volume across the launchpad. More activity → more fees → more burns.`,
+      label: "Launchpad volume (24h)",
+      value: usd(stats.tokens.totalVolume24hUsd),
+      detail: `Across ${num(stats.tokens.total)} tokens (${num(stats.tokens.graduated)} graduated, ${usd(stats.tokens.totalMarketCapUsd)} total market cap). More activity → more fees → more burns.`,
       signal: stats.tokens.totalVolume24hUsd > 10_000_000 ? "bull" : stats.tokens.totalVolume24hUsd > 1_000_000 ? "neutral" : "bear",
       group: "platform",
       source: "/stats",
@@ -326,8 +318,8 @@ async function computeStonkData(): Promise<StonkData> {
 }
 
 // GMGN-derived indicators: holder base, concentration, buy/sell pressure across every STONK pool,
-// smart-money presence, and the contract/LP baseline. Thresholds are first-pass judgment calls.
-function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHistory>>, priceUsd?: number): Indicator[] {
+// smart-money presence. Contract/LP facts are permanent, so they live in the Foundation block, unscored.
+function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHistory>>): Indicator[] {
   const pct = (n: number, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
   const usd = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(2)}`);
   const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
@@ -339,14 +331,6 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
 
   const buyShare = g.vol24h.buyUsd + g.vol24h.sellUsd ? g.vol24h.buyUsd / (g.vol24h.buyUsd + g.vol24h.sellUsd) : null;
   const top10 = g.top10HolderRate * 100;
-  const checks = [
-    ["mint authority renounced", g.security.mintRenounced],
-    ["freeze authority renounced", g.security.freezeRenounced],
-    ["LP burned", g.security.lpBurned],
-    ["no buy/sell tax", g.security.buyTax === 0 && g.security.sellTax === 0],
-  ] as const;
-  const passed = checks.filter(([, ok]) => ok).length;
-  const spread = priceUsd && g.priceUsd ? ((g.priceUsd - priceUsd) / priceUsd) * 100 : null;
 
   return [
     {
@@ -384,15 +368,6 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
       value: `${num(g.wallets.smart)} · ${num(g.wallets.kol)}`,
       detail: `${num(g.wallets.smart)} wallets GMGN tags as smart money and ${num(g.wallets.kol)} KOL wallets hold STONK.${g.smartTop ? ` Top ${g.smartTop.n} smart-money holders: ${usd(g.smartTop.buyUsd)} bought, ${usd(g.smartTop.sellUsd)} sold lifetime, ${g.smartTop.pctHeld.toFixed(3)}% of supply held.` : ""}`,
       signal: g.wallets.smart >= 100 ? "bull" : g.wallets.smart >= 25 ? "neutral" : "bear",
-      group: "holders",
-      source: src,
-    },
-    {
-      key: "safety",
-      label: "Contract & liquidity checks",
-      value: `${passed} of ${checks.length} pass`,
-      detail: `${checks.map(([name, ok]) => `${ok ? "✓" : "✗"} ${name}`).join(" · ")}${g.security.lpBurnedPct ? ` (${g.security.lpBurnedPct.toFixed(0)}% of LP burned)` : ""}.${spread !== null ? ` GMGN price ${pct(spread, 1)} vs StonkFun.` : ""}`,
-      signal: passed === checks.length ? "bull" : passed >= checks.length - 1 ? "neutral" : "bear",
       group: "holders",
       source: src,
     },

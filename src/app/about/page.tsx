@@ -14,15 +14,9 @@ export const metadata: Metadata = {
 
 const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
   {
-    group: "Supply",
-    rows: [
-      ["Supply burned", "burned ÷ 1,000,000,000 initial supply", "> 5%"],
-      ["Burn rate", "tokens burned per hour over the most recent burn window, as % of supply per day", "> 0.3% / day"],
-    ],
-  },
-  {
     group: "Flywheel",
     rows: [
+      ["Burn rate", "tokens burned per hour over the most recent burn window, as % of supply per day", "> 0.3% / day"],
       ["Buyback pressure", "7-day revenue × lifetime buyback share (total buybacks ÷ total revenue) ÷ 7", "> $10K / day"],
       ["Buybacks vs volume", "estimated daily buybacks ÷ STONK 24h volume", "> 1%"],
       ["Revenue growth", "last 7 days of platform revenue vs the 7 days before", "> +20%"],
@@ -32,7 +26,7 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
   {
     group: "Demand",
     rows: [
-      ["STONK-quoted tokens", "count of launchpad tokens whose quote asset is STONK", "≥ 50"],
+      ["STONK-quoted activity", "24h volume through pools whose quote asset is STONK (the count of such pools only rises, so it is not scored)", "> $1M (neutral > $100K)"],
       ["Pool depth", "Raydium TVL of the main STONK/SPYx pool", "> $5M (neutral above $500K)"],
       ["Net flow", "change in the pool's STONK reserve over 24h; a falling reserve means net buying", "net buying"],
       ["Turnover", "24h volume ÷ market cap", "2% – 100%"],
@@ -46,10 +40,9 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
       ["Top-10 concentration", "share of supply in the ten largest wallets, pools included", "< 20% (neutral below 35%)"],
       ["Buy share of volume", "24h buy volume ÷ (buy + sell volume) across every pool STONK trades in", "> 52% (neutral 48–52%)"],
       ["Smart money", "wallets GMGN tags as smart money currently holding STONK", "≥ 100 (neutral ≥ 25)"],
-      ["Contract & LP checks", "mint renounced, freeze renounced, LP burned, no tax", "4 of 4"],
     ],
   },
-  { group: "Platform", rows: [["Platform volume", "launchpad-wide 24h trading volume", "> $10M"]] },
+  { group: "Platform", rows: [["Launchpad volume", "launchpad-wide 24h trading volume (token count only rises, so it is not scored)", "> $10M (neutral > $1M)"]] },
   {
     group: "Valuation",
     rows: [
@@ -116,7 +109,19 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section title="Scorecard indicators and thresholds">
+      <Section title="What is scored, and what is not">
+        <div className="text-sm text-secondary space-y-3 leading-relaxed mb-4">
+          <p>
+            Only quantities that can objectively move both ways are scored. Facts that can only move in one direction are shown in the
+            &quot;Structural&quot; block at the top of the $STONK page and never colored: the share of supply burned (it can only rise), the fixed
+            1B supply, renounced mint and freeze authority, burned liquidity, and the absence of a transfer tax. A signal that cannot turn is
+            not a signal; it is the floor the scorecard sits on.
+          </p>
+          <p>
+            Where a headline number only rises (tokens ever launched, pools ever quoted in STONK, cumulative burns), the scorecard scores the
+            flow behind it instead (24h volume, burn pace), so every colored cell can go amber.
+          </p>
+        </div>
         <p className="text-xs text-muted mb-3 leading-relaxed">
           Thresholds are judgment calls made on roughly six weeks of data since launch. They are deliberately simple and will be revisited as history
           accumulates; changes will be noted here.

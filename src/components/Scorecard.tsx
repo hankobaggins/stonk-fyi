@@ -3,8 +3,7 @@ import type { Indicator, Signal } from "@/lib/stonk";
 const STATE: Record<Signal, string> = { bull: "bullish", neutral: "neutral", bear: "caution", info: "context" };
 
 const GROUPS: { keys: Indicator["group"][]; title: string; blurb: string }[] = [
-  { keys: ["supply"], title: "Supply", blurb: "Fixed supply, no mint authority, continuous burns." },
-  { keys: ["flywheel"], title: "Flywheel", blurb: "Platform fees → automated STONK buybacks → burns." },
+  { keys: ["flywheel"], title: "Flywheel", blurb: "Platform fees → automated STONK buybacks → burns. Everything here rises and falls with launchpad activity." },
   { keys: ["demand"], title: "Demand", blurb: "Who is buying STONK, and how deep the market is." },
   { keys: ["holders"], title: "Holders & flow", blurb: "Holder base, concentration, buy/sell pressure and smart money, via GMGN." },
   { keys: ["platform", "valuation"], title: "Platform & valuation", blurb: "The launchpad that generates the fees, and what the price pays for them." },

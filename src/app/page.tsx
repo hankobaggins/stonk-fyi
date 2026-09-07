@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getStonkData, STONK_INITIAL_SUPPLY } from "@/lib/stonk";
+import { getStonkData } from "@/lib/stonk";
 import { STONK_MINT } from "@/lib/api";
 import { cumulative, fmtDate, fmtNum, fmtPrice, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { Delta, ExplorerLink, KpiTile, Section } from "@/components/ui";
 import { BurnBarChart, CountBarChart, CumulativeChart, PriceChart } from "@/components/charts";
 import Scorecard, { TallyBar } from "@/components/Scorecard";
-import BurnRing from "@/components/BurnRing";
+import Foundation from "@/components/Foundation";
 import { GMGN_TOKEN_URL } from "@/lib/gmgn";
 import BuybackFeed from "@/components/BuybackFeed";
 import TokenTable from "@/components/TokenTable";
@@ -69,16 +69,20 @@ export default async function StonkPage() {
         </div>
       </div>
 
+      <Foundation d={d} now={now} />
+
       <div>
         <TallyBar indicators={d.indicators} />
-        <p className="text-xs text-muted mt-2">Each indicator is computed live and colored by its actual state. This tally can and will turn.</p>
+        <p className="text-xs text-muted mt-2">Only things that can objectively move both ways are scored. Each indicator is computed live and colored by its actual state; this tally can and will turn.</p>
       </div>
 
       <div className="kpis">
         <KpiTile label="Market cap" value={fmtUsd(m.marketCapUsd)} delta={fromPeak} sub="from peak" />
         <KpiTile label="24h volume" value={fmtUsd(m.volume24hUsd)} sub={m.marketCapUsd && m.volume24hUsd ? `${((m.volume24hUsd / m.marketCapUsd) * 100).toFixed(1)}% of market cap` : undefined} />
-        <KpiTile label="Circulating supply" value={fmtNum(d.supply.circulating)} sub={`${fmtNum(d.supply.burned)} burned of ${fmtNum(STONK_INITIAL_SUPPLY)}`} />
-        <KpiTile label="Burned, USD at burn" value={fmtUsd(d.burns?.totals.valueUsdAtBurn)} sub={`${fmtNum(d.burns?.totals.burnCount)} burns · last ${timeAgo(d.burns?.totals.lastBurnAt, now)}`} />
+        {d.gmgn
+          ? <KpiTile label="Holders" value={fmtNum(d.gmgn.holderCount)} sub={`${fmtNum(d.gmgn.wallets.smart)} smart money · ${fmtNum(d.gmgn.wallets.kol)} KOL · GMGN`} />
+          : <KpiTile label="Circulating supply" value={fmtNum(d.supply.circulating)} sub={`${d.supply.burnedPct.toFixed(2)}% burned`} />}
+        <KpiTile label="Peak market cap" value={fmtUsd(m.peakMarketCapUsd)} sub={fromPeak !== undefined ? `${fromPeak.toFixed(1)}% from peak now` : undefined} />
       </div>
 
       {/* Scorecard */}
@@ -86,7 +90,7 @@ export default async function StonkPage() {
 
       {/* Price + burns */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Price (USD)" className="lg:col-span-2" action={d.history ? <span className="num text-xs text-muted">CoinGecko · 90d · stonk-3</span> : null}>
+        <Section title="Price (USD)" className="lg:col-span-3" action={d.history ? <span className="num text-xs text-muted">CoinGecko · 90d · stonk-3</span> : null}>
           {d.history ? (
             <PriceChart data={d.history.map((p) => ({ ts: p.ts, price: p.price }))} />
           ) : (
@@ -95,22 +99,6 @@ export default async function StonkPage() {
               <div className="text-xs">Live deployments pull 90 days from CoinGecko; the snapshot worker records intra-day prices into Postgres for finer charts.</div>
             </div>
           )}
-        </Section>
-        <Section title="Supply burned" action={<span className="text-xs text-muted num">{d.supply.burnedPct.toFixed(2)}%</span>}>
-          <div className="flex items-center justify-center py-2 relative">
-            <BurnRing pct={d.supply.burnedPct} size={140} width={14} stroke="var(--surface-2)" track="var(--series-2)" label={`${d.supply.burnedPct.toFixed(2)}% of supply burned`} />
-            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <div className="num text-[22px] font-medium leading-none">{d.supply.burnedPct.toFixed(1)}%</div>
-              <div className="label mt-1.5">burned</div>
-            </div>
-          </div>
-          <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
-            <dt className="text-muted">Initial supply</dt><dd className="num text-right">{fmtNum(STONK_INITIAL_SUPPLY)}</dd>
-            <dt className="text-muted">Burned (ledger)</dt><dd className="num text-right">{fmtNum(d.supply.burned)}</dd>
-            <dt className="text-muted">Circulating (1B − burned)</dt><dd className="num text-right">{fmtNum(d.supply.circulating)}</dd>
-            {d.supply.impliedFromMarket && (<><dt className="text-muted">Implied (mcap ÷ price)</dt><dd className="num text-right">{fmtNum(d.supply.impliedFromMarket)}</dd></>)}
-            {d.burnRate && (<><dt className="text-muted">Burn pace</dt><dd className="num text-right">{fmtNum(d.burnRate.tokensPerHour)}/hr · {d.burnRate.pctSupplyPerDay.toFixed(2)}%/day</dd></>)}
-          </dl>
         </Section>
       </div>
 

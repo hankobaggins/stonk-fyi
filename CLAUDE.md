@@ -51,7 +51,8 @@ src/lib/
   site.ts                   SITE_URL / SITE_NAME / tagline / description (NEXT_PUBLIC_SITE_URL overrides the origin)
 src/components/
   charts.tsx                Recharts wrappers (client). Formatting is chosen by a `fmt: "usd" | "count"` prop — never pass functions from server to client components
-  Scorecard.tsx             indicator sections (supply / flywheel / demand / platform & valuation) + TallyBar + "What to watch" frame
+  Foundation.tsx            one-way facts block (burn ring at 128px, supply ledger, contract/LP checklist) — unscored by design
+  Scorecard.tsx             indicator sections (flywheel / demand / holders & flow / platform & valuation) + TallyBar + "What to watch" frame
   Ticker.tsx, BurnRing.tsx  mono ticker strip under the nav (incl. implied SPYx price + US market-hours note); the ring mark
   BuybackToasts.tsx, AlertsToggle.tsx   site-wide toast per protocol buyback batch and per non-buyback STONK burn (polls /api/buybacks
                             every 20s, dedupes by id, groups a batch by shared burn tx, replays only the newest batch on load if <5m old;
@@ -111,15 +112,17 @@ Client in `src/lib/gmgn.ts`. Read-only routes used: `GET /v1/token/info`, `/v1/t
 
 All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple; tune with the owner, never silently.
 
+**Scoring rule (owner decision 2026-09-07): only quantities that can objectively move both ways are scored.** One-way facts (supply burned %, fixed supply, renounced mint/freeze, LP burned, no tax) live in `Foundation.tsx` at the top of the home page, unscored, with the burn ring as the centerpiece. When a headline number only rises (tokens ever launched, pools ever quoted in STONK), score the flow behind it (24h volume) and show that flow as the cell's value. Never add a green cell that cannot turn amber.
+
 | Key | Computation | Bullish when |
 |---|---|---|
-| burned | burned / 1B | > 5% |
-| burnrate | tokens burned per hour over the recent burn window, as % supply/day | > 0.3%/day |
+| ~~burned~~ | moved to Foundation (one-way, unscored) | — |
+| burnrate (flywheel) | tokens burned per hour over the recent burn window, as % supply/day | > 0.3%/day |
 | buyback | 7d revenue × lifetime buyback share (`totalBuybackUsd/totalRevenueUsd`, ≈59%) / 7 | > $10K/day |
 | buybackvol | daily buybacks / STONK 24h volume | > 1% |
 | revgrowth | 7d revenue vs prior 7d | > +20% |
 | buybackprice | price / (boughtBackValueUsd / boughtBackTokens) | > 1× |
-| quoted | count of tokens with `quote.mint == STONK` (348 on 2026-09-07) | ≥ 50 |
+| quoted | 24h volume through STONK-quoted pools (count only rises → not the score) | > $1M (neutral > $100K) |
 | pooldepth | Raydium TVL | > $5M (neutral > $500K) |
 | netflow | Δ STONK reserve in main pool over 24h from `pool_snapshots` (falling reserve = net buying) | net buying; stays "collecting" (unscored) until ≥12h of pool readings exist — a few minutes of delta is noise, not a 24h flow |
 | turnover | 24h volume / mcap | 2%–100% |
@@ -128,8 +131,8 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 | top10 (GMGN) | top-10 holder share of supply | < 20% (neutral < 35%) |
 | buypressure (GMGN) | buy ÷ (buy+sell) 24h volume, all pools | > 52% (neutral 48–52%) |
 | smartmoney (GMGN) | smart-money wallets holding | ≥ 100 (neutral ≥ 25) |
-| safety (GMGN) | mint/freeze renounced, LP burned, no tax | 4 of 4 (neutral 3) |
-| platform | platform 24h volume | > $10M |
+| ~~safety (GMGN)~~ | moved to Foundation checklist (one-way, unscored) | — |
+| platform | launchpad 24h volume (value shown is the volume, not the ever-rising token count) | > $10M (neutral > $1M) |
 | launchmult | mcap / launch mcap | context only |
 | ps | mcap / (7d revenue × 52) | < 10× |
 
