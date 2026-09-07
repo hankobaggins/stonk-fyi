@@ -1,3 +1,4 @@
+import { cache } from "react";
 import "server-only";
 import { getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "./api";
 import { getPoolInfo, poolSides } from "./raydium";
@@ -57,7 +58,7 @@ function computeBurnRate(burns: BurnEvent[], supply: number) {
   return { tokensPerHour: perHour, usdPerHour: usd / hours, windowHours: hours, sample: sorted.length, pctSupplyPerDay: pctPerDay * 100, annualizedPct: pctPerDay * 365 * 100 };
 }
 
-export async function getStonkData(): Promise<StonkData> {
+async function computeStonkData(): Promise<StonkData> {
   const [tokenRes, burns, revenueRes, historyRes, statsRes, quotedRes, history, pool] = await Promise.all([
     getToken(STONK_MINT),
     getTokenBurns(STONK_MINT),
@@ -310,3 +311,6 @@ export async function getStonkData(): Promise<StonkData> {
     generatedAt: tokenRes.meta.generatedAt,
   };
 }
+
+// Deduplicated per request: layout (nav ring + ticker) and page both need it.
+export const getStonkData = cache(computeStonkData);

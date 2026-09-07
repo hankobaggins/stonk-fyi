@@ -37,7 +37,7 @@ src/app/                    routes
   about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
   api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6
-  opengraph-image.tsx, twitter-image.tsx   social card (next/og), robots.ts, sitemap.ts
+  opengraph-image.tsx, twitter-image.tsx   social card (next/og; dynamic, carries the live tally bar), icon.svg (burn ring favicon), robots.ts, sitemap.ts
   error.tsx                 error boundary
 src/lib/
   api.ts                    typed StonkFun API client + fixture mode + CoinGecko history
@@ -49,7 +49,8 @@ src/lib/
   site.ts                   SITE_URL / SITE_NAME / tagline / description (NEXT_PUBLIC_SITE_URL overrides the origin)
 src/components/
   charts.tsx                Recharts wrappers (client). Formatting is chosen by a `fmt: "usd" | "count"` prop — never pass functions from server to client components
-  Scorecard.tsx             indicator grid grouped by supply / flywheel / demand / platform / valuation
+  Scorecard.tsx             indicator sections (supply / flywheel / demand / platform & valuation) + TallyBar + "What to watch" frame
+  Ticker.tsx, BurnRing.tsx  mono ticker strip under the nav (incl. implied SPYx price + US market-hours note); the ring mark
   Projection.tsx            client-side flywheel projection with sliders (floor & ceiling models)
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
@@ -131,7 +132,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 4. **React Compiler lint is on** (`react-hooks/purity`, `react-hooks/immutability`). No `Date.now()` in components (use `nowMs()` from `format.ts`), no `let acc; arr.map(() => acc += …)` (use `cumulative()`). Run `npx eslint src` and `npx tsc --noEmit -p .` before every handoff; both must be clean.
 5. **Verify visually.** `DATA_SOURCE=fixture npx next build && DATA_SOURCE=fixture npx next start -p 3111`, then `CHROME_PATH=<chromium> node scripts/screenshot.mjs http://localhost:3111` and look at the PNGs. Tables must scroll inside their container (`.table-wrap`), never the page. Broken avatar images in fixture mode are expected (no network); live they load.
 6. **Rate limits.** Home page ≈ 8 upstream requests; pairs page = 3; a full token walk = ~160 requests (16k tokens / 100). Keep `revalidate` windows; don't add per-row fetches.
-7. **Dark theme only, by design.** Palette lives in `globals.css` (`--series-1..8` follow the validated dark-mode data-viz palette: blue, orange, aqua, yellow, magenta, green, violet, red). Categorical colors are assigned in fixed order, never cycled by rank. One y-axis per chart, no dual axes.
+7. **Dark theme only, by design.** The visual system is the "ledger" concept (2026-09-07, see the project doc `design-concept.md`): teal-black neutrals that share StonkFun's temperature (`--bg #0a1317`), a single teal accent (`--accent`) reserved for provenance links, nav and the ring mark, and a separate status set (`--up` bullish, `--caution`, `--neutral`, `--down`) that is never reused for chart series. Geist for prose, Geist Mono (`.num`, `.label`, `.src`) for every figure, address, endpoint and timestamp. Only leaf content is boxed (`.ind`, `.card`); groups are separated by rules, not nested cards. Signature marks: the tally bar (`TallyBar`, one segment per indicator, also on the OG card), the burn ring (`BurnRing`: nav mark, `icon.svg`, supply chart — the bite is the burned share), the state stripe on `.ind`, and the `Ticker` strip under the nav. Palette lives in `globals.css` (`--series-1..8` follow the validated dark-mode data-viz palette: blue, orange, aqua, yellow, magenta, green, violet, red). Categorical colors are assigned in fixed order, never cycled by rank. One y-axis per chart, no dual axes.
 8. **Copy discipline.** Plain language, no hype adjectives, no "genuinely/honestly". Every metric tile has a one-line `sub` explaining what it is. Caveats live next to the number they qualify, not in a footer.
 9. **Not financial advice.** Keep the disclaimers that exist; don't add "buy" language anywhere.
 10. **Commit hygiene** (if a repo is set up): conventional short messages; never commit `.env.local`; `next-env.d.ts` and `.next/` are generated.
@@ -166,7 +167,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 2. **Wire DB-backed charts** into the STONK page and token detail; add a `getStonkHistory()` in `db.ts` reading `token_snapshots` for `STONK_MINT`.
 3. **Independent price check:** Jupiter price API or DexScreener for STONK, shown beside StonkFun's USD price with the spread. Reduces reliance on StonkFun's pricing feed.
 4. **Phase 3 on-chain (Helius):** holder count & top-holder concentration for STONK (a big missing indicator for a public site), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
-5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard), light theme if the owner wants one, a favicon that isn't the Next.js default.
+5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Alerts (optional):** a scheduled job that posts to Telegram/X when an indicator flips, a burn milestone passes (e.g. 15% of supply), or revenue sets a daily record.
 
 ---

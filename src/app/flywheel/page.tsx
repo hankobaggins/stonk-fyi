@@ -37,7 +37,7 @@ export default async function FlywheelPage() {
     <div className="space-y-5">
       <PageHeader title="Flywheel" sub="Fee revenue → buybacks → burns. Everything on this page comes from StonkFun's ledger; tx signatures link to Solscan for verification." />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="kpis">
         <KpiTile label="Lifetime revenue" value={fmtUsd(r.revenue.totalRevenueUsd)} sub={`${fmtUsd(totalHolders)} holders · ${fmtUsd(totalProtocol)} protocol`} />
         <KpiTile label="Total buybacks" value={fmtUsd(r.revenue.totalBuybackUsd)} sub={`${fmtNum(r.revenue.buybackCount)} txs · avg ${fmtUsd(avgBuyback)}`} />
         <KpiTile label="STONK bought back" value={fmtNum(r.revenue.boughtBackTokens)} sub={`avg price ${fmtUsd(avgPrice, { compact: false, digits: 4 })}`} />

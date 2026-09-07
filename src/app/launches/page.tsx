@@ -35,7 +35,7 @@ export default async function LaunchesPage() {
     <div className="space-y-5">
       <PageHeader title="Launches" sub={`${fmtNum(launches.data.pagination.total)} launches on the ledger · graduation at ${fmtUsd(Number(s.config.graduationMarketCapUsd))} market cap`} />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="kpis">
         <KpiTile label="Launches / hour" value={(newest.data.tokens.length / spanHours).toFixed(1)} sub={`last ${newest.data.tokens.length} tokens over ${spanHours.toFixed(1)}h`} />
         <KpiTile label="Total launches" value={fmtNum(launches.data.pagination.total)} sub={`${fmtNum(s.tokens.total)} with live pools`} />
         <KpiTile label="Graduated" value={fmtNum(s.tokens.graduated)} sub={`${((s.tokens.graduated / Math.max(1, launches.data.pagination.total)) * 100).toFixed(1)}% of all launches`} />

@@ -51,7 +51,7 @@ export default async function PlatformPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="kpis">
         <KpiTile label="Total market cap" value={fmtUsd(s.tokens.totalMarketCapUsd)} sub={`${fmtNum(s.tokens.total)} live tokens`} />
         <KpiTile label="24h volume" value={fmtUsd(s.tokens.totalVolume24hUsd)} sub={`${fmtNum(s.tokens.rewardLaunches)} reward-mode launches`} />
         <KpiTile label="Revenue (7d)" value={fmtUsd(rev7)} delta={rev7Delta} sub="vs prior 7d" />

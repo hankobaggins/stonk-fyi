@@ -4,11 +4,11 @@ import { fmtPct } from "@/lib/format";
 
 export function KpiTile({ label, value, sub, delta }: { label: string; value: ReactNode; sub?: ReactNode; delta?: number | null }) {
   return (
-    <div className="card p-4 min-w-0">
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
-      <div className="mt-1 text-2xl font-semibold num truncate">{value}</div>
+    <div className="kpi min-w-0">
+      <div className="label">{label}</div>
+      <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{value}</div>
       {(sub !== undefined || delta !== undefined) && (
-        <div className="mt-1 text-xs text-secondary flex items-center gap-2 num">
+        <div className="mt-1.5 text-xs text-secondary flex items-center gap-2 num">
           {delta !== undefined && delta !== null && <Delta value={delta} />}
           {sub}
         </div>
@@ -31,7 +31,7 @@ export function Section({ title, action, children, className = "" }: { title: st
   return (
     <section className={`card p-4 ${className}`}>
       <div className="flex items-center justify-between gap-4 mb-3">
-        <h2 className="text-sm font-medium text-secondary">{title}</h2>
+        <h2 className="text-[13px] font-semibold">{title}</h2>
         {action}
       </div>
       {children}
@@ -41,9 +41,9 @@ export function Section({ title, action, children, className = "" }: { title: st
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3 mb-5">
+    <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pb-4 border-b border-border">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {sub && <p className="text-sm text-muted mt-0.5">{sub}</p>}
       </div>
       {children}

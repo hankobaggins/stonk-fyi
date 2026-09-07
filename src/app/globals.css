@@ -1,20 +1,24 @@
 @import "tailwindcss";
 
-/* Dark-first dashboard palette. Series colors follow the validated dark steps
-   from the dataviz reference palette (blue, orange, aqua, yellow, magenta, green, violet, red). */
+/* "Ledger" palette (design concept 2026-09-07): teal-black neutrals that share StonkFun's
+   temperature, a single teal accent reserved for provenance and navigation, and a separate
+   status set for scorecard states. Series colors are the validated dark-mode dataviz palette
+   (blue, orange, aqua, yellow, magenta, green, violet, red) and are never reused for status. */
 :root {
   color-scheme: dark;
-  --bg: #0f1012;
-  --surface-1: #1a1a19;
-  --surface-2: #232322;
-  --border: #2e2e2c;
-  --border-strong: #3d3d3a;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #8a8a82;
-  --accent: #3987e5;
-  --up: #2fbf71;
-  --down: #e66767;
+  --bg: #0a1317;
+  --surface-1: #101c21;
+  --surface-2: #16262d;
+  --border: #1f333b;
+  --border-strong: #2c4550;
+  --text-primary: #edf4f5;
+  --text-secondary: #a7babf;
+  --text-muted: #66797f;
+  --accent: #7cc0d4;
+  --up: #37c27e;
+  --down: #ef6b6b;
+  --caution: #e0a53c;
+  --neutral: #8fa3a8;
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
@@ -23,7 +27,7 @@
   --series-6: #008300;
   --series-7: #9085e9;
   --series-8: #e66767;
-  --grid: #2a2a28;
+  --grid: #1c2d34;
 }
 
 @theme inline {
@@ -38,6 +42,8 @@
   --color-accent: var(--accent);
   --color-up: var(--up);
   --color-down: var(--down);
+  --color-caution: var(--caution);
+  --color-neutral: var(--neutral);
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, monospace;
 }
@@ -50,46 +56,99 @@ body {
   font-feature-settings: "tnum" 1, "cv11" 1;
 }
 
-.num { font-variant-numeric: tabular-nums; }
+/* Figures, addresses, endpoints and timestamps are set in mono with tabular digits. */
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Eyebrow / column label: mono, small caps-ish tracking. */
+.label { font-family: var(--font-mono); font-size: 11px; line-height: 1.3; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); font-weight: 500; }
 
 .card {
   background: var(--surface-1);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 6px;
 }
+
+/* KPI row: tiles separated by vertical rules, not boxes. 2 across on phones, 4 on desktop. */
+.kpis { display: grid; grid-template-columns: repeat(2, 1fr); border-bottom: 1px solid var(--border); padding-bottom: 16px; row-gap: 16px; }
+.kpis > .kpi { padding: 0 18px; border-left: 1px solid var(--border); }
+.kpis > .kpi:nth-child(2n+1) { border-left: 0; padding-left: 0; }
+@media (min-width: 768px) {
+  .kpis { grid-template-columns: repeat(4, 1fr); }
+  .kpis > .kpi:nth-child(2n+1) { border-left: 1px solid var(--border); padding-left: 18px; }
+  .kpis > .kpi:nth-child(4n+1) { border-left: 0; padding-left: 0; }
+}
+
+/* Scorecard indicator cell: 3px state stripe on the left edge + a state pill (two encodings). */
+.ind { position: relative; background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px 14px 18px; min-width: 0; }
+.ind::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--up); }
+.ind.neutral::before { background: var(--neutral); }
+.ind.bear::before { background: var(--caution); }
+.ind.info::before { background: var(--border-strong); }
+.ind.collecting::before { background: transparent; border-left: 2px dashed var(--border-strong); width: 0; }
+
+.state { font-family: var(--font-mono); font-size: 11px; line-height: 1; font-weight: 500; padding: 4px 7px; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; }
+.state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.state.bull { color: var(--up); background: color-mix(in oklab, var(--up) 12%, transparent); }
+.state.neutral { color: var(--neutral); background: color-mix(in oklab, var(--neutral) 14%, transparent); }
+.state.bear { color: var(--caution); background: color-mix(in oklab, var(--caution) 14%, transparent); }
+.state.info { color: var(--text-secondary); background: color-mix(in oklab, var(--text-muted) 14%, transparent); }
+.state.collecting { color: var(--text-muted); background: transparent; border: 1px dashed var(--border-strong); }
+.state.collecting::before { display: none; }
+
+/* Source reference under an indicator. */
+.src { font-family: var(--font-mono); font-size: 11px; color: var(--accent); opacity: 0.85; }
+.src::after { content: " ↗"; opacity: 0.7; }
+
+/* Tally bar: one segment per indicator, in scorecard order. */
+.segs { display: flex; gap: 3px; height: 12px; }
+.segs > i { flex: 1; border-radius: 2px; background: var(--up); }
+.segs > i.neutral { background: var(--neutral); }
+.segs > i.bear { background: var(--caution); }
+.segs > i.info, .segs > i.collecting { background: transparent; border: 1px dashed var(--border-strong); }
+
+/* "What to watch" frame: amber, inside the scorecard, equal weight to the bullish cells. */
+.watch { border: 1px solid color-mix(in oklab, var(--caution) 35%, transparent); background: color-mix(in oklab, var(--caution) 5%, transparent); border-radius: 6px; }
 
 /* Grid/flex children default to min-width:auto, which lets charts and tables push a cell wider than the viewport. */
 .grid > *, .flex > * { min-width: 0; }
 .table-wrap { overflow-x: auto; max-width: 100%; }
-table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.data { width: 100%; border-collapse: collapse; font-size: 12.5px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 table.data th {
   text-align: left; font-weight: 500; color: var(--text-muted);
-  padding: 8px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 0 10px 8px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em;
 }
-table.data td { padding: 10px 12px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
+table.data td { padding: 9px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; vertical-align: middle; }
 table.data tr:last-child td { border-bottom: 0; }
 table.data tbody tr:hover { background: var(--surface-2); }
 table.data td.r, table.data th.r { text-align: right; }
 
 .pill {
   display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; line-height: 1; padding: 4px 8px; border-radius: 999px;
+  font-family: var(--font-mono); font-size: 11px; line-height: 1; padding: 4px 7px; border-radius: 4px;
   border: 1px solid var(--border-strong); color: var(--text-secondary); white-space: nowrap;
 }
 .pill.accent { border-color: color-mix(in oklab, var(--accent) 50%, transparent); color: var(--accent); }
 .pill.up { border-color: color-mix(in oklab, var(--up) 50%, transparent); color: var(--up); }
 
 .filterbar a, .filterbar button {
-  font-size: 12px; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border);
+  font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
   color: var(--text-secondary); background: var(--surface-1);
 }
 .filterbar a[aria-current="true"] { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-strong); }
 .filterbar a:hover { color: var(--text-primary); }
 
 .recharts-cartesian-grid line { stroke: var(--grid); }
-.recharts-text { fill: var(--text-muted); font-size: 11px; }
+.recharts-text { fill: var(--text-muted); font-size: 11px; font-family: var(--font-mono); }
 .recharts-tooltip-cursor { stroke: var(--border-strong); }
 
 @keyframes pulse-dot { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
-.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
+.live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+/* Ticker strip under the nav. */
+.ticker { display: flex; gap: 28px; height: 34px; align-items: center; font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); overflow-x: auto; scrollbar-width: none; font-variant-numeric: tabular-nums; }
+.ticker::-webkit-scrollbar { display: none; }
+.ticker > span { white-space: nowrap; flex: none; }
+.ticker b { color: var(--text-primary); font-weight: 500; }
+.ticker .k { color: var(--text-muted); }

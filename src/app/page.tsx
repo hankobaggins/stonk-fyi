@@ -4,7 +4,8 @@ import { STONK_MINT } from "@/lib/api";
 import { cumulative, fmtDate, fmtNum, fmtPrice, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { Delta, ExplorerLink, KpiTile, Section } from "@/components/ui";
 import { BurnBarChart, CountBarChart, CumulativeChart, PriceChart } from "@/components/charts";
-import Scorecard from "@/components/Scorecard";
+import Scorecard, { TallyBar } from "@/components/Scorecard";
+import BurnRing from "@/components/BurnRing";
 import BuybackFeed from "@/components/BuybackFeed";
 import TokenTable from "@/components/TokenTable";
 import Projection from "@/components/Projection";
@@ -34,43 +35,49 @@ export default async function StonkPage() {
   const cumBuyback = cumulative(d.days, (x) => x.dailyRevenue * buybackShare);
 
   const fromPeak = m.peakMarketCapUsd && m.marketCapUsd ? ((m.marketCapUsd - m.peakMarketCapUsd) / m.peakMarketCapUsd) * 100 : undefined;
-  const bull = d.indicators.filter((i) => i.signal === "bull").length;
-  const scored = d.indicators.filter((i) => i.signal !== "info").length;
 
   return (
     <div className="space-y-6">
       {/* Hero */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
+      <div className="grid md:grid-cols-[1fr_auto] gap-6 items-end pt-2">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-semibold tracking-tight">$STONK</h1>
-            <span className="pill">STONK / SPYx</span>
-            <span className="pill up">{bull}/{scored} bullish</span>
-          </div>
-          <p className="text-sm text-muted mt-1">
-            StonkFun&apos;s platform token · fixed 1B supply, {d.supply.burnedPct.toFixed(2)}% burned · revenue-funded buyback &amp; burn ·{" "}
-            <ExplorerLink addr={STONK_MINT} kind="token" label={shortAddr(STONK_MINT, 6)} /> · snapshot {timeAgo(d.generatedAt, now)}
+          <div className="label mb-2.5">Platform token · StonkFun launchpad · Solana</div>
+          <h1 className="text-[40px] leading-none font-semibold tracking-tighter flex items-baseline gap-3.5 flex-wrap">
+            $STONK <span className="num text-[13px] tracking-normal font-medium text-secondary">paired with SPYx</span>
+          </h1>
+          <p className="text-sm text-secondary mt-3 max-w-[62ch]">
+            Fixed 1B supply, no mint authority, revenue-funded buybacks burned on-chain. Every figure below links to the API response or the Solscan transaction it came from.{" "}
+            <span className="whitespace-nowrap"><ExplorerLink addr={STONK_MINT} kind="token" label={shortAddr(STONK_MINT, 6)} /></span>
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-4xl font-semibold num">{fmtPrice(m.priceUsd)}</div>
-          <div className="text-sm num"><Delta value={m.priceChange24h} /> <span className="text-muted">24h</span></div>
+        <div className="md:text-right">
+          <div className="num text-[54px] leading-none font-medium tracking-tighter">{fmtPrice(m.priceUsd)}</div>
+          <div className="num text-[13px] text-secondary mt-2">
+            <Delta value={m.priceChange24h} /> 24h
+            {fromPeak !== undefined && m.peakMarketCapUsd && (<> · <Delta value={fromPeak} /> from peak {fmtUsd(m.peakMarketCapUsd)} mcap</>)}
+            {" "}· snapshot {timeAgo(d.generatedAt, now)}
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div>
+        <TallyBar indicators={d.indicators} />
+        <p className="text-xs text-muted mt-2">Each indicator is computed live and colored by its actual state. This tally can and will turn.</p>
+      </div>
+
+      <div className="kpis">
         <KpiTile label="Market cap" value={fmtUsd(m.marketCapUsd)} delta={fromPeak} sub="from peak" />
         <KpiTile label="24h volume" value={fmtUsd(m.volume24hUsd)} sub={m.marketCapUsd && m.volume24hUsd ? `${((m.volume24hUsd / m.marketCapUsd) * 100).toFixed(1)}% of market cap` : undefined} />
         <KpiTile label="Circulating supply" value={fmtNum(d.supply.circulating)} sub={`${fmtNum(d.supply.burned)} burned of ${fmtNum(STONK_INITIAL_SUPPLY)}`} />
-        <KpiTile label="Burned (USD at burn)" value={fmtUsd(d.burns?.totals.valueUsdAtBurn)} sub={`${fmtNum(d.burns?.totals.burnCount)} burns · last ${timeAgo(d.burns?.totals.lastBurnAt, now)}`} />
+        <KpiTile label="Burned, USD at burn" value={fmtUsd(d.burns?.totals.valueUsdAtBurn)} sub={`${fmtNum(d.burns?.totals.burnCount)} burns · last ${timeAgo(d.burns?.totals.lastBurnAt, now)}`} />
       </div>
 
       {/* Scorecard */}
-      <Scorecard indicators={d.indicators} />
+      <Scorecard indicators={d.indicators} watch={d.watch} />
 
       {/* Price + burns */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Price (USD)" className="lg:col-span-2" action={d.history ? <span className="text-xs text-muted">CoinGecko · 90d</span> : null}>
+        <Section title="Price (USD)" className="lg:col-span-2" action={d.history ? <span className="num text-xs text-muted">CoinGecko · 90d · stonk-3</span> : null}>
           {d.history ? (
             <PriceChart data={d.history.map((p) => ({ ts: p.ts, price: p.price }))} />
           ) : (
@@ -81,7 +88,13 @@ export default async function StonkPage() {
           )}
         </Section>
         <Section title="Supply burned" action={<span className="text-xs text-muted num">{d.supply.burnedPct.toFixed(2)}%</span>}>
-          <SupplyRing pct={d.supply.burnedPct} />
+          <div className="flex items-center justify-center py-2 relative">
+            <BurnRing pct={d.supply.burnedPct} size={140} width={14} stroke="var(--surface-2)" track="var(--series-2)" label={`${d.supply.burnedPct.toFixed(2)}% of supply burned`} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <div className="num text-[22px] font-medium leading-none">{d.supply.burnedPct.toFixed(1)}%</div>
+              <div className="label mt-1.5">burned</div>
+            </div>
+          </div>
           <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-xs">
             <dt className="text-muted">Initial supply</dt><dd className="num text-right">{fmtNum(STONK_INITIAL_SUPPLY)}</dd>
             <dt className="text-muted">Burned (ledger)</dt><dd className="num text-right">{fmtNum(d.supply.burned)}</dd>
@@ -168,41 +181,10 @@ export default async function StonkPage() {
         {d.quoted.length ? <TokenTable tokens={d.quoted.slice(0, 10)} now={now} /> : <div className="text-sm text-muted">None yet.</div>}
       </Section>
 
-      {/* Watch list */}
-      <Section title="What to watch">
-        <div className="grid md:grid-cols-2 gap-3">
-          {d.watch.map((w) => (
-            <div key={w.label} className="rounded-lg border border-border p-3">
-              <div className="text-sm font-medium">{w.label}</div>
-              <div className="text-xs text-secondary mt-1 leading-relaxed">{w.detail}</div>
-            </div>
-          ))}
-        </div>
-      </Section>
-
       <div className="text-xs text-muted">
         Launched {fmtDate(t.createdAt)} · creator <ExplorerLink addr={t.creator ?? ""} label={shortAddr(t.creator)} /> · pool <ExplorerLink addr={t.pool ?? ""} label={shortAddr(t.pool)} /> ·{" "}
         <Link href={`/tokens/${STONK_MINT}`} className="hover:text-primary">token detail →</Link>
       </div>
-    </div>
-  );
-}
-
-function SupplyRing({ pct }: { pct: number }) {
-  const r = 52;
-  const c = 2 * Math.PI * r;
-  const frac = Math.min(1, Math.max(0, pct / 100));
-  return (
-    <div className="flex items-center justify-center py-2">
-      <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label={`${pct.toFixed(2)}% of supply burned`}>
-        <circle cx="70" cy="70" r={r} fill="none" stroke="var(--surface-2)" strokeWidth="12" />
-        <circle
-          cx="70" cy="70" r={r} fill="none" stroke="var(--series-2)" strokeWidth="12" strokeLinecap="round"
-          strokeDasharray={`${c * frac} ${c * (1 - frac)}`} transform="rotate(-90 70 70)"
-        />
-        <text x="70" y="66" textAnchor="middle" fill="var(--text-primary)" fontSize="22" fontWeight="600" className="num">{pct.toFixed(1)}%</text>
-        <text x="70" y="86" textAnchor="middle" fill="var(--text-muted)" fontSize="11">burned</text>
-      </svg>
     </div>
   );
 }

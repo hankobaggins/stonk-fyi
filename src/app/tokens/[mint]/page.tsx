@@ -67,7 +67,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="kpis">
         <KpiTile label="Price" value={fmtPrice(m.priceUsd)} delta={m.priceChange24h} sub="24h" />
         <KpiTile label="Market cap" value={fmtUsd(m.marketCapUsd)} sub={`peak ${fmtUsd(m.peakMarketCapUsd)}`} />
         <KpiTile label="24h volume" value={fmtUsd(m.volume24hUsd)} sub={m.marketCapUsd && m.volume24hUsd ? `${(m.volume24hUsd / m.marketCapUsd).toFixed(2)}× market cap` : undefined} />
