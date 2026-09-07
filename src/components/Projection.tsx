@@ -108,10 +108,10 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
       <div className="text-xs text-secondary leading-relaxed space-y-1">
         <p>
           Starting point: {px(inputs.price)}, {num(inputs.supply)} circulating, {usd(inputs.dailyRevenue)}/day platform revenue (7-day average), {(inputs.buybackShare * 100).toFixed(0)}% of it bought back and burned
-          {buybackVsVol !== null && <> — about <span className="text-primary num">{(buybackVsVol * 100).toFixed(1)}%</span> of STONK&apos;s daily volume</>}.
+          {buybackVsVol !== null && <>, about <span className="text-primary num">{(buybackVsVol * 100).toFixed(1)}%</span> of STONK&apos;s daily volume</>}.
         </p>
         <p>
-          <span className="text-primary">Floor</span> assumes the market holds market cap flat and the only effect is fewer tokens. <span className="text-primary">Ceiling</span> pushes every buyback dollar through a constant-product pool with the live quote-side depth and assumes nobody sells into it — a fiction, since the other ~99% of flow is not modeled and the real pool is concentrated-liquidity (usually less slippage near the current price than constant-product). The true flywheel contribution sits between the two; the crowd decides the rest. This is a mechanical model of one input, not a price forecast.
+          <span className="text-primary">Floor</span> assumes the market holds market cap flat and the only effect is fewer tokens. <span className="text-primary">Ceiling</span> pushes every buyback dollar through a constant-product pool with the live quote-side depth and assumes nobody sells into it. That is a fiction: the other ~99% of flow is not modeled, and the real pool is concentrated-liquidity, which usually has less slippage near the current price than constant-product. The flywheel&apos;s contribution sits somewhere between the two; the crowd decides the rest. This models one input mechanically and is not a price forecast.
         </p>
       </div>
     </div>

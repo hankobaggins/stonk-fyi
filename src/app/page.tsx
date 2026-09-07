@@ -166,7 +166,7 @@ export default async function StonkPage() {
           ) : (
             <div className="text-sm text-muted">Raydium pool info unavailable.</div>
           )}
-          <div className="text-xs text-muted mt-3">Reserves from Raydium&apos;s pool API. The worker snapshots them every 5 minutes; the change in the STONK reserve is the net flow — falling reserve means STONK is leaving the pool (net buying).</div>
+          <div className="text-xs text-muted mt-3">Reserves from Raydium&apos;s pool API. The worker snapshots them every 5 minutes; the change in the STONK reserve is the net flow. A falling reserve means STONK is leaving the pool, which is net buying.</div>
         </Section>
         <Section title="Flywheel projection" className="lg:col-span-2">
           <Projection inputs={d.projection} />

@@ -34,7 +34,7 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
     rows: [
       ["STONK-quoted tokens", "count of launchpad tokens whose quote asset is STONK", "≥ 50"],
       ["Pool depth", "Raydium TVL of the main STONK/SPYx pool", "> $5M (neutral above $500K)"],
-      ["Net flow", "change in the pool's STONK reserve over 24h — a falling reserve means net buying", "net buying"],
+      ["Net flow", "change in the pool's STONK reserve over 24h; a falling reserve means net buying", "net buying"],
       ["Turnover", "24h volume ÷ market cap", "2% – 100%"],
       ["24h change", "StonkFun's reported 24h price change", "> 0"],
     ],
@@ -58,7 +58,7 @@ export default function AboutPage() {
         <div className="text-sm text-secondary space-y-3 leading-relaxed">
           <p>
             {SITE_NAME} tracks <span className="text-primary">$STONK</span>, the platform token of the StonkFun launchpad on Solana. Every metric is
-            computed from live data each time the page loads, and every scorecard indicator is colored by its actual state — bullish, neutral, or
+            computed from live data each time the page loads, and every scorecard indicator is colored by its actual state: bullish, neutral, or
             caution. The site is built to show the bear case as readily as the bull case; a page that can only show green is not worth reading.
           </p>
           <p>
@@ -72,7 +72,7 @@ export default function AboutPage() {
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs [&_dd]:break-words [&_dd]:min-w-0 [&_a]:break-all">
           <dt className="text-muted">Mint</dt><dd><ExplorerLink addr={STONK_MINT} kind="token" /></dd>
           <dt className="text-muted">Main pool</dt><dd><ExplorerLink addr={STONK_POOL} /> <span className="text-muted">Raydium CLMM, STONK / SPYx, 1% fee</span></dd>
-          <dt className="text-muted">Launched</dt><dd className="num">{new Date(STONK_LAUNCHED_AT).toUTCString()} — graduated 16 minutes later</dd>
+          <dt className="text-muted">Launched</dt><dd className="num">{new Date(STONK_LAUNCHED_AT).toUTCString()}, graduated 16 minutes later</dd>
           <dt className="text-muted">Supply</dt><dd>1,000,000,000 fixed. Mint and freeze authority are null, so supply can only fall. Circulating = initial − burned.</dd>
         </dl>
       </Section>
@@ -80,17 +80,17 @@ export default function AboutPage() {
       <Section title="Data sources">
         <div className="text-sm text-secondary space-y-3 leading-relaxed">
           <p>
-            <span className="text-primary">StonkFun public API</span> (<code className="font-mono text-xs">stonkfun.xyz/api/public/v1</code>) — platform
+            <span className="text-primary">StonkFun public API</span> (<code className="font-mono text-xs">stonkfun.xyz/api/public/v1</code>): platform
             stats, revenue and buyback history, token list and market data, burn ledger, launches, pairs, rewards. This is the source of every USD figure
             on the site. StonkFun&apos;s pricing feed is not independently verified here; treat dollar values as StonkFun&apos;s numbers. Burn amounts and
             transaction signatures are on-chain and link to Solscan.
           </p>
           <p>
-            <span className="text-primary">Raydium</span> (<code className="font-mono text-xs">api-v3.raydium.io</code>) — reserves, TVL and 24h volume of
+            <span className="text-primary">Raydium</span> (<code className="font-mono text-xs">api-v3.raydium.io</code>): reserves, TVL and 24h volume of
             the main STONK/SPYx pool. Used for pool depth, net flow, and the projection&apos;s quote-side depth.
           </p>
           <p>
-            <span className="text-primary">CoinGecko</span> — 90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when
+            <span className="text-primary">CoinGecko</span>: 90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when
             it is unavailable.
           </p>
           <p>
@@ -136,7 +136,7 @@ export default function AboutPage() {
           </p>
           <p>
             The ceiling is a deliberate over-estimate: a concentrated-liquidity pool has less slippage near the current price than constant-product
-            assumes, and the other ~99% of order flow — everyone else buying and selling — is not modeled at all. It is a sensitivity tool, not a
+            assumes, and the other ~99% of order flow (everyone else buying and selling) is not modeled at all. Read it as a sensitivity tool, not a
             forecast.
           </p>
         </div>
@@ -144,7 +144,7 @@ export default function AboutPage() {
 
       <Section title="What this site does not know">
         <ul className="text-sm text-secondary space-y-2 leading-relaxed list-disc pl-5">
-          <li>STONK has no USD market of its own. Its USD price is the pool ratio × SPYx&apos;s USD price, so it carries S&amp;P 500 beta, and SPYx has no live reference price outside US market hours — the USD figure can drift over weekends and gap at Monday open.</li>
+          <li>STONK has no USD market of its own. Its USD price is the pool ratio × SPYx&apos;s USD price, so it carries S&amp;P 500 beta, and SPYx has no live reference price outside US market hours, which lets the USD figure drift over weekends and gap at Monday open.</li>
           <li>Burn rate is a spot rate from the most recent ~25 burn events (roughly one to two hours). It swings with platform activity.</li>
           <li>Daily buyback dollars are estimated as daily revenue × lifetime buyback share until the site&apos;s own history has enough recorded buybacks.</li>
           <li>Pool depth and net flow cover the main Raydium pool only. STONK also trades through Jupiter routing and in every STONK-quoted pool.</li>
