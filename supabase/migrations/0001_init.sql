@@ -144,3 +144,14 @@ create table if not exists pool_snapshots (
   volume_24h_usd    double precision,
   primary key (pool_id, ts)
 );
+
+-- Row Level Security: the worker and the site both use the service-role key (bypasses RLS);
+-- enabling RLS with no policies means the anon/publishable key can read nothing.
+alter table platform_snapshots enable row level security;
+alter table tokens            enable row level security;
+alter table token_snapshots   enable row level security;
+alter table buybacks          enable row level security;
+alter table launches          enable row level security;
+alter table revenue_daily     enable row level security;
+alter table token_burns       enable row level security;
+alter table pool_snapshots    enable row level security;
