@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
-import { getLaunches, getRevenue, getRevenueHistory, getStats, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
+import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getDb } from "@/lib/db";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { STONK_POOL } from "@/lib/stonk";
 import type { Token } from "@/lib/types";
 
-// Snapshot worker. Invoked by Vercel Cron (see vercel.json) or any scheduler:
-//   GET /api/cron/snapshot            -> platform stats, revenue, buybacks, launches, revenue_daily, active tokens
-//   GET /api/cron/snapshot?full=1     -> also walks the entire token list (for the long tail; run hourly)
-// Protected by CRON_SECRET (Vercel sets the Authorization header automatically).
+// Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
+// with ?hourly=1 at the top of each hour, and by Vercel Cron (vercel.json) once a day with ?full=1:
+//   GET /api/cron/snapshot            -> platform stats, revenue, buybacks, launches, revenue_daily, STONK + top 100 tokens by volume
+//   GET /api/cron/snapshot?hourly=1   -> same, but top 500 tokens
+//   GET /api/cron/snapshot?full=1     -> walks the entire token list, then prunes non-STONK snapshots older than 30 days
+// Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
+// Protected by CRON_SECRET.
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
+
+const SNAPSHOT_RETENTION_DAYS = 30;
 
 function tokenRow(t: Token) {
   return {
@@ -57,7 +62,10 @@ export async function GET(req: Request) {
   const db = getDb();
   if (!db) return NextResponse.json({ error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set" }, { status: 503 });
 
-  const full = new URL(req.url).searchParams.get("full") === "1";
+  const params = new URL(req.url).searchParams;
+  const full = params.get("full") === "1";
+  const hourly = params.get("hourly") === "1";
+  const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
   const errors: string[] = [];
@@ -180,29 +188,45 @@ export async function GET(req: Request) {
   });
 
   await step("tokens", async () => {
-    // Active set: top pages by volume until we hit tokens with zero 24h volume.
-    // Full mode: walk every page (12k tokens ≈ 125 requests; fits in the 300/min limit).
+    // Top pages by volume (1 page normally, 5 hourly); full mode walks every page
+    // (16k tokens ≈ 165 requests; fits in the 300/min limit). STONK itself is always included.
     const pageSize = 100;
     let page = 1;
     let written = 0;
+    const seen = new Set<string>();
+    const write = async (toks: Token[]) => {
+      const fresh = toks.filter((t) => !seen.has(t.mint));
+      if (!fresh.length) return;
+      fresh.forEach((t) => seen.add(t.mint));
+      const { error } = await db.from("tokens").upsert(fresh.map(tokenRow), { onConflict: "mint" });
+      if (error) throw new Error(error.message);
+      const { error: e2 } = await db.from("token_snapshots").upsert(fresh.map((t) => snapshotRow(t, ts)), { onConflict: "mint,ts" });
+      if (e2) throw new Error(e2.message);
+      written += fresh.length;
+    };
     for (;;) {
       const res = await getTokens({ sort: "volume", page, pageSize });
       const toks = res.data.tokens;
       if (!toks.length) break;
-      const active = full ? toks : toks.filter((t) => (t.market?.volume24hUsd ?? 0) > 0);
-      if (active.length) {
-        const { error } = await db.from("tokens").upsert(active.map(tokenRow), { onConflict: "mint" });
-        if (error) throw new Error(error.message);
-        const { error: e2 } = await db.from("token_snapshots").upsert(active.map((t) => snapshotRow(t, ts)), { onConflict: "mint,ts" });
-        if (e2) throw new Error(e2.message);
-        written += active.length;
-      }
-      if (!full && active.length < toks.length) break; // reached the zero-volume tail
-      if (page >= res.data.pagination.totalPages) break;
+      await write(full ? toks : toks.filter((t) => (t.market?.volume24hUsd ?? 0) > 0));
+      if (page >= maxPages || page >= res.data.pagination.totalPages) break;
       page++;
+    }
+    if (!seen.has(STONK_MINT)) {
+      const s = await getToken(STONK_MINT);
+      if (s) await write([s.data.token]);
     }
     return written;
   });
 
-  return NextResponse.json({ ok: errors.length === 0, ts, full, counts, errors });
+  if (full) {
+    await step("prune", async () => {
+      const cutoff = new Date(Date.now() - SNAPSHOT_RETENTION_DAYS * 864e5).toISOString();
+      const { error, count } = await db.from("token_snapshots").delete({ count: "exact" }).lt("ts", cutoff).neq("mint", STONK_MINT);
+      if (error) throw new Error(error.message);
+      return count ?? 0;
+    });
+  }
+
+  return NextResponse.json({ ok: errors.length === 0, ts, mode: full ? "full" : hourly ? "hourly" : "tick", counts, errors });
 }
