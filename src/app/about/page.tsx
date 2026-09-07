@@ -69,7 +69,7 @@ export default function AboutPage() {
       </Section>
 
       <Section title="The token">
-        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs [&_dd]:break-words [&_dd]:min-w-0 [&_a]:break-all">
           <dt className="text-muted">Mint</dt><dd><ExplorerLink addr={STONK_MINT} kind="token" /></dd>
           <dt className="text-muted">Main pool</dt><dd><ExplorerLink addr={STONK_POOL} /> <span className="text-muted">Raydium CLMM, STONK / SPYx, 1% fee</span></dd>
           <dt className="text-muted">Launched</dt><dd className="num">{new Date(STONK_LAUNCHED_AT).toUTCString()} — graduated 16 minutes later</dd>
@@ -106,7 +106,7 @@ export default function AboutPage() {
           accumulates; changes will be noted here.
         </p>
         <div className="table-wrap">
-          <table className="data">
+          <table className="data min-w-[600px]">
             <thead><tr><th>Indicator</th><th>Computed as</th><th>Bullish when</th></tr></thead>
             <tbody>
               {INDICATORS.map((g) => (

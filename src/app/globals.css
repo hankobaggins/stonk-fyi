@@ -58,7 +58,9 @@ body {
   border-radius: 12px;
 }
 
-.table-wrap { overflow-x: auto; }
+/* Grid/flex children default to min-width:auto, which lets charts and tables push a cell wider than the viewport. */
+.grid > *, .flex > * { min-width: 0; }
+.table-wrap { overflow-x: auto; max-width: 100%; }
 table.data { width: 100%; border-collapse: collapse; font-size: 13px; }
 table.data th {
   text-align: left; font-weight: 500; color: var(--text-muted);

@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { SITE_NAME, SITE_TAGLINE } from "@/lib/site";
+import { OG_SUBTITLE, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 
 export const alt = `${SITE_NAME} — ${SITE_TAGLINE}`;
 export const size = { width: 1200, height: 630 };
@@ -27,14 +27,12 @@ export default function OgImage() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           <div style={{ fontSize: 120, fontWeight: 700, letterSpacing: -4, lineHeight: 1 }}>$STONK</div>
-          <div style={{ fontSize: 44, color: "#c3c2b7" }}>{SITE_TAGLINE}</div>
+          <div style={{ fontSize: 38, color: "#c3c2b7", maxWidth: 1000, lineHeight: 1.3 }}>{OG_SUBTITLE}</div>
         </div>
         <div style={{ display: "flex", gap: 14, fontSize: 24, color: "#8a8a82" }}>
-          <span>supply &amp; burns</span><span>·</span>
-          <span>buyback flywheel</span><span>·</span>
-          <span>pool depth</span><span>·</span>
-          <span>bull-case scorecard</span><span>·</span>
-          <span style={{ color: "#c3c2b7" }}>unofficial</span>
+          <span>stonk.fyi</span><span>·</span>
+          <span>data: StonkFun API, Raydium, CoinGecko</span><span>·</span>
+          <span>not affiliated with StonkFun</span>
         </div>
       </div>
     ),
