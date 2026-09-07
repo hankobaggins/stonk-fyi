@@ -11,6 +11,7 @@ const links = [
   { href: "/pairs", label: "Pairs" },
   { href: "/flywheel", label: "Flywheel" },
   { href: "/launches", label: "Launches" },
+  { href: "/about", label: "About" },
 ];
 
 export default function Nav() {
@@ -20,7 +21,7 @@ export default function Nav() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-6">
         <Link href="/" className="font-semibold tracking-tight flex items-center gap-2">
           <span className="inline-block w-2.5 h-2.5 rounded-sm bg-accent" />
-          StonkFun Metrics
+          stonk.fyi
         </Link>
         <nav className="flex items-center gap-1 text-sm overflow-x-auto">
           {links.map((l) => {
