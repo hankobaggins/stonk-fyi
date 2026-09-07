@@ -209,7 +209,7 @@ export function resolveImage(url?: string): string | undefined {
 // page degrades to "history pending" rather than erroring.
 export async function getStonkPriceHistory(days = 90): Promise<PricePoint[] | null> {
   if (USE_FIXTURES) return null;
-  const id = process.env.COINGECKO_STONK_ID ?? "stonk-2";
+  const id = process.env.COINGECKO_STONK_ID ?? "stonk-3";
   const key = process.env.COINGECKO_API_KEY;
   try {
     const url = `https://api.coingecko.com/api/v3/coins/${id}/market_chart?vs_currency=usd&days=${days}`;
