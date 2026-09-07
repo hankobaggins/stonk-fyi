@@ -69,7 +69,7 @@ export default async function FlywheelPage() {
         </Section>
         <Section title="Recent buyback spend by quote asset" action={<span className="text-xs text-muted">last {r.recentBuybacks.length} buybacks</span>}>
           <HBarChart data={spendData} valueLabel="Spent" />
-          <div className="text-xs text-muted mt-2">Which quote assets the sweep is converting into STONK right now. Lifetime breakdown requires the snapshot worker.</div>
+          <div className="text-xs text-muted mt-2">Which quote assets the sweep is converting into STONK right now. Lifetime breakdown comes once the site has enough recorded buybacks.</div>
         </Section>
       </div>
 

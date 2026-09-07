@@ -28,7 +28,7 @@ export default function Foundation({ d, now }: { d: StonkData; now: number }) {
         <div>
           <div className="label mb-1.5">Structural · one-way</div>
           <div className="text-[15px] font-semibold tracking-tight">Supply can only fall</div>
-          <p className="text-[12.5px] text-secondary mt-1 max-w-[30ch] leading-snug">{fmtNum(s.burned)} STONK destroyed and gone. This number never goes down, so it is not scored; it is the floor.</p>
+          <p className="text-[12.5px] text-secondary mt-1 max-w-[30ch] leading-snug">{fmtNum(s.burned)} STONK burned. One-way, so not scored.</p>
         </div>
       </div>
 

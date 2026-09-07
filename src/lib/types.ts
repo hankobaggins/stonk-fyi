@@ -175,6 +175,34 @@ export type TokenBurns = {
   burns: BurnEvent[];
 };
 
+// /tokens/{mint}/rewards — reward-mode launches pay trading fees to holders. Standard launches
+// return { mode:"standard", rewards:null, message }.
+export type TokenRewards = {
+  mint: string;
+  mode?: string;
+  message?: string;
+  quote?: { mint: string; symbol: string; decimals?: number };
+  rewards: {
+    distributedRaw?: string;
+    distributedTokens: number;
+    undistributedTokens?: number;
+    payoutCount: number;
+    holderCount: number;
+    lastPayoutAt?: string | null;
+  } | null;
+};
+
+// /tokens/{mint}/fees — creator-claimable fees. Reward coins return claimable:null with a reason.
+export type ClaimableSide = { mint: string; symbol: string; amountRaw?: string; amountTokens: number; decimals?: number };
+export type TokenFees = {
+  mint: string;
+  creator: string | null;
+  claimable: { base: ClaimableSide; quote: ClaimableSide } | null;
+  reason?: string;
+  claimUrl?: string;
+  claimApi?: string;
+};
+
 export type PricePoint = { ts: number; price: number; marketCap?: number; volume?: number };
 
 export type PoolInfo = {

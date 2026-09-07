@@ -47,16 +47,14 @@ export default async function StonkPage() {
             $STONK <span className="num text-[13px] tracking-normal font-medium text-secondary">paired with SPYx</span>
           </h1>
           <p className="text-sm text-secondary mt-3 max-w-[62ch]">
-            Fixed 1B supply, no mint authority, revenue-funded buybacks burned on-chain. Every figure below links to the API response or the Solscan transaction it came from.{" "}
+            Fee revenue buys STONK and burns it, on-chain.{" "}
             <span className="whitespace-nowrap"><ExplorerLink addr={STONK_MINT} kind="token" label={shortAddr(STONK_MINT, 6)} /></span>
           </p>
         </div>
         <div className="md:text-right">
           <div className="num text-[54px] leading-none font-medium tracking-tighter">{fmtPrice(m.priceUsd)}</div>
           <div className="num text-[13px] text-secondary mt-2">
-            <Delta value={m.priceChange24h} /> 24h
-            {fromPeak !== undefined && m.peakMarketCapUsd && (<> · <Delta value={fromPeak} /> from peak {fmtUsd(m.peakMarketCapUsd)} mcap</>)}
-            {" "}· snapshot {timeAgo(d.generatedAt, now)}
+            <Delta value={m.priceChange24h} /> 24h · StonkFun snapshot {timeAgo(d.generatedAt, now)}
           </div>
           {d.gmgn && d.gmgn.priceUsd > 0 && m.priceUsd && (
             <div className="num text-[12px] text-muted mt-1.5">
@@ -73,7 +71,7 @@ export default async function StonkPage() {
 
       <div>
         <TallyBar indicators={d.indicators} />
-        <p className="text-xs text-muted mt-2">Only things that can objectively move both ways are scored. Each indicator is computed live and colored by its actual state; this tally can and will turn.</p>
+        <p className="text-xs text-muted mt-2">Only quantities that can move both ways are scored; this tally will turn. <Link href="/about" className="hover:text-primary underline underline-offset-2">How each one is computed →</Link></p>
       </div>
 
       <div className="kpis">
@@ -82,7 +80,7 @@ export default async function StonkPage() {
         {d.gmgn
           ? <KpiTile label="Holders" value={fmtNum(d.gmgn.holderCount)} sub={`${fmtNum(d.gmgn.wallets.smart)} smart money · ${fmtNum(d.gmgn.wallets.kol)} KOL · GMGN`} />
           : <KpiTile label="Circulating supply" value={fmtNum(d.supply.circulating)} sub={`${d.supply.burnedPct.toFixed(2)}% burned`} />}
-        <KpiTile label="Peak market cap" value={fmtUsd(m.peakMarketCapUsd)} sub={fromPeak !== undefined ? `${fromPeak.toFixed(1)}% from peak now` : undefined} />
+        <KpiTile label="Peak market cap" value={fmtUsd(m.peakMarketCapUsd)} sub="all-time high" />
       </div>
 
       {/* Scorecard */}
@@ -90,13 +88,13 @@ export default async function StonkPage() {
 
       {/* Price + burns */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Price (USD)" className="lg:col-span-3" action={d.history ? <span className="num text-xs text-muted">CoinGecko · 90d · stonk-3</span> : null}>
+        <Section title="Price (USD)" className="lg:col-span-3" action={d.history ? <span className="num text-xs text-muted">CoinGecko · 90d · refreshes every 10 min</span> : null}>
           {d.history ? (
             <PriceChart data={d.history.map((p) => ({ ts: p.ts, price: p.price }))} />
           ) : (
             <div className="h-[280px] flex flex-col items-center justify-center text-center text-sm text-muted gap-2">
-              <div>Price history not available from this data source yet.</div>
-              <div className="text-xs">Live deployments pull 90 days from CoinGecko; the snapshot worker records intra-day prices into Postgres for finer charts.</div>
+              <div>Price history unavailable right now.</div>
+              <div className="text-xs">CoinGecko didn&apos;t answer; the chart returns on the next refresh.</div>
             </div>
           )}
         </Section>
@@ -104,9 +102,9 @@ export default async function StonkPage() {
 
       {/* Flywheel fuel */}
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Estimated STONK buybacks per day (USD)" className="lg:col-span-2" action={<Link href="/flywheel" className="text-xs text-muted hover:text-primary">Flywheel →</Link>}>
+        <Section title="Estimated STONK buybacks per day (USD)" className="lg:col-span-2" action={<span className="flex gap-3 text-xs text-muted"><span className="num">daily · UTC · 5 min</span><Link href="/flywheel" className="hover:text-primary">Flywheel →</Link></span>}>
           <CountBarChart data={buybackSeries} height={240} name="Buybacks" fmt="usd" />
-          <div className="text-xs text-muted mt-2">Platform fee revenue × lifetime buyback share ({(buybackShare * 100).toFixed(0)}%). Actual buybacks execute every few minutes; the snapshot worker records each one.</div>
+          <div className="text-xs text-muted mt-2">Daily fee revenue × lifetime buyback share ({(buybackShare * 100).toFixed(0)}%). An estimate; the actual ledger is in the feed below.</div>
         </Section>
         <Section title="Cumulative buyback spend">
           <CumulativeChart data={cumBuyback} height={240} name="Cumulative buybacks" />
@@ -114,7 +112,7 @@ export default async function StonkPage() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <Section title="Recent STONK burns" action={<span className="text-xs text-muted">last {d.burns?.burns.length ?? 0} events · UTC</span>}>
+        <Section title="Recent STONK burns" action={<span className="text-xs text-muted num">last {d.burns?.burns.length ?? 0} events · UTC · 60s</span>}>
           {burnSeries.length ? <BurnBarChart data={burnSeries} /> : <div className="text-sm text-muted">No burn events.</div>}
           <div className="table-wrap mt-3 max-h-64 overflow-y-auto">
             <table className="data">
@@ -133,7 +131,7 @@ export default async function StonkPage() {
             </table>
           </div>
         </Section>
-        <Section title="Live buyback feed" action={<span className="text-xs text-muted num">last {timeAgo(r.revenue.lastBuybackAt, now)}</span>}>
+        <Section title="Live buyback feed" action={<span className="text-xs text-muted num">last {timeAgo(r.revenue.lastBuybackAt, now)} · 30s</span>}>
           <BuybackFeed buybacks={r.recentBuybacks} now={now} limit={12} />
         </Section>
       </div>
@@ -156,14 +154,14 @@ export default async function StonkPage() {
                     {fmtUsd(Math.abs(d.flow.netStonkUsd))} {d.flow.netStonkIntoPool <= 0 ? "net buying" : "net selling"}
                   </span>
                 ) : (
-                  <span className="text-muted">collecting (needs snapshot worker)</span>
+                  <span className="text-muted">collecting</span>
                 )}
               </dd>
             </dl>
           ) : (
             <div className="text-sm text-muted">Raydium pool info unavailable.</div>
           )}
-          <div className="text-xs text-muted mt-3">Reserves from Raydium&apos;s pool API. The worker snapshots them every 5 minutes; the change in the STONK reserve is the net flow. A falling reserve means STONK is leaving the pool, which is net buying.</div>
+          <div className="text-xs text-muted mt-3">Reserves from Raydium, cached 60s; net flow from 5-minute snapshots of the STONK reserve (falling = net buying).</div>
         </Section>
         <Section title="Flywheel projection" className="lg:col-span-2">
           <Projection inputs={d.projection} />
@@ -172,9 +170,7 @@ export default async function StonkPage() {
 
       {/* Ecosystem */}
       <Section title="Tokens priced in STONK" action={<Link href={`/tokens?quoteMint=${STONK_MINT}&sort=volume`} className="text-xs text-muted hover:text-primary">All {fmtNum(d.quotedTotal)} →</Link>}>
-        <div className="text-xs text-muted mb-3">
-          Launches that chose STONK as their quote asset. Every trade in these pools is denominated in STONK, and their fees flow back into the buyback engine.
-        </div>
+        <div className="text-xs text-muted mb-3">Launches priced in STONK; their fees feed the buyback engine.</div>
         {d.quoted.length ? <TokenTable tokens={d.quoted.slice(0, 10)} now={now} /> : <div className="text-sm text-muted">None yet.</div>}
       </Section>
 

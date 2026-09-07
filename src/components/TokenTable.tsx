@@ -53,7 +53,7 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                 <td>
                   <span className="flex flex-col leading-tight">
                     <span>{t.quote.symbol}</span>
-                    <span className="text-[11px] text-muted">{t.quote.categoryLabel ?? t.quote.category}</span>
+                    {(t.quote.categoryLabel ?? t.quote.category) && (t.quote.categoryLabel ?? t.quote.category) !== "Custom" && <span className="text-[11px] text-muted">{t.quote.categoryLabel ?? t.quote.category}</span>}
                   </span>
                 </td>
                 <td className="r num">{fmtPrice(m.priceUsd)}</td>

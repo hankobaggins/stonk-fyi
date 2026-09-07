@@ -38,7 +38,7 @@ export default function Ticker({ d }: { d: StonkData }) {
         {spyxImplied && (
           <span>
             <span className="k">SPYx</span> <b>{fmtUsd(spyxImplied)}</b>{" "}
-            <span className="k">· implied · {open ? "US market open" : "US market closed · USD may drift"}</span>
+            <span className="k" title={open ? "Implied from the pool ratio and STONK's USD price. US market open: SPYx has a live reference." : "Implied from the pool ratio and STONK's USD price. US market closed: SPYx has no live reference, so USD figures can drift."}>· implied{open ? "" : " · mkt closed"}</span>
           </span>
         )}
       </div>

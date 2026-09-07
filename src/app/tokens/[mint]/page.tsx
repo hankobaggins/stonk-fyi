@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getToken, getTokenBacking, getTokenBurns, getTokenFees, getTokenRewards, resolveImage } from "@/lib/api";
-import { fmtDate, fmtNum, fmtPct, fmtPrice, fmtUsd, nowMs, timeAgo } from "@/lib/format";
+import { getToken, getTokenBacking, getTokenBurns, getTokenFees, getTokenRewards, resolveImage, SITE_BASE } from "@/lib/api";
+import { fmtDate, fmtNum, fmtPct, fmtPrice, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { Delta, ExplorerLink, KpiTile, ModePill, Section, StatusPill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -12,13 +12,17 @@ export async function generateMetadata({ params }: PageProps<"/tokens/[mint]">) 
   return { title: t ? `${t.data.token.symbol} / ${t.data.token.quote.symbol}` : "Token" };
 }
 
-function JsonBlock({ title, data }: { title: string; data: Record<string, unknown> | null }) {
-  if (!data) return null;
-  return (
-    <Section title={title}>
-      <pre className="text-xs font-mono text-secondary overflow-x-auto whitespace-pre">{JSON.stringify(data, null, 2)}</pre>
-    </Section>
-  );
+// Each extra is fetched independently: a failure (upstream 5xx, timeout) hides that section only.
+async function settle<T>(p: Promise<T | null>): Promise<{ data: T | null; failed: boolean }> {
+  try {
+    return { data: await p, failed: false };
+  } catch {
+    return { data: null, failed: true };
+  }
+}
+
+function Unavailable({ what }: { what: string }) {
+  return <div className="text-xs text-muted">{what} didn&apos;t load from the StonkFun API. It refreshes with the page.</div>;
 }
 
 export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">) {
@@ -29,10 +33,17 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
   const launch = res.data.launch;
   const m = t.market ?? {};
   const now = nowMs();
-  const [burns, rewards, fees, backing] = await Promise.all([getTokenBurns(mint), getTokenRewards(mint), getTokenFees(mint), getTokenBacking(mint)]);
+  const [burns, rewards, fees, backing] = await Promise.all([
+    settle(getTokenBurns(mint)),
+    settle(getTokenRewards(mint)),
+    settle(getTokenFees(mint)),
+    settle(getTokenBacking(mint)),
+  ]);
   const img = resolveImage(t.imageUrl);
   const drawdown = m.peakMarketCapUsd && m.marketCapUsd ? ((m.marketCapUsd - m.peakMarketCapUsd) / m.peakMarketCapUsd) * 100 : undefined;
   const timeToGraduate = t.graduatedAt ? (Date.parse(t.graduatedAt) - Date.parse(t.createdAt)) / 60000 : undefined;
+  const rw = rewards.data?.rewards ?? null;
+  const fe = fees.data;
 
   return (
     <div className="space-y-5">
@@ -61,9 +72,10 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
           </div>
         </div>
         <div className="ml-auto flex flex-col items-end gap-1 text-xs">
-          <a href={`https://www.stonkfun.xyz/token/${t.mint}`} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Open on StonkFun ↗</a>
+          <a href={`${SITE_BASE}/token/${t.mint}`} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Open on StonkFun ↗</a>
           {t.links?.twitter && <a href={t.links.twitter} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Twitter ↗</a>}
           {t.links?.website && <a href={t.links.website} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Website ↗</a>}
+          <span className="num text-muted">snapshot {timeAgo(res.meta.generatedAt, now)} · refreshes every 60s</span>
         </div>
       </div>
 
@@ -96,18 +108,99 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <JsonBlock title="Burns (platform fee sweeps)" data={burns ? { totals: burns.totals, recent: burns.burns.slice(0, 10) } : null} />
-        <JsonBlock title="Holder rewards" data={rewards} />
-        <JsonBlock title="Creator claimable fees" data={fees} />
-        <JsonBlock title="Backing value" data={backing} />
+        <Section title="Holder rewards" action={rw?.lastPayoutAt ? <span className="num text-xs text-muted">last payout {timeAgo(rw.lastPayoutAt, now)}</span> : null}>
+          {rewards.failed ? (
+            <Unavailable what="Rewards" />
+          ) : rw ? (
+            <>
+              <div className="grid grid-cols-3 gap-3">
+                <Mini label="Distributed" value={`${fmtNum(rw.distributedTokens, 2)} ${rewards.data?.quote?.symbol ?? ""}`} />
+                <Mini label="Payouts" value={fmtNum(rw.payoutCount)} />
+                <Mini label="Holders paid" value={fmtNum(rw.holderCount)} />
+              </div>
+              <div className="text-xs text-muted mt-3">Trading fees paid to holders in {rewards.data?.quote?.symbol ?? "the quote asset"}, pro rata.</div>
+            </>
+          ) : (
+            <div className="text-xs text-muted">{rewards.data?.message ?? "Standard launch: fees are split with the creator, not paid to holders."}</div>
+          )}
+          <div className="mt-2 src">/tokens/{"{mint}"}/rewards · 60s</div>
+        </Section>
+
+        <Section title="Creator fees">
+          {fees.failed ? (
+            <Unavailable what="Creator fees" />
+          ) : fe?.claimable ? (
+            <>
+              <div className="grid grid-cols-2 gap-3">
+                <Mini label={`Claimable ${fe.claimable.base.symbol}`} value={fmtNum(fe.claimable.base.amountTokens, 2)} />
+                <Mini label={`Claimable ${fe.claimable.quote.symbol}`} value={fmtNum(fe.claimable.quote.amountTokens, 4)} />
+              </div>
+              <div className="text-xs text-muted mt-3">
+                Unclaimed creator share of trading fees{fe.creator ? <> · creator <ExplorerLink addr={fe.creator} label={shortAddr(fe.creator)} /></> : null}.
+              </div>
+            </>
+          ) : (
+            <div className="text-xs text-muted">{fe?.reason ?? "No creator-claimable fees."}</div>
+          )}
+          <div className="mt-2 src">/tokens/{"{mint}"}/fees · 60s</div>
+        </Section>
       </div>
+
+      <Section title="Burns" action={burns.data ? <span className="num text-xs text-muted">last {timeAgo(burns.data.totals.lastBurnAt, now)}</span> : null}>
+        {burns.failed ? (
+          <Unavailable what="The burn ledger" />
+        ) : burns.data && burns.data.burns.length ? (
+          <>
+            <div className="grid grid-cols-3 gap-3 mb-3">
+              <Mini label="Burned" value={`${fmtNum(burns.data.totals.amountTokens)} ${t.symbol}`} />
+              <Mini label="USD at burn" value={fmtUsd(burns.data.totals.valueUsdAtBurn)} />
+              <Mini label="Burn events" value={fmtNum(burns.data.totals.burnCount)} />
+            </div>
+            <div className="table-wrap max-h-72 overflow-y-auto">
+              <table className="data">
+                <thead><tr><th>When</th><th className="r">{t.symbol}</th><th className="r">USD</th><th>Source</th><th>Tx</th></tr></thead>
+                <tbody>
+                  {burns.data.burns.slice(0, 20).map((b) => (
+                    <tr key={b.signature}>
+                      <td className="text-muted num">{timeAgo(b.burnedAt, now)}</td>
+                      <td className="r num">{fmtNum(b.amountTokens, 2)}</td>
+                      <td className="r num">{fmtUsd(b.valueUsdAtBurn)}</td>
+                      <td className="text-secondary">{b.source}</td>
+                      <td><ExplorerLink addr={b.signature} kind="tx" label={shortAddr(b.signature, 5)} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="text-xs text-muted mt-2">Platform fee sweeps burned on-chain; the API returns the most recent {burns.data.burns.length} of {fmtNum(burns.data.totals.burnCount)}.</div>
+          </>
+        ) : (
+          <div className="text-xs text-muted">No burns recorded for this token.</div>
+        )}
+        <div className="mt-2 src">/tokens/{"{mint}"}/burns · 60s</div>
+      </Section>
+
+      {backing.data && (
+        <Section title="Backing">
+          <pre className="text-xs font-mono text-secondary overflow-x-auto whitespace-pre">{JSON.stringify(backing.data, null, 2)}</pre>
+        </Section>
+      )}
 
       <Section title="Price history">
         <div className="text-sm text-muted">
-          The StonkFun API only exposes current market values. Historical price, market cap and volume charts appear here once the snapshot
-          worker (see <code className="font-mono">supabase/</code> and <code className="font-mono">/api/cron/snapshot</code>) has been running against a database.
+          StonkFun&apos;s API only exposes current market values. Price, market cap and volume charts will appear here from stonk.fyi&apos;s own 5-minute snapshots
+          once enough history has accumulated (the top 100 tokens by volume are recorded every 5 minutes, the top 500 hourly).
         </div>
       </Section>
+    </div>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="label">{label}</div>
+      <div className="num text-lg font-medium mt-1 truncate">{value}</div>
     </div>
   );
 }

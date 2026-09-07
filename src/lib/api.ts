@@ -3,6 +3,8 @@ import type {
   ApiEnvelope,
   PricePoint,
   TokenBurns,
+  TokenFees,
+  TokenRewards,
   Launch,
   LaunchesResponse,
   Pair,
@@ -143,13 +145,15 @@ export async function getToken(mint: string): Promise<ApiEnvelope<TokenDetail> |
   }
 }
 
-// Sub-resources are optional: fixture mode returns null, live mode tolerates 404s.
-async function optional<T>(path: string, revalidate = 60): Promise<T | null> {
-  if (USE_FIXTURES) return null;
+// Sub-resources are optional. Any 4xx means "not available for this token" (e.g. /backing returns
+// 400 "Backing is only tracked for Pump launches" for almost every mint) and yields null; only
+// 5xx and network failures throw, and the token page isolates those per section.
+async function optional<T>(path: string, revalidate = 60, fixtureName?: string): Promise<T | null> {
+  if (USE_FIXTURES) return fixtureName ? (await fixture<T>(fixtureName)).data : null;
   try {
     return (await get<T>(path, undefined, revalidate)).data;
   } catch (e) {
-    if (e instanceof ApiError && (e.status === 404 || e.status === 403)) return null;
+    if (e instanceof ApiError && e.status >= 400 && e.status < 500) return null;
     throw e;
   }
 }
@@ -161,8 +165,9 @@ export async function getTokenBurns(mint: string, revalidate = 60): Promise<Toke
   }
   return optional<TokenBurns>(`/tokens/${mint}/burns`, revalidate);
 }
-export const getTokenRewards = (mint: string) => optional<Record<string, unknown>>(`/tokens/${mint}/rewards`);
-export const getTokenFees = (mint: string) => optional<Record<string, unknown>>(`/tokens/${mint}/fees`);
+export const getTokenRewards = (mint: string) => optional<TokenRewards>(`/tokens/${mint}/rewards`, 60, mint === STONK_MINT ? "token-rewards-standard" : "token-rewards-reward");
+export const getTokenFees = (mint: string) => optional<TokenFees>(`/tokens/${mint}/fees`, 60, mint === STONK_MINT ? "token-fees-standard" : "token-fees-reward");
+// Only Pump launches have backing; everything else 400s → null. Shape not verified, rendered as JSON.
 export const getTokenBacking = (mint: string) => optional<Record<string, unknown>>(`/tokens/${mint}/backing`);
 
 // ---------- Launches ----------

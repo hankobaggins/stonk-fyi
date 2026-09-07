@@ -46,7 +46,7 @@ export default async function PlatformPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Platform overview</h1>
           <p className="text-sm text-muted mt-0.5">
-            StonkFun launchpad on Solana mainnet · API snapshot {timeAgo(stats.meta.generatedAt, now)}
+            StonkFun launchpad on Solana mainnet · StonkFun snapshot {timeAgo(stats.meta.generatedAt, now)}
           </p>
         </div>
       </div>

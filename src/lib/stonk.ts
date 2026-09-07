@@ -132,98 +132,98 @@ async function computeStonkData(): Promise<StonkData> {
   const indicators: Indicator[] = [
     {
       key: "burnrate",
-      label: "Current burn velocity",
+      label: "Burn velocity",
       value: burnRate ? `${burnRate.pctSupplyPerDay.toFixed(2)}% / day` : "—",
       detail: burnRate
-        ? `${num(burnRate.tokensPerHour)} STONK/hour over the last ${burnRate.sample} burns (${burnRate.windowHours.toFixed(1)}h window) ≈ ${burnRate.annualizedPct.toFixed(0)}% of supply annualized at this pace.`
+        ? `${num(burnRate.tokensPerHour)} STONK/hour over the last ${burnRate.sample} burns (${burnRate.windowHours.toFixed(1)}h) · ${burnRate.annualizedPct.toFixed(0)}% of supply a year at this pace.`
         : "Burn ledger unavailable.",
       signal: burnRate ? (burnRate.pctSupplyPerDay > 0.3 ? "bull" : burnRate.pctSupplyPerDay > 0.05 ? "neutral" : "bear") : "info",
       group: "flywheel",
-      source: "/tokens/{mint}/burns",
+      source: "/tokens/{mint}/burns · 60s",
     },
     {
       key: "buyback",
-      label: "Automated buyback pressure",
+      label: "Buyback pressure",
       value: `${usd(dailyBuyback)} / day`,
-      detail: `${(buybackShare * 100).toFixed(0)}% of platform fee revenue is swept into STONK buys every few minutes, then burned. ${num(revenue.revenue.buybackCount)} buybacks, ${usd(revenue.revenue.totalBuybackUsd)} lifetime.`,
+      detail: `${(buybackShare * 100).toFixed(0)}% of fee revenue buys STONK every few minutes, then burns it · ${usd(revenue.revenue.totalBuybackUsd)} lifetime.`,
       signal: dailyBuyback > 10_000 ? "bull" : dailyBuyback > 1_000 ? "neutral" : "bear",
       group: "flywheel",
-      source: "/revenue, /revenue/history",
+      source: "/revenue · 30s",
     },
     {
       key: "buybackvol",
-      label: "Buybacks as share of daily volume",
+      label: "Buybacks / 24h volume",
       value: buybackVsVolume !== null ? `${buybackVsVolume.toFixed(1)}%` : "—",
-      detail: "Programmatic buy-side flow relative to STONK's 24h trading volume. Higher = the flywheel is a larger share of the order flow.",
+      detail: "How much of STONK's daily order flow is the flywheel itself.",
       signal: buybackVsVolume === null ? "info" : buybackVsVolume > 1 ? "bull" : buybackVsVolume > 0.25 ? "neutral" : "bear",
       group: "flywheel",
     },
     {
       key: "revgrowth",
-      label: "Platform revenue growth (7d vs prior 7d)",
+      label: "Revenue growth, 7d",
       value: rev7Delta !== null ? pct(rev7Delta, 0) : "—",
-      detail: `${usd(rev7)} in fees over the last 7 days vs ${usd(revPrev7)} the week before. Revenue is the input to the buyback engine.`,
+      detail: `${usd(rev7)} in fees this week vs ${usd(revPrev7)} the week before.`,
       signal: rev7Delta === null ? "info" : rev7Delta > 20 ? "bull" : rev7Delta > -10 ? "neutral" : "bear",
       group: "flywheel",
-      source: "/revenue/history",
+      source: "/revenue/history · 5 min",
     },
     {
       key: "buybackprice",
-      label: "Price vs average buyback price",
+      label: "Price vs avg buyback price",
       value: buybackMultiple ? `${buybackMultiple.toFixed(1)}×` : "—",
       detail: avgBuybackPrice
-        ? `Lifetime buybacks averaged $${avgBuybackPrice.toFixed(5)} per STONK; current price is $${(m.priceUsd ?? 0).toFixed(4)}. Every burned token was removed below today's price.`
+        ? `Buybacks averaged $${avgBuybackPrice.toFixed(5)} per STONK vs $${(m.priceUsd ?? 0).toFixed(4)} now.`
         : "",
       signal: buybackMultiple ? (buybackMultiple > 1 ? "bull" : "bear") : "info",
       group: "flywheel",
     },
     {
       key: "quoted",
-      label: "STONK-quoted activity (24h)",
+      label: "STONK-quoted volume, 24h",
       value: `${usd(quotedVolume)}`,
-      detail: `Traded through the ${num(quotedTotal)} pools quoted in STONK (${quotedGraduated} graduated, ${quotedNew24h} launched in the last 24h; ${usd(quotedMcap)} market cap denominated in STONK). These pools need STONK as a base asset, which is demand beyond speculation on STONK itself.`,
+      detail: `Through ${num(quotedTotal)} pools priced in STONK (${quotedGraduated} graduated, ${quotedNew24h} launched today, ${usd(quotedMcap)} combined market cap).`,
       // Total-ever count only rises, so it is not the score; 24h volume through STONK-quoted pools is.
       signal: quotedVolume >= 1_000_000 ? "bull" : quotedVolume >= 100_000 ? "neutral" : "bear",
       group: "demand",
-      source: "/tokens?quoteMint=STONK",
+      source: "/tokens?quoteMint=STONK · 30s",
     },
     {
       key: "pooldepth",
-      label: "Main pool depth (STONK/SPYx)",
+      label: "Main pool depth",
       value: pool ? usd(pool.tvl) : "—",
       detail: pool && sides
-        ? `${num(sides.stonkReserve)} STONK + ${num(sides.quoteReserve)} ${sides.quote.symbol} in the Raydium ${pool.type.toLowerCase()} pool · ${(pool.feeRate * 100).toFixed(0)}% fee · ${usd(pool.day?.volume ?? 0)} pool volume 24h. Thin depth means the buyback moves price more, and so does everyone else.${gmgn?.biggestPool && gmgn.biggestPool.address !== STONK_POOL ? ` The largest STONK pool GMGN sees is ${gmgn.biggestPool.exchange} STONK/${gmgn.biggestPool.quoteSymbol} at ${usd(gmgn.biggestPool.liquidityUsd)}.` : ""}`
+        ? `${num(sides.stonkReserve)} STONK + ${num(sides.quoteReserve)} ${sides.quote.symbol} on Raydium · ${usd(pool.day?.volume ?? 0)} volume 24h.${gmgn?.biggestPool && gmgn.biggestPool.address !== STONK_POOL ? ` ${gmgn.biggestPool.exchange} STONK/${gmgn.biggestPool.quoteSymbol} is deeper at ${usd(gmgn.biggestPool.liquidityUsd)}.` : ""}`
         : "Raydium pool info unavailable.",
       signal: pool ? (pool.tvl > 5_000_000 ? "bull" : pool.tvl > 500_000 ? "neutral" : "bear") : "info",
       group: "demand",
-      source: "api-v3.raydium.io",
+      source: "api-v3.raydium.io · 60s",
     },
     {
       key: "netflow",
-      label: "Net flow through main pool (24h)",
+      label: "Net flow, main pool, 24h",
       value: flowReady && flow ? `${flow.netStonkIntoPool <= 0 ? "" : "−"}${usd(Math.abs(flow.netStonkUsd))} ${flow.netStonkIntoPool <= 0 ? "net buying" : "net selling"}` : "collecting",
       detail: flowReady && flow
-        ? `Pool's STONK reserve moved from ${num(flow.stonkReserveStart)} to ${num(flow.stonkReserveEnd)} over ${flowHours.toFixed(0)}h (${flow.samples} snapshots). Reserve falling = STONK leaving the pool = net buying.`
+        ? `STONK reserve ${num(flow.stonkReserveStart)} → ${num(flow.stonkReserveEnd)} over ${flowHours.toFixed(0)}h. A falling reserve is net buying.`
         : flow
-          ? `${flowHours < 1 ? `${Math.round(flowHours * 60)} minutes` : `${flowHours.toFixed(0)}h`} of pool snapshots so far (${flow.samples}); scored once 12h of readings exist.`
-          : "Needs the snapshot worker running against Supabase; the first reading appears after ~12h of pool snapshots.",
+          ? `Scored after 12h of pool snapshots (${flowHours < 1 ? `${Math.round(flowHours * 60)} min` : `${flowHours.toFixed(0)}h`} so far).`
+          : "Scored after 12h of pool snapshots.",
       signal: flowReady && flow ? (flow.netStonkIntoPool < 0 ? "bull" : flow.netStonkIntoPool > 0 ? "bear" : "neutral") : "info",
       group: "demand",
-      source: "pool_snapshots",
+      source: "pool_snapshots · 5 min",
     },
     {
       key: "turnover",
-      label: "24h volume / market cap",
+      label: "Turnover, 24h",
       value: turnover !== null ? `${(turnover * 100).toFixed(1)}%` : "—",
-      detail: `${usd(m.volume24hUsd ?? 0)} traded against a ${usd(m.marketCapUsd ?? 0)} market cap. Healthy liquidity for a 6-week-old token; extreme values in either direction are a caution.`,
+      detail: `${usd(m.volume24hUsd ?? 0)} traded against a ${usd(m.marketCapUsd ?? 0)} market cap. Extremes either way are a caution.`,
       signal: turnover === null ? "info" : turnover > 0.02 && turnover < 1 ? "bull" : "neutral",
       group: "demand",
     },
     {
       key: "change24",
-      label: "24h price change",
+      label: "Price change, 24h",
       value: m.priceChange24h !== undefined ? pct(m.priceChange24h, 1) : "—",
-      detail: `Peak market cap ${usd(m.peakMarketCapUsd ?? 0)}; currently ${fromPeak !== null ? pct(fromPeak, 1) : "—"} from peak.`,
+      detail: "StonkFun's reported 24h change in USD price. Includes SPYx's own move.",
       signal: m.priceChange24h === undefined ? "info" : m.priceChange24h > 0 ? "bull" : m.priceChange24h > -15 ? "neutral" : "bear",
       group: "demand",
     },
@@ -231,18 +231,18 @@ async function computeStonkData(): Promise<StonkData> {
     ...(gmgn ? gmgnIndicators(gmgn, gmgnHistory) : []),
     {
       key: "platform",
-      label: "Launchpad volume (24h)",
+      label: "Launchpad volume, 24h",
       value: usd(stats.tokens.totalVolume24hUsd),
-      detail: `Across ${num(stats.tokens.total)} tokens (${num(stats.tokens.graduated)} graduated, ${usd(stats.tokens.totalMarketCapUsd)} total market cap). More activity → more fees → more burns.`,
+      detail: `Across ${num(stats.tokens.total)} tokens, ${num(stats.tokens.graduated)} graduated. More volume, more fees, more burns.`,
       signal: stats.tokens.totalVolume24hUsd > 10_000_000 ? "bull" : stats.tokens.totalVolume24hUsd > 1_000_000 ? "neutral" : "bear",
       group: "platform",
-      source: "/stats",
+      source: "/stats · 30s",
     },
     {
       key: "launchmult",
       label: "Growth since launch",
       value: launchMultiple ? `${num(launchMultiple)}×` : "—",
-      detail: `Launched ${Math.floor(daysLive)} days ago at a ${usd(launchMcap)} market cap on a STONK/SPYx pool; graduated ${token.graduatedAt ? `${Math.round((Date.parse(token.graduatedAt) - Date.parse(token.createdAt)) / 60000)} minutes` : "shortly"} later.`,
+      detail: `Launched ${Math.floor(daysLive)} days ago at a ${usd(launchMcap)} market cap; graduated ${token.graduatedAt ? `${Math.round((Date.parse(token.graduatedAt) - Date.parse(token.createdAt)) / 60000)} minutes` : "shortly"} later.`,
       signal: "info",
       group: "valuation",
     },
@@ -250,40 +250,33 @@ async function computeStonkData(): Promise<StonkData> {
       key: "ps",
       label: "Market cap / annualized revenue",
       value: psRatio ? `${psRatio.toFixed(1)}×` : "—",
-      detail: `7-day run-rate revenue annualizes to ${usd(annualizedRun7)} (lifetime pace: ${usd(annualizedRevenue)}). STONK is backed by fee revenue, so this multiple is the valuation anchor.`,
+      detail: `7-day run rate annualizes to ${usd(annualizedRun7)} (lifetime pace ${usd(annualizedRevenue)}).`,
       signal: psRatio === null ? "info" : psRatio < 10 ? "bull" : psRatio < 30 ? "neutral" : "bear",
       group: "valuation",
     },
   ];
 
+  // Full days only: launch day and today are partial.
+  const revDays = days.slice(1, -1).map((d) => d.dailyRevenue).filter((v) => v > 0);
+  const revMin = revDays.length ? Math.min(...revDays) : 0;
+  const revMax = revDays.length ? Math.max(...revDays) : 0;
   const watch = [
+    {
+      label: "USD price rides SPYx",
+      detail: "STONK has no USD market of its own: its dollar price is the pool ratio × SPYx's price, so it carries S&P 500 beta, and because SPYx has no live reference outside US market hours the USD figure can drift over weekends and gap at Monday open. StonkFun's own SPYx-priced chart only rises when STONK outruns the index.",
+    },
     ...(gmgn?.biggestPool && gmgn.biggestPool.quoteSymbol !== "SPYx"
       ? [{
           label: "Two reference prices",
-          detail: `GMGN's largest STONK pool is ${gmgn.biggestPool.exchange} STONK/${gmgn.biggestPool.quoteSymbol} (${usd(gmgn.biggestPool.liquidityUsd)} liquidity), which gives a USD price independent of SPYx. The spread between it and StonkFun's figure is shown under the price; a persistent gap means one of the two feeds is stale.`,
+          detail: `${gmgn.biggestPool.exchange} STONK/${gmgn.biggestPool.quoteSymbol} (${usd(gmgn.biggestPool.liquidityUsd)}) prices STONK without SPYx; the spread vs StonkFun is under the hero price. A persistent gap means one feed is stale.`,
         }]
       : []),
     {
-      label: "Index exposure via the quote asset",
-      detail: "STONK has no USD market of its own: its dollar price is the pool ratio × SPYx's dollar price. So STONK's USD price moves with the S&P 500 on top of anything STONK does (long index beta), while StonkFun's own chart, priced in SPYx, only rises when STONK outruns the index.",
-    },
-    {
-      label: "Weekend and off-hours pricing",
-      detail: "SPYx tracks an ETF that only trades during US market hours, but the token trades 24/7 on thin liquidity and a stale reference price. STONK's USD figure inherits that: it can drift over weekends and gap at the Monday open with no STONK trade involved.",
-    },
-    {
       label: "Revenue volatility",
-      detail: "Daily fees have ranged from under $20K to over $180K. Buyback pressure follows revenue with no lag, so a quiet week on the launchpad shrinks the burn immediately.",
-    },
-    {
-      label: fromPeak !== null && fromPeak < -20 ? "Distance from peak" : "Peak proximity",
-      detail: fromPeak !== null ? `Market cap is ${pct(fromPeak, 1)} from its all-time peak of ${usd(m.peakMarketCapUsd ?? 0)}.` : "",
-    },
-    {
-      label: "Data provenance",
-      detail: "USD values are StonkFun's own pricing. Burn amounts and transaction signatures are on-chain and verifiable; dollar figures are not.",
+      detail: `Daily fees have ranged from ${usd(revMin)} to ${usd(revMax)} since launch. Buyback pressure follows with no lag, in both directions.`,
     },
   ];
+  void fromPeak;
 
   return {
     token,
@@ -323,7 +316,7 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
   const pct = (n: number, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
   const usd = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(2)}`);
   const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
-  const src = "openapi.gmgn.ai";
+  const src = "openapi.gmgn.ai · 60s";
 
   const histReady = !!hist && hist.hours >= 12;
   const holderDelta = histReady ? g.holderCount - hist.first.holderCount : null;
@@ -338,35 +331,35 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
       label: "Holders",
       value: num(g.holderCount),
       detail: histReady && holderDelta !== null && holderDeltaPct !== null
-        ? `${holderDelta >= 0 ? "+" : ""}${num(holderDelta)} wallets (${pct(holderDeltaPct, 2)}) over the last ${hist!.hours.toFixed(0)}h. ${num(g.wallets.whale)} whales, ${(g.freshWalletRate * 100).toFixed(0)}% fresh wallets among holders.`
-        : `${num(g.wallets.whale)} whale wallets; ${(g.freshWalletRate * 100).toFixed(0)}% of holders are fresh wallets. Scored on 24h growth once the snapshot worker has ${hist ? `${hist.hours.toFixed(0)}h` : "0h"} → 12h of readings.`,
+        ? `${holderDelta >= 0 ? "+" : ""}${num(holderDelta)} wallets (${pct(holderDeltaPct, 2)}) in ${hist!.hours.toFixed(0)}h · ${num(g.wallets.whale)} whales · ${(g.freshWalletRate * 100).toFixed(0)}% fresh wallets.`
+        : `${num(g.wallets.whale)} whales · ${(g.freshWalletRate * 100).toFixed(0)}% fresh wallets. Scored on 24h change after 12h of snapshots (${hist ? `${hist.hours.toFixed(0)}h` : "0h"} so far).`,
       signal: histReady && holderDeltaPct !== null ? (holderDeltaPct > 0.5 ? "bull" : holderDeltaPct >= -0.5 ? "neutral" : "bear") : "info",
       group: "holders",
       source: src,
     },
     {
       key: "top10",
-      label: "Top-10 holder concentration",
+      label: "Top-10 concentration",
       value: `${top10.toFixed(1)}%`,
-      detail: `Share of supply in the ten largest wallets, pools included. Lower is harder to dump; StonkFun's own buyback wallet does not hold, it burns.`,
+      detail: "Share of supply in the ten largest wallets, pools included.",
       signal: top10 < 20 ? "bull" : top10 < 35 ? "neutral" : "bear",
       group: "holders",
       source: src,
     },
     {
       key: "buypressure",
-      label: "Buy share of 24h volume, all STONK pools",
+      label: "Buy share, 24h, all pools",
       value: buyShare !== null ? `${(buyShare * 100).toFixed(1)}%` : "—",
-      detail: `${usd(g.vol24h.buyUsd)} bought vs ${usd(g.vol24h.sellUsd)} sold across every pool STONK trades in (${num(g.vol24h.buys)} buys, ${num(g.vol24h.sells)} sells). Counts every STONK-quoted pool, so it is far larger than the main pool's volume.`,
+      detail: `${usd(g.vol24h.buyUsd)} bought vs ${usd(g.vol24h.sellUsd)} sold across every pool STONK trades in.`,
       signal: buyShare === null ? "info" : buyShare > 0.52 ? "bull" : buyShare >= 0.48 ? "neutral" : "bear",
       group: "holders",
       source: src,
     },
     {
       key: "smartmoney",
-      label: "Smart money & KOL wallets holding",
+      label: "Smart-money holders",
       value: `${num(g.wallets.smart)} · ${num(g.wallets.kol)}`,
-      detail: `${num(g.wallets.smart)} wallets GMGN tags as smart money and ${num(g.wallets.kol)} KOL wallets hold STONK.${g.smartTop ? ` Top ${g.smartTop.n} smart-money holders: ${usd(g.smartTop.buyUsd)} bought, ${usd(g.smartTop.sellUsd)} sold lifetime, ${g.smartTop.pctHeld.toFixed(3)}% of supply held.` : ""}`,
+      detail: `${num(g.wallets.smart)} smart-money and ${num(g.wallets.kol)} KOL wallets, as tagged by GMGN.`,
       signal: g.wallets.smart >= 100 ? "bull" : g.wallets.smart >= 25 ? "neutral" : "bear",
       group: "holders",
       source: src,

@@ -111,7 +111,8 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
           {buybackVsVol !== null && <>, about <span className="text-primary num">{(buybackVsVol * 100).toFixed(1)}%</span> of STONK&apos;s daily volume</>}.
         </p>
         <p>
-          <span className="text-primary">Floor</span> assumes the market holds market cap flat and the only effect is fewer tokens. <span className="text-primary">Ceiling</span> pushes every buyback dollar through a constant-product pool with the live quote-side depth and assumes nobody sells into it. That is a fiction: the other ~99% of flow is not modeled, and the real pool is concentrated-liquidity, which usually has less slippage near the current price than constant-product. The flywheel&apos;s contribution sits somewhere between the two; the crowd decides the rest. This models one input mechanically and is not a price forecast.
+          <span className="text-primary">Floor</span>: fewer tokens, market cap held flat. <span className="text-primary">Ceiling</span>: every buyback dollar as a net buy that nobody sells into, a deliberate over-estimate. Models one input only; not a forecast.{" "}
+          <a href="/about#projection" className="underline underline-offset-2 hover:text-primary">How this works →</a>
         </p>
       </div>
     </div>

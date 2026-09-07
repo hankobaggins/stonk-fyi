@@ -34,10 +34,10 @@ export default function LiveRefresh({ intervalMs = 60_000 }: { intervalMs?: numb
         setSecs(0);
       }}
       className="flex items-center gap-2 text-xs text-muted hover:text-primary"
-      title="Auto-refreshes every minute. Click to refresh now."
+      title={`Page refreshes every ${Math.round(intervalMs / 1000)}s; each figure shows its own upstream cache window next to its source. Click to refresh now.`}
     >
       <span className="live-dot" />
-      <span className="num">live · {secs}s</span>
+      <span className="num">updated {secs}s ago</span>
     </button>
   );
 }

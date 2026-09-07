@@ -18,7 +18,7 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
     rows: [
       ["Burn rate", "tokens burned per hour over the most recent burn window, as % of supply per day", "> 0.3% / day"],
       ["Buyback pressure", "7-day revenue × lifetime buyback share (total buybacks ÷ total revenue) ÷ 7", "> $10K / day"],
-      ["Buybacks vs volume", "estimated daily buybacks ÷ STONK 24h volume", "> 1%"],
+      ["Buybacks / 24h volume", "estimated daily buybacks ÷ STONK 24h volume", "> 1%"],
       ["Revenue growth", "last 7 days of platform revenue vs the 7 days before", "> +20%"],
       ["Price vs avg buyback", "price ÷ (total USD spent on buybacks ÷ tokens bought back)", "> 1×"],
     ],
@@ -26,11 +26,11 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
   {
     group: "Demand",
     rows: [
-      ["STONK-quoted activity", "24h volume through pools whose quote asset is STONK (the count of such pools only rises, so it is not scored)", "> $1M (neutral > $100K)"],
+      ["STONK-quoted volume", "24h volume through pools whose quote asset is STONK (the count of such pools only rises, so it is not scored)", "> $1M (neutral > $100K)"],
       ["Pool depth", "Raydium TVL of the main STONK/SPYx pool", "> $5M (neutral above $500K)"],
       ["Net flow", "change in the pool's STONK reserve over 24h; a falling reserve means net buying", "net buying"],
       ["Turnover", "24h volume ÷ market cap", "2% – 100%"],
-      ["24h change", "StonkFun's reported 24h price change", "> 0"],
+      ["Price change, 24h", "StonkFun's reported 24h change in USD price (includes SPYx's move)", "> 0"],
     ],
   },
   {
@@ -39,7 +39,7 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
       ["Holders", "unique holder wallets; scored on 24h change once 12h of snapshots exist", "> +0.5% / 24h"],
       ["Top-10 concentration", "share of supply in the ten largest wallets, pools included", "< 20% (neutral below 35%)"],
       ["Buy share of volume", "24h buy volume ÷ (buy + sell volume) across every pool STONK trades in", "> 52% (neutral 48–52%)"],
-      ["Smart money", "wallets GMGN tags as smart money currently holding STONK", "≥ 100 (neutral ≥ 25)"],
+      ["Smart-money holders", "wallets GMGN tags as smart money currently holding STONK", "≥ 100 (neutral ≥ 25)"],
     ],
   },
   { group: "Platform", rows: [["Launchpad volume", "launchpad-wide 24h trading volume (token count only rises, so it is not scored)", "> $10M (neutral > $1M)"]] },
@@ -50,6 +50,18 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
       ["Price-to-sales", "market cap ÷ (7-day revenue × 52)", "< 10×"],
     ],
   },
+];
+
+const CADENCE: [string, string, string][] = [
+  ["Page render", "server components, re-fetched by the browser", "60s"],
+  ["Buyback / burn toasts", "/api/buybacks", "20s"],
+  ["Price, market cap, volume, token list, revenue, stats", "StonkFun API", "30s"],
+  ["Burn ledger, rewards, creator fees", "StonkFun API", "60s"],
+  ["Main pool reserves and TVL", "Raydium", "60s"],
+  ["Holders, concentration, buy/sell volume, wallet tags", "GMGN", "60s"],
+  ["Revenue history (daily)", "StonkFun API", "5 min"],
+  ["Net flow, holder growth, token history", "stonk.fyi snapshots in Postgres: STONK, the main pool and the top 100 tokens every 5 min; top 500 hourly; all tokens daily", "5 min"],
+  ["90-day price chart", "CoinGecko", "10 min"],
 ];
 
 export default function AboutPage() {
@@ -102,10 +114,28 @@ export default function AboutPage() {
             <span className="text-primary">CoinGecko</span>: 90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when
             it is unavailable.
           </p>
-          <p>
-            Pages refresh every 60 seconds; upstream data is cached for 30 seconds to 10 minutes depending on how fast it changes. The snapshot time is
-            shown at the top of the $STONK page.
-          </p>
+        </div>
+      </Section>
+
+      <Section title="How fresh is this?">
+        <p className="text-sm text-secondary leading-relaxed mb-3">
+          Every page re-renders itself every <span className="num text-primary">60 seconds</span> (the &quot;updated Ns ago&quot; counter in the nav). Each
+          figure&apos;s source line shows how long the site caches that upstream, so a number can be up to that much older than the counter. StonkFun&apos;s own
+          API is itself a snapshot, usually 20–30 seconds behind the chain; its timestamp is shown next to the price.
+        </p>
+        <div className="table-wrap">
+          <table className="data min-w-[520px]">
+            <thead><tr><th>What</th><th>Source</th><th className="r">Refreshes</th></tr></thead>
+            <tbody>
+              {CADENCE.map(([what, src, every]) => (
+                <tr key={what}>
+                  <td className="text-primary">{what}</td>
+                  <td className="text-secondary !whitespace-normal">{src}</td>
+                  <td className="r num">{every}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Section>
 
@@ -147,7 +177,7 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section title="The projection">
+      <div id="projection" className="scroll-mt-20" /><Section title="The projection">
         <div className="text-sm text-secondary space-y-3 leading-relaxed">
           <p>
             The flywheel projection on the $STONK page models one thing: what revenue-funded buybacks alone do to price over a horizon. It brackets
@@ -170,7 +200,7 @@ export default function AboutPage() {
           <li>Daily buyback dollars are estimated as daily revenue × lifetime buyback share until the site&apos;s own history has enough recorded buybacks.</li>
           <li>Pool depth and net flow cover the main Raydium pool only. STONK also trades through Jupiter routing and in every STONK-quoted pool.</li>
           <li>Holder count, concentration and wallet tags come from GMGN&apos;s indexer, not from this site&apos;s own on-chain reads. GMGN&apos;s 24h volume counts every STONK-quoted pool, so it is many times the main pool&apos;s volume; the two figures measure different things.</li>
-          <li>Platform revenue has ranged from under $20K to over $1.5M per day since launch. Buyback pressure follows it with no lag, in both directions.</li>
+          <li>Platform revenue is volatile: daily fees have spanned roughly two orders of magnitude since launch (the live range is in &quot;What to watch&quot; on the $STONK page). Buyback pressure follows it with no lag, in both directions.</li>
         </ul>
       </Section>
 
