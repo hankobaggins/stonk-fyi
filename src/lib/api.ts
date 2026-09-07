@@ -153,12 +153,12 @@ async function optional<T>(path: string, revalidate = 60): Promise<T | null> {
   }
 }
 
-export async function getTokenBurns(mint: string): Promise<TokenBurns | null> {
+export async function getTokenBurns(mint: string, revalidate = 60): Promise<TokenBurns | null> {
   if (USE_FIXTURES) {
     if (mint !== STONK_MINT) return null;
     return (await fixture<TokenBurns>("stonk-burns")).data;
   }
-  return optional<TokenBurns>(`/tokens/${mint}/burns`, 60);
+  return optional<TokenBurns>(`/tokens/${mint}/burns`, revalidate);
 }
 export const getTokenRewards = (mint: string) => optional<Record<string, unknown>>(`/tokens/${mint}/rewards`);
 export const getTokenFees = (mint: string) => optional<Record<string, unknown>>(`/tokens/${mint}/fees`);
