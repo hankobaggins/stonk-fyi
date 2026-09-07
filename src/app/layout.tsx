@@ -5,6 +5,8 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Ticker from "@/components/Ticker";
+import BuybackToasts from "@/components/BuybackToasts";
+import AlertsToggle from "@/components/AlertsToggle";
 import { getStonkData } from "@/lib/stonk";
 import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 
@@ -40,8 +42,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <span>USD figures are StonkFun&apos;s own pricing; burn amounts and tx signatures are on-chain.</span>
             <span>Not financial advice.</span>
             <Link href="/about" className="hover:text-primary underline underline-offset-2">Methodology &amp; sources</Link>
+            <AlertsToggle />
           </div>
         </footer>
+        <BuybackToasts />
       </body>
     </html>
   );

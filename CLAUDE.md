@@ -35,6 +35,7 @@ src/app/                    routes
   flywheel/page.tsx         revenue → buyback → burn
   launches/page.tsx         launch ledger & velocity
   about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
+  api/buybacks/route.ts     lightweight recent-buybacks feed for the toasts (no-store; upstream cached ~30s)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
   api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6
   opengraph-image.tsx, twitter-image.tsx   social card (next/og; dynamic, carries the live tally bar), icon.svg (burn ring favicon), robots.ts, sitemap.ts
@@ -51,6 +52,8 @@ src/components/
   charts.tsx                Recharts wrappers (client). Formatting is chosen by a `fmt: "usd" | "count"` prop — never pass functions from server to client components
   Scorecard.tsx             indicator sections (supply / flywheel / demand / platform & valuation) + TallyBar + "What to watch" frame
   Ticker.tsx, BurnRing.tsx  mono ticker strip under the nav (incl. implied SPYx price + US market-hours note); the ring mark
+  BuybackToasts.tsx, AlertsToggle.tsx   site-wide toast per protocol buyback/burn (polls /api/buybacks every 20s, dedupes by signature,
+                            seeds on first load so history is not replayed, groups a burst into one toast; mute in localStorage via lib/alerts.ts)
   Projection.tsx            client-side flywheel projection with sliders (floor & ceiling models)
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
