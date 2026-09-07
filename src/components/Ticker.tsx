@@ -34,6 +34,7 @@ export default function Ticker({ d }: { d: StonkData }) {
           <span><span className="k">LAST BURN</span> <b>{timeAgo(lastBurn.burnedAt, now)}</b> · {fmtNum(lastBurn.amountTokens)} STONK</span>
         )}
         {d.pool && <span><span className="k">POOL TVL</span> <b>{fmtUsd(d.pool.tvl)}</b></span>}
+        {d.gmgn && <span><span className="k">HOLDERS</span> <b>{fmtNum(d.gmgn.holderCount)}</b></span>}
         {spyxImplied && (
           <span>
             <span className="k">SPYx</span> <b>{fmtUsd(spyxImplied)}</b>{" "}

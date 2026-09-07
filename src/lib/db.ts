@@ -37,3 +37,21 @@ export async function getPoolFlow(poolId: string, hours = 24, stonkPriceUsd?: nu
     samples: data.length,
   };
 }
+
+export type GmgnHistoryPoint = { ts: string; holderCount: number; priceUsd: number | null };
+
+// Oldest GMGN snapshot inside the window (default 24h) plus the newest, for holder-growth deltas.
+export async function getGmgnHistory(hours = 24): Promise<{ first: GmgnHistoryPoint; last: GmgnHistoryPoint; hours: number } | null> {
+  const db = getDb();
+  if (!db) return null;
+  const since = new Date(Date.now() - hours * 3.6e6).toISOString();
+  const { data, error } = await db.from("gmgn_snapshots").select("ts, holder_count, price_usd").gte("ts", since).order("ts", { ascending: true });
+  if (error || !data || data.length < 2) return null;
+  const f = data[0];
+  const l = data[data.length - 1];
+  return {
+    first: { ts: f.ts, holderCount: f.holder_count, priceUsd: f.price_usd },
+    last: { ts: l.ts, holderCount: l.holder_count, priceUsd: l.price_usd },
+    hours: (Date.parse(l.ts) - Date.parse(f.ts)) / 3.6e6,
+  };
+}

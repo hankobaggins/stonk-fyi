@@ -2,7 +2,8 @@ import { cache } from "react";
 import "server-only";
 import { getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "./api";
 import { getPoolInfo, poolSides } from "./raydium";
-import { getPoolFlow } from "./db";
+import { getGmgnHistory, getPoolFlow } from "./db";
+import { getGmgnStonk, type GmgnData } from "./gmgn";
 import type { BurnEvent, PoolFlow, PoolInfo, PricePoint, Revenue, RevenueDay, Stats, Token, TokenBurns } from "./types";
 
 // STONK launched 2026-07-23 with a fixed 1B supply; mint and freeze authority are null,
@@ -19,7 +20,7 @@ export type Indicator = {
   value: string;
   detail: string;
   signal: Signal;
-  group: "supply" | "flywheel" | "demand" | "platform" | "valuation";
+  group: "supply" | "flywheel" | "demand" | "holders" | "platform" | "valuation";
   source?: string;
 };
 
@@ -35,6 +36,8 @@ export type StonkData = {
   pool: PoolInfo | null;
   poolSides: ReturnType<typeof poolSides> | null;
   flow: PoolFlow | null;
+  gmgn: GmgnData | null;
+  gmgnHistory: Awaited<ReturnType<typeof getGmgnHistory>>;
   projection: { price: number; supply: number; marketCap: number; dailyRevenue: number; buybackShare: number; volume24h: number; quoteDepthUsd: number | null; poolVolume24h: number | null };
   supply: { initial: number; burned: number; burnedPct: number; circulating: number; impliedFromMarket?: number };
   burnRate: { tokensPerHour: number; usdPerHour: number; windowHours: number; sample: number; pctSupplyPerDay: number; annualizedPct: number } | null;
@@ -85,7 +88,7 @@ async function computeStonkData(): Promise<StonkData> {
   const impliedFromMarket = m.priceUsd && m.marketCapUsd ? m.marketCapUsd / m.priceUsd : undefined;
   const supply = { initial: STONK_INITIAL_SUPPLY, burned, burnedPct: (burned / STONK_INITIAL_SUPPLY) * 100, circulating, impliedFromMarket };
   const sides = pool ? poolSides(pool, STONK_MINT, m.priceUsd) : null;
-  const flow = await getPoolFlow(STONK_POOL, 24, m.priceUsd);
+  const [flow, gmgn, gmgnHistory] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnStonk(), getGmgnHistory(24)]);
   // A reserve delta over a few minutes is noise, not a 24h flow: only score once the window has real coverage.
   const flowHours = flow ? (new Date(flow.to).getTime() - new Date(flow.from).getTime()) / 3.6e6 : 0;
   const flowReady = flowHours >= 12;
@@ -197,7 +200,7 @@ async function computeStonkData(): Promise<StonkData> {
       label: "Main pool depth (STONK/SPYx)",
       value: pool ? usd(pool.tvl) : "—",
       detail: pool && sides
-        ? `${num(sides.stonkReserve)} STONK + ${num(sides.quoteReserve)} ${sides.quote.symbol} in the Raydium ${pool.type.toLowerCase()} pool · ${(pool.feeRate * 100).toFixed(0)}% fee · ${usd(pool.day?.volume ?? 0)} pool volume 24h. Thin depth means the buyback moves price more, and so does everyone else.`
+        ? `${num(sides.stonkReserve)} STONK + ${num(sides.quoteReserve)} ${sides.quote.symbol} in the Raydium ${pool.type.toLowerCase()} pool · ${(pool.feeRate * 100).toFixed(0)}% fee · ${usd(pool.day?.volume ?? 0)} pool volume 24h. Thin depth means the buyback moves price more, and so does everyone else.${gmgn?.biggestPool && gmgn.biggestPool.address !== STONK_POOL ? ` The largest STONK pool GMGN sees is ${gmgn.biggestPool.exchange} STONK/${gmgn.biggestPool.quoteSymbol} at ${usd(gmgn.biggestPool.liquidityUsd)}.` : ""}`
         : "Raydium pool info unavailable.",
       signal: pool ? (pool.tvl > 5_000_000 ? "bull" : pool.tvl > 500_000 ? "neutral" : "bear") : "info",
       group: "demand",
@@ -232,6 +235,8 @@ async function computeStonkData(): Promise<StonkData> {
       signal: m.priceChange24h === undefined ? "info" : m.priceChange24h > 0 ? "bull" : m.priceChange24h > -15 ? "neutral" : "bear",
       group: "demand",
     },
+    // ---- Holders & flow (GMGN) ----
+    ...(gmgn ? gmgnIndicators(gmgn, gmgnHistory, m.priceUsd) : []),
     {
       key: "platform",
       label: "Platform scale",
@@ -260,6 +265,12 @@ async function computeStonkData(): Promise<StonkData> {
   ];
 
   const watch = [
+    ...(gmgn?.biggestPool && gmgn.biggestPool.quoteSymbol !== "SPYx"
+      ? [{
+          label: "Two reference prices",
+          detail: `GMGN's largest STONK pool is ${gmgn.biggestPool.exchange} STONK/${gmgn.biggestPool.quoteSymbol} (${usd(gmgn.biggestPool.liquidityUsd)} liquidity), which gives a USD price independent of SPYx. The spread between it and StonkFun's figure is shown under the price; a persistent gap means one of the two feeds is stale.`,
+        }]
+      : []),
     {
       label: "Index exposure via the quote asset",
       detail: "STONK has no USD market of its own: its dollar price is the pool ratio × SPYx's dollar price. So STONK's USD price moves with the S&P 500 on top of anything STONK does (long index beta), while StonkFun's own chart, priced in SPYx, only rises when STONK outruns the index.",
@@ -294,6 +305,8 @@ async function computeStonkData(): Promise<StonkData> {
     pool,
     poolSides: sides,
     flow,
+    gmgn,
+    gmgnHistory,
     projection: {
       price: m.priceUsd ?? 0,
       supply: circulating,
@@ -310,6 +323,80 @@ async function computeStonkData(): Promise<StonkData> {
     watch,
     generatedAt: tokenRes.meta.generatedAt,
   };
+}
+
+// GMGN-derived indicators: holder base, concentration, buy/sell pressure across every STONK pool,
+// smart-money presence, and the contract/LP baseline. Thresholds are first-pass judgment calls.
+function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHistory>>, priceUsd?: number): Indicator[] {
+  const pct = (n: number, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
+  const usd = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(2)}`);
+  const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
+  const src = "openapi.gmgn.ai";
+
+  const histReady = !!hist && hist.hours >= 12;
+  const holderDelta = histReady ? g.holderCount - hist.first.holderCount : null;
+  const holderDeltaPct = holderDelta !== null && hist ? (holderDelta / hist.first.holderCount) * 100 : null;
+
+  const buyShare = g.vol24h.buyUsd + g.vol24h.sellUsd ? g.vol24h.buyUsd / (g.vol24h.buyUsd + g.vol24h.sellUsd) : null;
+  const top10 = g.top10HolderRate * 100;
+  const checks = [
+    ["mint authority renounced", g.security.mintRenounced],
+    ["freeze authority renounced", g.security.freezeRenounced],
+    ["LP burned", g.security.lpBurned],
+    ["no buy/sell tax", g.security.buyTax === 0 && g.security.sellTax === 0],
+  ] as const;
+  const passed = checks.filter(([, ok]) => ok).length;
+  const spread = priceUsd && g.priceUsd ? ((g.priceUsd - priceUsd) / priceUsd) * 100 : null;
+
+  return [
+    {
+      key: "holders",
+      label: "Holders",
+      value: num(g.holderCount),
+      detail: histReady && holderDelta !== null && holderDeltaPct !== null
+        ? `${holderDelta >= 0 ? "+" : ""}${num(holderDelta)} wallets (${pct(holderDeltaPct, 2)}) over the last ${hist!.hours.toFixed(0)}h. ${num(g.wallets.whale)} whales, ${(g.freshWalletRate * 100).toFixed(0)}% fresh wallets among holders.`
+        : `${num(g.wallets.whale)} whale wallets; ${(g.freshWalletRate * 100).toFixed(0)}% of holders are fresh wallets. Scored on 24h growth once the snapshot worker has ${hist ? `${hist.hours.toFixed(0)}h` : "0h"} → 12h of readings.`,
+      signal: histReady && holderDeltaPct !== null ? (holderDeltaPct > 0.5 ? "bull" : holderDeltaPct >= -0.5 ? "neutral" : "bear") : "info",
+      group: "holders",
+      source: src,
+    },
+    {
+      key: "top10",
+      label: "Top-10 holder concentration",
+      value: `${top10.toFixed(1)}%`,
+      detail: `Share of supply in the ten largest wallets, pools included. Lower is harder to dump; StonkFun's own buyback wallet does not hold, it burns.`,
+      signal: top10 < 20 ? "bull" : top10 < 35 ? "neutral" : "bear",
+      group: "holders",
+      source: src,
+    },
+    {
+      key: "buypressure",
+      label: "Buy share of 24h volume, all STONK pools",
+      value: buyShare !== null ? `${(buyShare * 100).toFixed(1)}%` : "—",
+      detail: `${usd(g.vol24h.buyUsd)} bought vs ${usd(g.vol24h.sellUsd)} sold across every pool STONK trades in (${num(g.vol24h.buys)} buys, ${num(g.vol24h.sells)} sells). Counts every STONK-quoted pool, so it is far larger than the main pool's volume.`,
+      signal: buyShare === null ? "info" : buyShare > 0.52 ? "bull" : buyShare >= 0.48 ? "neutral" : "bear",
+      group: "holders",
+      source: src,
+    },
+    {
+      key: "smartmoney",
+      label: "Smart money & KOL wallets holding",
+      value: `${num(g.wallets.smart)} · ${num(g.wallets.kol)}`,
+      detail: `${num(g.wallets.smart)} wallets GMGN tags as smart money and ${num(g.wallets.kol)} KOL wallets hold STONK.${g.smartTop ? ` Top ${g.smartTop.n} smart-money holders: ${usd(g.smartTop.buyUsd)} bought, ${usd(g.smartTop.sellUsd)} sold lifetime, ${g.smartTop.pctHeld.toFixed(3)}% of supply held.` : ""}`,
+      signal: g.wallets.smart >= 100 ? "bull" : g.wallets.smart >= 25 ? "neutral" : "bear",
+      group: "holders",
+      source: src,
+    },
+    {
+      key: "safety",
+      label: "Contract & liquidity checks",
+      value: `${passed} of ${checks.length} pass`,
+      detail: `${checks.map(([name, ok]) => `${ok ? "✓" : "✗"} ${name}`).join(" · ")}${g.security.lpBurnedPct ? ` (${g.security.lpBurnedPct.toFixed(0)}% of LP burned)` : ""}.${spread !== null ? ` GMGN price ${pct(spread, 1)} vs StonkFun.` : ""}`,
+      signal: passed === checks.length ? "bull" : passed >= checks.length - 1 ? "neutral" : "bear",
+      group: "holders",
+      source: src,
+    },
+  ];
 }
 
 // Deduplicated per request: layout (nav ring + ticker) and page both need it.

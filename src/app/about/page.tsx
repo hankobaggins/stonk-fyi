@@ -39,6 +39,16 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
       ["24h change", "StonkFun's reported 24h price change", "> 0"],
     ],
   },
+  {
+    group: "Holders & flow (GMGN)",
+    rows: [
+      ["Holders", "unique holder wallets; scored on 24h change once 12h of snapshots exist", "> +0.5% / 24h"],
+      ["Top-10 concentration", "share of supply in the ten largest wallets, pools included", "< 20% (neutral below 35%)"],
+      ["Buy share of volume", "24h buy volume ÷ (buy + sell volume) across every pool STONK trades in", "> 52% (neutral 48–52%)"],
+      ["Smart money", "wallets GMGN tags as smart money currently holding STONK", "≥ 100 (neutral ≥ 25)"],
+      ["Contract & LP checks", "mint renounced, freeze renounced, LP burned, no tax", "4 of 4"],
+    ],
+  },
   { group: "Platform", rows: [["Platform volume", "launchpad-wide 24h trading volume", "> $10M"]] },
   {
     group: "Valuation",
@@ -88,6 +98,12 @@ export default function AboutPage() {
           <p>
             <span className="text-primary">Raydium</span> (<code className="font-mono text-xs">api-v3.raydium.io</code>): reserves, TVL and 24h volume of
             the main STONK/SPYx pool. Used for pool depth, net flow, and the projection&apos;s quote-side depth.
+          </p>
+          <p>
+            <span className="text-primary">GMGN</span> (<code className="font-mono text-xs">openapi.gmgn.ai</code>): holder count, top-10 concentration,
+            wallet tags (smart money, KOL, whales), buy and sell volume across every pool STONK trades in, contract and LP checks, and an
+            independent USD price from STONK&apos;s largest pool by liquidity. Shown under the price as a spread against StonkFun&apos;s figure.
+            Optional; the &quot;Holders &amp; flow&quot; section is absent when GMGN is unavailable.
           </p>
           <p>
             <span className="text-primary">CoinGecko</span>: 90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when
@@ -148,7 +164,7 @@ export default function AboutPage() {
           <li>Burn rate is a spot rate from the most recent ~25 burn events (roughly one to two hours). It swings with platform activity.</li>
           <li>Daily buyback dollars are estimated as daily revenue × lifetime buyback share until the site&apos;s own history has enough recorded buybacks.</li>
           <li>Pool depth and net flow cover the main Raydium pool only. STONK also trades through Jupiter routing and in every STONK-quoted pool.</li>
-          <li>Holder count and top-holder concentration are not yet shown; they are the next planned on-chain addition.</li>
+          <li>Holder count, concentration and wallet tags come from GMGN&apos;s indexer, not from this site&apos;s own on-chain reads. GMGN&apos;s 24h volume counts every STONK-quoted pool, so it is many times the main pool&apos;s volume; the two figures measure different things.</li>
           <li>Platform revenue has ranged from under $20K to over $1.5M per day since launch. Buyback pressure follows it with no lag, in both directions.</li>
         </ul>
       </Section>

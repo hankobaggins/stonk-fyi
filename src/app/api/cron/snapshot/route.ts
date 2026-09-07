@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getDb } from "@/lib/db";
+import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { STONK_POOL } from "@/lib/stonk";
 import type { Token } from "@/lib/types";
@@ -182,6 +183,28 @@ export async function GET(req: Request) {
       price_quote: p.price,
       tvl_usd: p.tvl,
       volume_24h_usd: p.day?.volume ?? null,
+    });
+    if (error) throw new Error(error.message);
+    return 1;
+  });
+
+  await step("gmgn", async () => {
+    // Skipped (0 rows) when GMGN_API_KEY is unset. One request bundle per tick, well inside GMGN's limit.
+    const g = await getGmgnStonk();
+    if (!g) return 0;
+    const { error } = await db.from("gmgn_snapshots").insert({
+      ts,
+      price_usd: g.priceUsd,
+      holder_count: g.holderCount,
+      top10_holder_rate: g.top10HolderRate,
+      smart_wallets: g.wallets.smart,
+      kol_wallets: g.wallets.kol,
+      whale_wallets: g.wallets.whale,
+      buy_volume_24h_usd: g.vol24h.buyUsd,
+      sell_volume_24h_usd: g.vol24h.sellUsd,
+      buys_24h: g.vol24h.buys,
+      sells_24h: g.vol24h.sells,
+      liquidity_usd: g.liquidityUsd,
     });
     if (error) throw new Error(error.message);
     return 1;

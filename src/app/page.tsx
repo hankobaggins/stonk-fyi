@@ -6,6 +6,7 @@ import { Delta, ExplorerLink, KpiTile, Section } from "@/components/ui";
 import { BurnBarChart, CountBarChart, CumulativeChart, PriceChart } from "@/components/charts";
 import Scorecard, { TallyBar } from "@/components/Scorecard";
 import BurnRing from "@/components/BurnRing";
+import { GMGN_TOKEN_URL } from "@/lib/gmgn";
 import BuybackFeed from "@/components/BuybackFeed";
 import TokenTable from "@/components/TokenTable";
 import Projection from "@/components/Projection";
@@ -57,6 +58,14 @@ export default async function StonkPage() {
             {fromPeak !== undefined && m.peakMarketCapUsd && (<> · <Delta value={fromPeak} /> from peak {fmtUsd(m.peakMarketCapUsd)} mcap</>)}
             {" "}· snapshot {timeAgo(d.generatedAt, now)}
           </div>
+          {d.gmgn && d.gmgn.priceUsd > 0 && m.priceUsd && (
+            <div className="num text-[12px] text-muted mt-1.5">
+              <a href={GMGN_TOKEN_URL} target="_blank" rel="noreferrer" className="hover:text-accent">GMGN</a> {fmtPrice(d.gmgn.priceUsd)} ·{" "}
+              <span className={Math.abs((d.gmgn.priceUsd / m.priceUsd - 1) * 100) > 3 ? "text-caution" : ""}>{((d.gmgn.priceUsd / m.priceUsd - 1) * 100).toFixed(1)}% vs StonkFun</span>
+              {d.gmgn.biggestPool && <> · {d.gmgn.biggestPool.exchange} STONK/{d.gmgn.biggestPool.quoteSymbol}</>}
+              {" "}· {fmtNum(d.gmgn.holderCount)} holders
+            </div>
+          )}
         </div>
       </div>
 

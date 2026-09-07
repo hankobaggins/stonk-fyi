@@ -44,7 +44,8 @@ src/lib/
   api.ts                    typed StonkFun API client + fixture mode + CoinGecko history
   raydium.ts                Raydium pool-info client (STONK/SPYx reserves, TVL, pool volume)
   stonk.ts                  STONK aggregator: supply, burn rate, buyback pressure, pool, indicators, watch list, projection inputs
-  db.ts                     Supabase client (null when unconfigured) + getPoolFlow()
+  db.ts                     Supabase client (null when unconfigured) + getPoolFlow() + getGmgnHistory()
+  gmgn.ts                   GMGN OpenAPI client → normalized GmgnData (holders, concentration, buy/sell volume, wallet tags, security, price)
   types.ts                  API response types (hand-derived from live responses)
   format.ts                 formatting helpers; nowMs() and cumulative() exist to satisfy the React Compiler lint
   site.ts                   SITE_URL / SITE_NAME / tagline / description (NEXT_PUBLIC_SITE_URL overrides the origin)
@@ -60,6 +61,7 @@ src/components/
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
 supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
+supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
 ```
@@ -93,6 +95,9 @@ STONK's main pool `7a8xxAJBELDo6P9dikSYctdw6ce8F4mWr3ahcAD8Ao49` is a **Raydium 
 ### CoinGecko — `api.coingecko.com/api/v3/coins/stonk-3/market_chart?vs_currency=usd&days=90`
 Coin id is **`stonk-3`** (verified from production 2026-09-07: homepage stonkfun.xyz, price and mcap match StonkFun's). The earlier note saying `stonk-2` was wrong — that id 404s. Public endpoint, no key; `COINGECKO_API_KEY` optional. Best-effort: returns null → price chart shows a placeholder. Working end-to-end from Vercel (812 points back to launch).
 
+### GMGN OpenAPI — `https://openapi.gmgn.ai` (optional, `GMGN_API_KEY`)
+Client in `src/lib/gmgn.ts`. Read-only routes: `GET /v1/token/info`, `/v1/token/security`, `/v1/market/token_top_holders?tag=smart_degen` with `X-APIKEY` header plus `timestamp` and `client_id` query params (docs: github.com/GMGNAI/gmgn-skills, skills/gmgn-token/SKILL.md). Leaky-bucket limit 20/s (holders weight 5); memoised 60s per instance. Key is created at https://gmgn.ai/ai (upload an Ed25519 public key; the matching private key is only needed for swap routes, which this site never calls). IPv4 only. Verified 2026-09-07 for STONK: 32.8K holders, top-10 18.1%, 318 smart-money / 61 KOL / 381 whale wallets, mint+freeze renounced, LP burned, 0 tax; 24h volume $63.7M **across all STONK pools** (StonkFun reports ~$2M for the main pool only); largest pool by liquidity is **Orca STONK/SOL, $2.45M** (`AfrddTGY…`), which gives a USD price independent of SPYx (spread shown under the hero price). Fixture: `src/fixtures/gmgn-stonk.json` (normalized subset, not the raw response). Neither the cloud sandbox nor the local VM can reach openapi.gmgn.ai; probe it from Chrome (CORS is open) or via `/api/health` on production.
+
 ### Constants (`src/lib/stonk.ts`)
 - `STONK_MINT = 6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx`
 - `STONK_POOL = 7a8xxAJBELDo6P9dikSYctdw6ce8F4mWr3ahcAD8Ao49`
@@ -119,6 +124,11 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 | netflow | Δ STONK reserve in main pool over 24h from `pool_snapshots` (falling reserve = net buying) | net buying; stays "collecting" (unscored) until ≥12h of pool readings exist — a few minutes of delta is noise, not a 24h flow |
 | turnover | 24h volume / mcap | 2%–100% |
 | change24 | priceChange24h | > 0 |
+| holders (GMGN) | unique holders; scored on 24h change from `gmgn_snapshots` once ≥12h exist | > +0.5%/24h (neutral ±0.5%) |
+| top10 (GMGN) | top-10 holder share of supply | < 20% (neutral < 35%) |
+| buypressure (GMGN) | buy ÷ (buy+sell) 24h volume, all pools | > 52% (neutral 48–52%) |
+| smartmoney (GMGN) | smart-money wallets holding | ≥ 100 (neutral ≥ 25) |
+| safety (GMGN) | mint/freeze renounced, LP burned, no tax | 4 of 4 (neutral 3) |
 | platform | platform 24h volume | > $10M |
 | launchmult | mcap / launch mcap | context only |
 | ps | mcap / (7d revenue × 52) | < 10× |
@@ -146,7 +156,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -170,8 +180,8 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
 2. **Wire DB-backed charts** into the STONK page and token detail; add a `getStonkHistory()` in `db.ts` reading `token_snapshots` for `STONK_MINT`.
-3. **Independent price check:** Jupiter price API or DexScreener for STONK, shown beside StonkFun's USD price with the spread. Reduces reliance on StonkFun's pricing feed.
-4. **Phase 3 on-chain (Helius):** holder count & top-holder concentration for STONK (a big missing indicator for a public site), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
+3. ~~**Independent price check**~~ — done via GMGN (Orca STONK/SOL pool price, spread under the hero price). Jupiter/DexScreener would add a second independent source.
+4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Alerts (optional):** a scheduled job that posts to Telegram/X when an indicator flips, a burn milestone passes (e.g. 15% of supply), or revenue sets a daily record.
 
@@ -183,7 +193,8 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 DATA_SOURCE=live | fixture          # fixture = offline dev on captured JSON
 STONKFUN_API_BASE                   # override, default https://www.stonkfun.xyz/api/public/v1
 RAYDIUM_API_BASE                    # override, default https://api-v3.raydium.io
-COINGECKO_STONK_ID=stonk-2          # optional; COINGECKO_API_KEY optional demo key
+COINGECKO_STONK_ID=stonk-3          # optional; COINGECKO_API_KEY optional demo key
+GMGN_API_KEY                        # optional; enables the Holders & flow section + gmgn worker step
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
 import { getDb } from "@/lib/db";
+import { getGmgnStonk } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
@@ -45,6 +46,12 @@ export async function GET() {
       const h = await getStonkPriceHistory(7);
       if (!h) throw new Error("null (blocked, rate-limited, or wrong coin id)");
       return `${h.length} points`;
+    }),
+    run("gmgn:token", async () => {
+      if (!process.env.GMGN_API_KEY) return "skipped (GMGN_API_KEY unset)";
+      const g = await getGmgnStonk();
+      if (!g) throw new Error("null (key rejected, rate-limited, or upstream down; see server log)");
+      return `${g.holderCount} holders, price ${g.priceUsd}`;
     }),
     run("supabase", async () => {
       const db = getDb();
