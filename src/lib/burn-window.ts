@@ -1,8 +1,8 @@
 import type { BurnEvent } from "./types";
 
 // Pure window detection, kept free of server-only imports so it can be unit-checked (scripts/burn-alert-check.ts).
-// Threshold is in USD (StonkFun's value-at-burn), not tokens: $50K burned inside one 10-minute window.
-export const BURN_ALERT_THRESHOLD_USD = Number(process.env.BURN_ALERT_THRESHOLD_USD ?? 50_000);
+// Threshold is in USD (StonkFun's value-at-burn), not tokens: $10K burned inside one 10-minute window (was $50K until 2026-09-08).
+export const BURN_ALERT_THRESHOLD_USD = Number(process.env.BURN_ALERT_THRESHOLD_USD ?? 10_000);
 export const BURN_ALERT_WINDOW_MIN = Number(process.env.BURN_ALERT_WINDOW_MIN ?? 10);
 
 export type BurnWindow = {

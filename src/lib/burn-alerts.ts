@@ -10,7 +10,7 @@ import { SITE_URL } from "./site";
 // Big-burn announcements. Every snapshot tick (5 min) looks at STONK burns inside the last
 // BURN_ALERT_WINDOW_MIN minutes (10, so consecutive ticks overlap and nothing is missed). Burns
 // already covered by an earlier alert are excluded; if what remains is worth ≥ BURN_ALERT_THRESHOLD_USD
-// ($50K at StonkFun's value-at-burn), a card is rendered by /burn-card/{id} and posted to X through SocialBu's REST API.
+// ($10K at StonkFun's value-at-burn), a card is rendered by /burn-card/{id} and posted to X through SocialBu's REST API.
 // Without SOCIALBU_TOKEN the alert is recorded as a dry run (row + card URL, no post).
 
 export { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN };

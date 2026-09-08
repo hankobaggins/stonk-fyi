@@ -190,7 +190,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6a — Big-burn alerts → X (added 2026-09-08)
 
-**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$50,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens), the worker posts a card to X. Runs as the `burn_alert` step of every 5-minute tick, so consecutive ticks overlap by 5 min and no burn is missed or double-counted.
+**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$10,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; lowered from $50K on 2026-09-08), the worker posts a card to X. Runs as the `burn_alert` step of every 5-minute tick, so consecutive ticks overlap by 5 min and no burn is missed or double-counted.
 
 **Pipeline (`src/lib/burn-alerts.ts` → `runBurnAlert`)**
 1. `getStonkData()` (live burns window, supply %, burn-velocity indicator, price).
@@ -229,7 +229,7 @@ COINGECKO_STONK_ID=stonk-3          # optional; COINGECKO_API_KEY optional demo 
 GMGN_API_KEY                        # optional; enables the Holders & flow section + gmgn worker step
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
 SOCIALBU_TOKEN, SOCIALBU_ACCOUNT_ID=201802             # big-burn alerts to X (§6a); unset = dry run
-BURN_ALERT_THRESHOLD_USD=50000, BURN_ALERT_WINDOW_MIN=10  # optional overrides (USD at burn)
+BURN_ALERT_THRESHOLD_USD=10000, BURN_ALERT_WINDOW_MIN=10  # optional overrides (USD at burn)
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```
 
