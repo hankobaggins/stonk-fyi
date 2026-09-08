@@ -2,6 +2,7 @@ import type { Token } from "@/lib/types";
 import { fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
 import { Delta, ModePill, StatusPill, TokenLink } from "./ui";
+import TokenIcon from "./TokenIcon";
 
 export default function TokenTable({ tokens, startRank = 1, now, compact = false }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean }) {
   return (
@@ -37,12 +38,7 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                 <td>
                   <TokenLink mint={t.mint}>
                     <span className="flex items-center gap-2.5">
-                      {img ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={img} alt="" className="w-6 h-6 rounded-full bg-surface-2 object-cover" loading="lazy" />
-                      ) : (
-                        <span className="w-6 h-6 rounded-full bg-surface-2 inline-block" />
-                      )}
+                      <TokenIcon src={img} symbol={t.symbol} size={24} />
                       <span className="flex flex-col leading-tight">
                         <span className="font-medium">{t.symbol}</span>
                         <span className="text-[11px] text-muted max-w-[160px] truncate">{t.name}</span>

@@ -155,8 +155,9 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 8. **Copy discipline.** Plain language, no hype adjectives, no "genuinely/honestly". Every metric tile has a one-line `sub` explaining what it is. Caveats live next to the number they qualify, not in a footer. Indicator `detail` is one sentence; the reasoning behind a threshold lives on /about, not in the cell. Never state the same figure twice on one page (the "−N% from peak" figure appeared five times before the 2026-09-07 copy pass).
 9. **Rates need a real window.** The API pages at 100 and launches now exceed 100/hour, so "newest 100 tokens ÷ span" saturates (it showed a constant 100.0/h for days). Rates come from `platform_snapshots` deltas (`getLaunchVelocity`) when the DB is present; API-window fallbacks are labelled as estimates and never floor the span at 1h.
 10. **Refresh cadence is stated where the number is.** Every `source` line names the provider in a few words plus its cache window (`StonkFun revenue · 30s`, `Raydium · 60s`, `stonk.fyi pool snapshots · 5 min`) — never endpoint paths or hostnames, chart headers carry their resolution, the nav pill says "updated Ns ago", and /about has the full "How fresh is this?" table. Keep those in sync when changing a `revalidate`.
-11. **Not financial advice.** Keep the disclaimers that exist; don't add "buy" language anywhere.
-12. **Commit hygiene** (if a repo is set up): conventional short messages; never commit `.env.local`; `next-env.d.ts` and `.next/` are generated.
+11. **Icons go through `/api/icon?u=`.** Token images are hosted by creators on a long tail of gateways; `gateway.irys.xyz` (≈80% of them) went down on 2026-09-08 and blanked every table, on StonkFun's own site too. `TokenIcon` proxies through `/api/icon` (edge-cached a week on success, 5 min on failure) and falls back to initials on error. Never render a raw `<img>` for a token image.
+12. **Not financial advice.** Keep the disclaimers that exist; don't add "buy" language anywhere.
+13. **Commit hygiene** (if a repo is set up): conventional short messages; never commit `.env.local`; `next-env.d.ts` and `.next/` are generated.
 
 ---
 

@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getToken, getTokenBacking, getTokenBurns, getTokenFees, getTokenRewards, resolveImage, SITE_BASE } from "@/lib/api";
 import { fmtDate, fmtNum, fmtPct, fmtPrice, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { Delta, ExplorerLink, KpiTile, ModePill, Section, StatusPill } from "@/components/ui";
+import TokenIcon from "@/components/TokenIcon";
 
 export const dynamic = "force-dynamic";
 
@@ -52,12 +53,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={img} alt="" className="w-14 h-14 rounded-full bg-surface-2 object-cover" />
-        ) : (
-          <span className="w-14 h-14 rounded-full bg-surface-2 inline-block" />
-        )}
+        <TokenIcon src={img} symbol={t.symbol} size={56} />
         <div>
           <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-3">
             {t.symbol} <span className="text-muted font-normal text-lg">/ {t.quote.symbol}</span>
