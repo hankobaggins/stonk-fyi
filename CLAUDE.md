@@ -87,7 +87,7 @@ No API key. **300 req/min per IP** (25/min on `/launches/prepare`, 20/min on fee
 | `/tokens/{mint}/backing` | **400** `"Backing is only tracked for Pump launches"` for nearly every mint (incl. STONK). Shape for Pump launches unverified; page dumps JSON when present | **This 400 broke every token detail page until 2026-09-07**: `optional()` only swallowed 404/403. It now treats any 4xx as null and the token page uses per-section `settle()` so one failed extra never takes the page down. |
 | `/launches` | `{ launches:[{mint,pool,name,symbol,creator,quote,launchpad,mode,transferFee,startMarketCapUsd,targetMarketCapUsd,createdAt}], pagination }` | verified |
 | `/pairs` | `{ pairs:[{mint,symbol,name,decimals,logoUrl,category,categoryLabel,tokenProgram,launchable,launchLabReady}] }` (319 pairs) | verified |
-| `/rewards` | `{ launches:[{mint,quote,distributedTokens,payoutCount,holderCount,lastPayoutAt}] }` | verified |
+| `/rewards` | `{ launches:[{mint,quote,distributedTokens,payoutCount,holderCount,lastPayoutAt}], recentDistributions:[{signature,mint,quoteMint,amountTokens,holderCount,distributedAt}] }` — 6.5K launches, ~250 quote assets, **no USD anywhere**; the only USD figure for holder rewards is `dailyHoldersRevenue` in `/revenue/history` | verified 2026-09-08. `/rewards` page values per-coin payouts at current Jupiter prices (`src/lib/jupiter.ts`, `lite-api.jup.ag/price/v3`, 50 ids/call, 5 min cache) and shows both numbers side by side, labelled |
 
 Token `market` block: `priceUsd, marketCapUsd, fdvUsd, volume24hUsd, priceChange24h?, liquidityUsd? (launchlab only), peakMarketCapUsd`. Relative `imageUrl`/`logoUrl` paths must be prefixed with `https://www.stonkfun.xyz` (`resolveImage()`).
 

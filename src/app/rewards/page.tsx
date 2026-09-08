@@ -28,7 +28,7 @@ export default async function RewardsPage() {
         <KpiTile label="Paid out, at today's prices" value={fmtUsd(o.usdNow)} sub={`${(o.usdPricedShare * 100).toFixed(0)}% of payouts priced · Jupiter · 5 min`} />
         <KpiTile label="Paid out, at payout time" value={fmtUsd(notionalLifetime)} sub="StonkFun's USD at each payout · lifetime" />
         <KpiTile label="Payouts" value={fmtNum(o.payouts)} sub={`${fmtNum(o.coinsPaying)} of ${fmtNum(o.coins)} coins have paid`} />
-        <KpiTile label="Holder-payout slots" value={fmtNum(o.holdersPaid)} sub="sum of each coin's current holder count" />
+        <KpiTile label="Holders across reward coins" value={fmtNum(o.holdersPaid)} sub="sum of each coin&apos;s current holder count" />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
