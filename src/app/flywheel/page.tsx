@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getRevenue, getRevenueHistory, getRewards, getStats } from "@/lib/api";
 import { cumulative, fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
@@ -56,7 +57,7 @@ export default async function FlywheelPage() {
         <KpiTile label="Burned (USD at burn)" value={fmtUsd(r.burns.totalValueUsdAtBurn)} sub={`${fmtNum(r.burns.burnCount)} burns · last buyback ${timeAgo(r.revenue.lastBuybackAt, now)}`} />
       </div>
 
-      <Section title="Rewards paid to holders (USD, notional)" action={<span className="num text-xs text-muted">per UTC day · StonkFun revenue history · 5 min</span>}>
+      <Section title="Rewards paid to holders (USD, notional)" action={<span className="flex gap-3 text-xs text-muted"><span className="num">per UTC day · StonkFun revenue history · 5 min</span><Link href="/rewards" className="hover:text-primary">All reward coins →</Link></span>}>
         <div className="kpis mb-4">
           <KpiTile label="Today (UTC)" value={fmtUsd(todayHolders)} delta={yesterdayHolders ? ((todayHolders - yesterdayHolders) / yesterdayHolders) * 100 : null} sub="vs yesterday, partial day" />
           <KpiTile label="Last 7 days" value={fmtUsd(holders7)} delta={holders7Delta} sub="vs prior 7d" />
@@ -103,7 +104,7 @@ export default async function FlywheelPage() {
         <BuybackFeed buybacks={r.recentBuybacks} now={now} limit={25} />
       </Section>
 
-      <Section title="Holder rewards (reward-mode transfer tax)" action={<span className="text-xs text-muted num">{fmtNum(rewards.data.launches.length)} reward coins · {fmtNum(totalPayouts)} payouts · {fmtNum(stats.data.tokens.rewardLaunches)} reward launches</span>}>
+      <Section title="Most active reward coins" action={<span className="flex gap-3 text-xs text-muted"><span className="num">{fmtNum(rewards.data.launches.length)} reward coins · {fmtNum(totalPayouts)} payouts · {fmtNum(stats.data.tokens.rewardLaunches)} reward launches</span><Link href="/rewards" className="hover:text-primary">USD view →</Link></span>}>
         <div className="table-wrap">
           <table className="data">
             <thead><tr><th>Token</th><th>Paid in</th><th className="r">Distributed</th><th className="r">Payouts</th><th className="r">Holders</th><th className="r">Last payout</th></tr></thead>

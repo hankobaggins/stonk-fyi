@@ -61,6 +61,7 @@ const CADENCE: [string, string, string][] = [
   ["Holders, concentration, buy/sell volume, wallet tags", "GMGN", "60s"],
   ["Revenue history (daily)", "StonkFun API", "5 min"],
   ["Net flow, holder growth, token history", "stonk.fyi snapshots in Postgres: STONK, the main pool and the top 100 tokens every 5 min; top 500 hourly; all tokens daily", "5 min"],
+  ["Quote-asset USD prices for holder rewards", "Jupiter price API", "5 min"],
   ["90-day price chart", "CoinGecko", "10 min"],
 ];
 
@@ -109,6 +110,11 @@ export default function AboutPage() {
             wallet tags (smart money, KOL, whales), buy and sell volume across every pool STONK trades in, contract and LP checks, and an
             independent USD price from STONK&apos;s largest pool by liquidity. Shown under the price as a spread against StonkFun&apos;s figure.
             Optional; the &quot;Holders &amp; flow&quot; section is absent when GMGN is unavailable.
+          </p>
+          <p>
+            <span className="text-primary">Jupiter</span> (<code className="font-mono text-xs">lite-api.jup.ag/price/v3</code>): current USD prices for the ~250
+            quote assets reward coins pay in. Used only on the Rewards page to value per-coin payouts, which StonkFun reports in native units. Marked to
+            current prices, so it differs from StonkFun&apos;s USD-at-payout daily totals.
           </p>
           <p>
             <span className="text-primary">CoinGecko</span>: 90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when

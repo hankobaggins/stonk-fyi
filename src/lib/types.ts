@@ -145,7 +145,17 @@ export type RewardLaunch = {
   lastPayoutAt: string;
 };
 
-export type RewardsResponse = { launches: RewardLaunch[] };
+export type RewardDistribution = {
+  signature: string;
+  mint: string;
+  quoteMint: string;
+  amountRaw?: string;
+  amountTokens: number;
+  holderCount: number;
+  distributedAt: string;
+};
+
+export type RewardsResponse = { launches: RewardLaunch[]; recentDistributions?: RewardDistribution[] };
 
 export type Pair = {
   mint: string;
