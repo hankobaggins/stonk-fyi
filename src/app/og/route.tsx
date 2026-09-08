@@ -1,14 +1,16 @@
 import { ImageResponse } from "next/og";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { OG_SUBTITLE, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
+import { OG_SIZE, OG_SUBTITLE, SITE_NAME, SITE_TAGLINE } from "@/lib/site";
 import { getStonkData } from "@/lib/stonk";
 import { fmtNum, fmtPrice, fmtUsd } from "@/lib/format";
 
-export const alt = `${SITE_NAME}: ${SITE_TAGLINE}`;
-export const size = { width: 1200, height: 630 };
-export const contentType = "image/png";
+// Social card. Served from a route (not the opengraph-image file convention) because the
+// convention hashes the URL at build time and scrapers cache images by URL, so a share
+// showed whichever render X/Telegram/Discord fetched first, sometimes days old. The URL is
+// versioned per 5-minute bucket in layout.tsx (`ogImageUrl`), so each window is a new URL.
 export const dynamic = "force-dynamic";
+const size = OG_SIZE;
 
 // Ledger palette, mirrored from globals.css (next/og can't read CSS variables).
 const C = { bg: "#0a1317", surface: "#101c21", line: "#1f333b", lineStrong: "#2c4550", ink: "#edf4f5", ink2: "#a7babf", ink3: "#66797f", accent: "#7cc0d4", bull: "#37c27e", neutral: "#8fa3a8", caution: "#e0a53c", down: "#ef6b6b", burn: "#d95926" };
@@ -48,7 +50,7 @@ const mono = { fontFamily: "Geist Mono" };
 
 // The social card carries the live tally bar so a share shows the state at that moment,
 // caution segments included. Falls back to the static card if upstreams are down.
-export default async function OgImage() {
+export async function GET() {
   const [d, fontList] = await Promise.all([getStonkData().catch(() => null), fonts()]);
   const inds = d?.indicators ?? [];
   const bull = inds.filter((i) => i.signal === "bull").length;
@@ -135,6 +137,11 @@ export default async function OgImage() {
         </div>
       </div>
     ),
-    { ...size, fonts: fontList }
+    {
+      ...size,
+      fonts: fontList,
+      // One CDN render per version bucket; scrapers hitting the same URL within the window share it.
+      headers: { "Cache-Control": "public, max-age=0, s-maxage=300, stale-while-revalidate=60" },
+    }
   );
 }

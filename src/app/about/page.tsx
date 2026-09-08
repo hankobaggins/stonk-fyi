@@ -63,6 +63,7 @@ const CADENCE: [string, string, string][] = [
   ["Net flow, holder growth, token history", "stonk.fyi snapshots in Postgres: STONK, the main pool and the top 100 tokens every 5 min; top 500 hourly; all tokens daily", "5 min"],
   ["Quote-asset USD prices for holder rewards", "Jupiter price API", "5 min"],
   ["90-day price chart", "CoinGecko", "10 min"],
+  ["Social card (link preview)", "rendered live; its URL changes every 5 min so link scrapers, which cache by URL, fetch a new render", "5 min"],
 ];
 
 export default function AboutPage() {

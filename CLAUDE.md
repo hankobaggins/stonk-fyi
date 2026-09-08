@@ -38,7 +38,10 @@ src/app/                    routes
   api/buybacks/route.ts     protocol-event feed for the toasts: recent buybacks + non-buyback STONK burns, sorted (no-store; upstream 20-30s)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
   api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6
-  opengraph-image.tsx, twitter-image.tsx   social card (next/og; dynamic, carries the live tally bar), icon.svg (burn ring favicon), robots.ts, sitemap.ts
+  og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
+                            convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
+                            `generateMetadata` points og:image/twitter:image at `/og?v=<5-min bucket>` (`ogImageUrl` in site.ts)
+  icon.svg (burn ring favicon), robots.ts, sitemap.ts
   error.tsx                 error boundary
 src/lib/
   api.ts                    typed StonkFun API client + fixture mode + CoinGecko history

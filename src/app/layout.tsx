@@ -8,23 +8,25 @@ import Ticker from "@/components/Ticker";
 import BuybackToasts from "@/components/BuybackToasts";
 import AlertsToggle from "@/components/AlertsToggle";
 import { getStonkData } from "@/lib/stonk";
-import { SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import { OG_SIZE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImageUrl } from "@/lib/site";
+import { nowMs } from "@/lib/format";
 
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: { default: `${SITE_NAME}: ${SITE_TAGLINE}`, template: `%s · ${SITE_NAME}` },
-  description: SITE_DESCRIPTION,
-  alternates: { canonical: "/" },
-  openGraph: {
-    type: "website",
-    siteName: SITE_NAME,
-    title: `${SITE_NAME}: ${SITE_TAGLINE}`,
+// Metadata is generated per request so the social card URL carries the current 5-minute
+// version bucket (see ogImageUrl). Scrapers cache the image by URL; a stable URL meant a
+// stale price on every share.
+export async function generateMetadata(): Promise<Metadata> {
+  const title = `${SITE_NAME}: ${SITE_TAGLINE}`;
+  const image = { url: ogImageUrl(nowMs()), ...OG_SIZE, alt: title, type: "image/png" };
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: { default: title, template: `%s · ${SITE_NAME}` },
     description: SITE_DESCRIPTION,
-    url: "/",
-  },
-  twitter: { card: "summary_large_image", title: `${SITE_NAME}: ${SITE_TAGLINE}`, description: SITE_DESCRIPTION },
-  robots: { index: true, follow: true },
-};
+    alternates: { canonical: "/" },
+    openGraph: { type: "website", siteName: SITE_NAME, title, description: SITE_DESCRIPTION, url: "/", images: [image] },
+    twitter: { card: "summary_large_image", title, description: SITE_DESCRIPTION, images: [image] },
+    robots: { index: true, follow: true },
+  };
+}
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   // Nav mark + ticker need STONK's headline numbers on every page. Failure here must never
