@@ -45,12 +45,14 @@ export type BurnAlertRow = {
 };
 
 // Plain-language tweet, two paragraphs, no links (the card carries provenance; /burn-card/{id} keeps it).
-export function buildPostText(w: BurnWindow, ctx: BurnAlertContext): string {
+export function buildPostText(w: BurnWindow, ctx: BurnAlertContext, now = Date.now()): string {
   const n = w.burns.length;
   const txs = n === 1 ? "1 tx" : `${n} txs`;
+  const ageMin = (now - Date.parse(w.windowEnd)) / 60_000;
+  const when = ageMin <= 15 ? `in the last ${BURN_ALERT_WINDOW_MIN} minutes` : `in ${BURN_ALERT_WINDOW_MIN} minutes ending ${w.windowEnd.slice(11, 16)} UTC`;
   const velocity = ctx.velocityPctDay !== null ? ` Burn velocity ${ctx.velocityPctDay.toFixed(2)}%/day.` : "";
   return [
-    `${fmtNum(w.amountTokens)} $STONK burned in the last ${BURN_ALERT_WINDOW_MIN} minutes (${txs}), about ${fmtUsd(w.valueUsd)} at StonkFun pricing.`,
+    `${fmtNum(w.amountTokens)} $STONK burned ${when} (${txs}), about ${fmtUsd(w.valueUsd)} at StonkFun pricing.`,
     `${ctx.supplyBurnedPct.toFixed(2)}% of supply is now gone.${velocity}`,
   ].join("\n\n");
 }
@@ -121,14 +123,13 @@ export async function runBurnAlert(
   ctx: BurnAlertContext,
   opts: { dry?: boolean; now?: number } = {}
 ): Promise<{ created: number; alertId?: number; status?: string }> {
-  const candidates = burns.filter((b) => Date.parse(b.burnedAt) >= (opts.now ?? Date.now()) - BURN_ALERT_WINDOW_MIN * 60_000);
-  if (!candidates.length) return { created: 0 };
-  const exclude = await alreadyAnnounced(db, candidates.map((b) => b.signature));
+  if (!burns.length) return { created: 0 };
+  const exclude = await alreadyAnnounced(db, burns.map((b) => b.signature));
   const w = findBigBurnWindow(burns, { now: opts.now, exclude });
   if (!w) return { created: 0 };
 
   const dry = opts.dry || !process.env.SOCIALBU_TOKEN;
-  const postText = buildPostText(w, ctx);
+  const postText = buildPostText(w, ctx, opts.now);
   const { data: inserted, error } = await db
     .from("burn_alerts")
     .insert({

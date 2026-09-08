@@ -190,7 +190,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6a — Big-burn alerts → X (added 2026-09-08)
 
-**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$10,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; lowered from $50K on 2026-09-08), the worker posts a card to X. Runs as the `burn_alert` step of every 5-minute tick, so consecutive ticks overlap by 5 min and no burn is missed or double-counted.
+**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$10,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; lowered from $50K on 2026-09-08), the worker posts a card to X. Runs as the `burn_alert` step of every tick. Detection slides a 10-min window over every burn the API returns (~25 most recent), not just the last 10 minutes, so a late tick still catches a window that already closed; announced signatures are excluded so nothing is double-counted. **Known problem (2026-09-08):** GitHub's `*/5` schedule has actually fired ~every 4–5 hours (7 runs in 24h), which is why a $20K window went unannounced. Fix the trigger (Supabase pg_cron + pg_net, or an external pinger) — see §10.
 
 **Pipeline (`src/lib/burn-alerts.ts` → `runBurnAlert`)**
 1. `getStonkData()` (live burns window, supply %, burn-velocity indicator, price).
