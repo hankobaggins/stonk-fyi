@@ -139,7 +139,7 @@ async function computeStonkData(): Promise<StonkData> {
         : "Burn ledger unavailable.",
       signal: burnRate ? (burnRate.pctSupplyPerDay > 0.3 ? "bull" : burnRate.pctSupplyPerDay > 0.05 ? "neutral" : "bear") : "info",
       group: "flywheel",
-      source: "/tokens/{mint}/burns · 60s",
+      source: "StonkFun burn ledger · 60s",
     },
     {
       key: "buyback",
@@ -148,7 +148,7 @@ async function computeStonkData(): Promise<StonkData> {
       detail: `${(buybackShare * 100).toFixed(0)}% of fee revenue buys STONK every few minutes, then burns it · ${usd(revenue.revenue.totalBuybackUsd)} lifetime.`,
       signal: dailyBuyback > 10_000 ? "bull" : dailyBuyback > 1_000 ? "neutral" : "bear",
       group: "flywheel",
-      source: "/revenue · 30s",
+      source: "StonkFun revenue · 30s",
     },
     {
       key: "buybackvol",
@@ -165,7 +165,7 @@ async function computeStonkData(): Promise<StonkData> {
       detail: `${usd(rev7)} in fees this week vs ${usd(revPrev7)} the week before.`,
       signal: rev7Delta === null ? "info" : rev7Delta > 20 ? "bull" : rev7Delta > -10 ? "neutral" : "bear",
       group: "flywheel",
-      source: "/revenue/history · 5 min",
+      source: "StonkFun revenue history · 5 min",
     },
     {
       key: "buybackprice",
@@ -185,7 +185,7 @@ async function computeStonkData(): Promise<StonkData> {
       // Total-ever count only rises, so it is not the score; 24h volume through STONK-quoted pools is.
       signal: quotedVolume >= 1_000_000 ? "bull" : quotedVolume >= 100_000 ? "neutral" : "bear",
       group: "demand",
-      source: "/tokens?quoteMint=STONK · 30s",
+      source: "StonkFun token list · 30s",
     },
     {
       key: "pooldepth",
@@ -196,7 +196,7 @@ async function computeStonkData(): Promise<StonkData> {
         : "Raydium pool info unavailable.",
       signal: pool ? (pool.tvl > 5_000_000 ? "bull" : pool.tvl > 500_000 ? "neutral" : "bear") : "info",
       group: "demand",
-      source: "api-v3.raydium.io · 60s",
+      source: "Raydium · 60s",
     },
     {
       key: "netflow",
@@ -209,7 +209,7 @@ async function computeStonkData(): Promise<StonkData> {
           : "Scored after 12h of pool snapshots.",
       signal: flowReady && flow ? (flow.netStonkIntoPool < 0 ? "bull" : flow.netStonkIntoPool > 0 ? "bear" : "neutral") : "info",
       group: "demand",
-      source: "pool_snapshots · 5 min",
+      source: "stonk.fyi pool snapshots · 5 min",
     },
     {
       key: "turnover",
@@ -236,7 +236,7 @@ async function computeStonkData(): Promise<StonkData> {
       detail: `Across ${num(stats.tokens.total)} tokens, ${num(stats.tokens.graduated)} graduated. More volume, more fees, more burns.`,
       signal: stats.tokens.totalVolume24hUsd > 10_000_000 ? "bull" : stats.tokens.totalVolume24hUsd > 1_000_000 ? "neutral" : "bear",
       group: "platform",
-      source: "/stats · 30s",
+      source: "StonkFun stats · 30s",
     },
     {
       key: "launchmult",
@@ -316,7 +316,7 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
   const pct = (n: number, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
   const usd = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(2)}`);
   const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
-  const src = "openapi.gmgn.ai · 60s";
+  const src = "GMGN · 60s";
 
   const histReady = !!hist && hist.hours >= 12;
   const holderDelta = histReady ? g.holderCount - hist.first.holderCount : null;

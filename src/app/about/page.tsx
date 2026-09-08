@@ -54,7 +54,7 @@ const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
 
 const CADENCE: [string, string, string][] = [
   ["Page render", "server components, re-fetched by the browser", "60s"],
-  ["Buyback / burn toasts", "/api/buybacks", "20s"],
+  ["Buyback / burn toasts", "StonkFun buyback ledger", "20s"],
   ["Price, market cap, volume, token list, revenue, stats", "StonkFun API", "30s"],
   ["Burn ledger, rewards, creator fees", "StonkFun API", "60s"],
   ["Main pool reserves and TVL", "Raydium", "60s"],

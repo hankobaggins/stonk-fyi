@@ -123,7 +123,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
           ) : (
             <div className="text-xs text-muted">{rewards.data?.message ?? "Standard launch: fees are split with the creator, not paid to holders."}</div>
           )}
-          <div className="mt-2 src">/tokens/{"{mint}"}/rewards · 60s</div>
+          <div className="mt-2 src">StonkFun rewards · 60s</div>
         </Section>
 
         <Section title="Creator fees">
@@ -142,7 +142,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
           ) : (
             <div className="text-xs text-muted">{fe?.reason ?? "No creator-claimable fees."}</div>
           )}
-          <div className="mt-2 src">/tokens/{"{mint}"}/fees · 60s</div>
+          <div className="mt-2 src">StonkFun fees · 60s</div>
         </Section>
       </div>
 
@@ -177,7 +177,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
         ) : (
           <div className="text-xs text-muted">No burns recorded for this token.</div>
         )}
-        <div className="mt-2 src">/tokens/{"{mint}"}/burns · 60s</div>
+        <div className="mt-2 src">StonkFun burn ledger · 60s</div>
       </Section>
 
       {backing.data && (

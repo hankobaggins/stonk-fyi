@@ -96,8 +96,7 @@ body {
 .state.collecting::before { display: none; }
 
 /* Source reference under an indicator. */
-.src { font-family: var(--font-mono); font-size: 11px; color: var(--accent); opacity: 0.85; }
-.src::after { content: " ↗"; opacity: 0.7; }
+.src { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
 
 /* Tally bar: one segment per indicator, in scorecard order. */
 .segs { display: flex; gap: 3px; height: 12px; }
