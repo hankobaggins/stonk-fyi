@@ -174,23 +174,23 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 | Mode | Who fires it | Tokens snapshotted |
 |---|---|---|
-| tick (default) | GitHub Actions `snapshot.yml`, every 5 min | STONK + top 100 by volume |
-| `?hourly=1` | same workflow, at minute 0–4 of each hour | top 500 |
+| tick (default) | Supabase pg_cron `snapshot_tick` (`0004_pg_cron_tick.sql`), minutes 5–55 | STONK + top 100 by volume |
+| `?hourly=1` | pg_cron `snapshot_hourly`, minute 0 | top 500 |
 | `?full=1` | Vercel cron (`vercel.json`), daily 03:00 UTC | every page (~165 requests), then deletes non-STONK `token_snapshots` older than 30 days |
 
 ≈ 8 MB/day. STONK's own history is never pruned. `maxDuration = 300` (Fluid compute) so the full walk fits.
 
-**Why GitHub Actions:** Vercel's Hobby plan only allows daily cron. The workflow needs two repo secrets, `SNAPSHOT_URL` (`https://stonk.fyi`) and `CRON_SECRET` (same value as the Vercel env var). Both are set. GitHub's scheduler can lag a few minutes under load; that's fine for this.
+**Why pg_cron (2026-09-08):** Vercel's Hobby plan only allows daily cron, and GitHub Actions' `schedule:` turned out to be throttled on this repo — it fired every ~4 h (9 runs in the first 24 h), which froze the hourly fee revenue chart and every other DB-backed chart between runs. The tick now runs inside Supabase: `public.snapshot_tick(mode)` calls `/api/cron/snapshot` via `pg_net`, reading the bearer from Vault (`vault.decrypted_secrets` name `cron_secret`, same value as Vercel's `CRON_SECRET`; set it with `vault.create_secret(...)` **before** applying 0004, and update it there when rotating). `snapshot.yml` is kept only for manual runs / as a coarse fallback; its repo secrets `SNAPSHOT_URL` and `CRON_SECRET` still exist. Check it: `select jobname, status, start_time from cron.job_run_details join cron.job using (jobid) order by start_time desc limit 10;` and `select status_code, created from net._http_response order by created desc limit 5;`.
 
 **Schema:** `supabase/migrations/0001_init.sql`, with RLS enabled on every table (no policies → the anon/publishable key can read nothing; the site and worker use the service-role key, which bypasses RLS). Supabase's GitHub integration is also linked to the repo and may apply new files in `supabase/migrations/` on push to main — treat that as a convenience, not a guarantee; verify in the SQL editor.
 
-**Verify it's alive:** `/api/health` → `supabase` check reports the `platform_snapshots` count; or in the Supabase SQL editor: `select ts, count(*) from token_snapshots group by ts order by ts desc limit 5;` — expect ~100 rows every 5 min, ~500 at the top of the hour. `gh run list --repo hankobaggins/stonk-fyi --workflow snapshot` shows tick results (the step fails on any non-200).
+**Verify it's alive:** `/api/health` → `supabase` check reports the `platform_snapshots` count and the age of the newest one, and **fails when it's older than 15 min** (a stalled tick is the first thing to suspect when any DB-backed chart stops moving); or in the Supabase SQL editor: `select ts, count(*) from token_snapshots group by ts order by ts desc limit 5;` — expect ~100 rows every 5 min, ~500 at the top of the hour. `gh run list --repo hankobaggins/stonk-fyi --workflow snapshot` shows tick results (the step fails on any non-200).
 
 **What unlocks now that data accumulates:** real STONK price/mcap/volume charts on the token page (replace the "Price history" placeholder), burns-per-day over full history, buyback USD per day from the actual ledger instead of the revenue × share estimate, the net-flow indicator (after 12h), volume-by-pair over time, and STONK-quoted-token count over time.
 
 ## 6a — Big-burn alerts → X (added 2026-09-08)
 
-**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$10,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; lowered from $50K on 2026-09-08), the worker posts a card to X. Runs as the `burn_alert` step of every tick. Detection slides a 10-min window over every burn the API returns (~25 most recent), not just the last 10 minutes, so a late tick still catches a window that already closed; announced signatures are excluded so nothing is double-counted. **Known problem (2026-09-08):** GitHub's `*/5` schedule has actually fired ~every 4–5 hours (7 runs in 24h), which is why a $20K window went unannounced. Fix the trigger (Supabase pg_cron + pg_net, or an external pinger) — see §10.
+**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$10,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; lowered from $50K on 2026-09-08), the worker posts a card to X. Runs as the `burn_alert` step of every tick. Detection slides a 10-min window over every burn the API returns (~25 most recent), not just the last 10 minutes, so a late tick still catches a window that already closed; announced signatures are excluded so nothing is double-counted. ~~Known problem (2026-09-08): GitHub's `*/5` schedule fired ~every 4–5 hours, which is why a $20K window went unannounced.~~ Fixed the same day by moving the tick to Supabase pg_cron (§6).
 
 **Pipeline (`src/lib/burn-alerts.ts` → `runBurnAlert`)**
 1. `getStonkData()` (live burns window, supply %, burn-velocity indicator, price).
@@ -257,13 +257,13 @@ Run: `npm install && npm run dev` → http://localhost:3000. Health: `/api/healt
 | Code | https://github.com/hankobaggins/stonk-fyi (public) | GitHub user `hankobaggins` |
 | Domain | Namecheap | `A @ 216.198.79.1`, `CNAME www f88710b66a90a2cc.vercel-dns-017.com` |
 | Database | Supabase project `stonk-fyi` (`hhmvbsianukqhbzsmuuh`), East US, free tier | org "hankobaggins's Org" |
-| Snapshot tick | GitHub Actions `snapshot` workflow | secrets `SNAPSHOT_URL`, `CRON_SECRET` |
+| Snapshot tick | Supabase pg_cron jobs `snapshot_tick` / `snapshot_hourly` (Vault secret `cron_secret`) | GitHub Actions `snapshot` workflow is the manual/fallback path (secrets `SNAPSHOT_URL`, `CRON_SECRET`) |
 | Vercel env | `DATA_SOURCE=live`, `CRON_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SOCIALBU_TOKEN`, `SOCIALBU_ACCOUNT_ID` | service-role key is the *legacy* `service_role` JWT from Supabase → API Keys |
 
 **Deploy:** push to `main`. Vercel builds in ~40s. Preview deploys for branches share the same env except `SUPABASE_*` (Production only) — previews run without the DB, which is the intended fallback.
 
 **When something looks wrong:** `https://stonk.fyi/api/health` first. Then Vercel → Logs. Then `gh run list --workflow snapshot`. Supabase usage: dashboard → Usage (watch database size; if it climbs past ~300 MB, shorten `SNAPSHOT_RETENTION_DAYS` in the worker).
 
-**Secrets rotation:** changing `CRON_SECRET` means updating it in both Vercel env and the GitHub repo secret. The service-role key lives only in Vercel.
+**Secrets rotation:** changing `CRON_SECRET` means updating it in Vercel env, Supabase Vault (`cron_secret`) and the GitHub repo secret. The service-role key lives only in Vercel.
 
 **Network quirks for tooling:** from this project's Cowork sessions, the user's local shell can reach GitHub and npm but not Vercel/Supabase; the cloud sandbox can reach neither GitHub-for-push nor Vercel. Vercel and Supabase dashboards are driven through the user's Chrome. `gh` is installed at `~/bin/gh` in the local VM and authenticated as `hankobaggins`.

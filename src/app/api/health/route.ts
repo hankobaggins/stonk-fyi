@@ -59,7 +59,14 @@ export async function GET() {
       if (!db) return "not configured (optional)";
       const { error, count } = await db.from("platform_snapshots").select("ts", { count: "exact", head: true });
       if (error) throw new Error(error.message);
-      return `${count ?? 0} platform snapshots`;
+      const { data: latest } = await db.from("platform_snapshots").select("ts").order("ts", { ascending: false }).limit(1);
+      const lastTs = latest?.[0]?.ts as string | undefined;
+      if (!lastTs) return `${count ?? 0} platform snapshots, none yet`;
+      const ageMin = (Date.now() - Date.parse(lastTs)) / 60000;
+      const note = `${count ?? 0} platform snapshots, last ${ageMin.toFixed(0)} min ago`;
+      // The tick runs every 5 min; anything past 15 min means the trigger has stalled (see CLAUDE.md §6).
+      if (ageMin > 15) throw new Error(`${note} — snapshot tick stalled`);
+      return note;
     }),
     run("burn_alerts", async () => {
       const db = getDb();

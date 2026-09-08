@@ -1,4 +1,6 @@
-# Vercel's Hobby plan only allows daily cron jobs, so the 5-minute snapshot tick runs from here.
+# FALLBACK ONLY (2026-09-08): GitHub throttles `schedule:` on quiet repos — this fired every ~4 h, not every 5 min.
+# The real 5-minute tick is Supabase pg_cron (supabase/migrations/0004_pg_cron_tick.sql). This stays for
+# manual runs (workflow_dispatch) and as a coarse safety net if Supabase cron is ever off.
 # Needs repository secrets: SNAPSHOT_URL (https://stonk.fyi) and CRON_SECRET (same value as on Vercel).
 name: snapshot
 on:
