@@ -29,6 +29,7 @@ export default async function PlatformPage() {
   const prev7 = days.slice(-14, -7);
   const sum = (xs: typeof days) => xs.reduce((a, d) => a + d.dailyRevenue, 0);
   const rev7 = sum(last7);
+  const holders7 = last7.reduce((a, d) => a + d.dailyHoldersRevenue, 0);
   const rev7Delta = prev7.length ? ((rev7 - sum(prev7)) / sum(prev7)) * 100 : null;
   const today = days[days.length - 1];
 
@@ -48,7 +49,6 @@ export default async function PlatformPage() {
     .map(([name, v]) => ({ name, value: v.valueUsd }))
     .sort((a, b) => b.value - a.value);
 
-  const gradRate = s.tokens.total ? (s.tokens.graduated / s.tokens.total) * 100 : 0;
   const buybackShare = r.revenue.totalRevenueUsd ? (r.revenue.totalBuybackUsd / r.revenue.totalRevenueUsd) * 100 : 0;
 
   return (
@@ -63,14 +63,14 @@ export default async function PlatformPage() {
       </div>
 
       <div className="kpis">
-        <KpiTile label="Total market cap" value={fmtUsd(s.tokens.totalMarketCapUsd)} sub={`${fmtNum(s.tokens.total)} live tokens`} />
+        <KpiTile label="Total market cap" value={fmtUsd(s.tokens.totalMarketCapUsd)} sub={<Link href="/launches" className="hover:text-primary">{fmtNum(s.tokens.total)} live tokens · {fmtNum(s.tokens.graduated)} graduated →</Link>} />
         <KpiTile label="24h volume" value={fmtUsd(s.tokens.totalVolume24hUsd)} sub={`${fmtNum(s.tokens.rewardLaunches)} reward-mode launches`} />
         <KpiTile label="Revenue (7d)" value={fmtUsd(rev7)} delta={rev7Delta} sub="vs prior 7d" />
-        <KpiTile label="Revenue today (UTC)" value={fmtUsd(today?.dailyRevenue)} sub={`${utcHoursElapsed.toFixed(1)}h in · ${fmtUsd(today?.dailyHoldersRevenue)} to holders`} />
+        <KpiTile label="Revenue today (UTC)" value={fmtUsd(today?.dailyRevenue)} sub={`${utcHoursElapsed.toFixed(1)}h in · ${fmtUsd(today?.dailyProtocolRevenue)} to protocol`} />
+        <KpiTile label="Paid to holders today" value={fmtUsd(today?.dailyHoldersRevenue)} sub={<Link href="/flywheel" className="hover:text-primary">{fmtUsd(holders7)} last 7d · notional USD →</Link>} />
         <KpiTile label="Lifetime revenue" value={fmtUsd(s.revenue.totalRevenueUsd)} sub={`since ${history.data.start}`} />
         <KpiTile label="Buybacks (lifetime)" value={fmtUsd(r.revenue.totalBuybackUsd)} sub={`${buybackShare.toFixed(0)}% of revenue · ${fmtNum(r.revenue.buybackCount)} txs`} />
         <KpiTile label="Burned (USD at burn)" value={fmtUsd(s.burns.totalValueUsdAtBurn)} sub={`${fmtNum(s.burns.burnCount)} burns · ${fmtNum(r.burns.mintCount)} mints`} />
-        <KpiTile label="Graduated" value={fmtNum(s.tokens.graduated)} sub={`${gradRate.toFixed(1)}% of live · ${s.tokens.aboutToGraduate} about to`} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">

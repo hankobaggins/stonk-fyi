@@ -1,7 +1,7 @@
 import { getRevenue, getRevenueHistory, getRewards, getStats } from "@/lib/api";
 import { cumulative, fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
-import { CumulativeChart, HBarChart, RevenueChart } from "@/components/charts";
+import { CountBarChart, CumulativeChart, HBarChart, RevenueChart } from "@/components/charts";
 import BuybackFeed from "@/components/BuybackFeed";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,18 @@ export default async function FlywheelPage() {
   const series = days.map((d) => ({ date: d.date, holders: d.dailyHoldersRevenue, protocol: d.dailyProtocolRevenue }));
   const totalHolders = days.reduce((s, d) => s + d.dailyHoldersRevenue, 0);
   const totalProtocol = days.reduce((s, d) => s + d.dailyProtocolRevenue, 0);
+
+  // Rewards paid to holders: StonkFun's USD valuation of reward-mode fee payouts, per UTC day.
+  // Notional: valued at payout time in whatever quote asset each coin pays in, not marked to market.
+  const holdersSeries = days.map((d) => ({ date: d.date, value: d.dailyHoldersRevenue }));
+  const todayHolders = days[days.length - 1]?.dailyHoldersRevenue ?? 0;
+  const yesterdayHolders = days[days.length - 2]?.dailyHoldersRevenue ?? null;
+  const holders7 = days.slice(-7).reduce((s, d) => s + d.dailyHoldersRevenue, 0);
+  const holdersPrev7 = days.slice(-14, -7).reduce((s, d) => s + d.dailyHoldersRevenue, 0);
+  const holders7Delta = holdersPrev7 ? ((holders7 - holdersPrev7) / holdersPrev7) * 100 : null;
+  const fullDays = days.slice(1, -1).map((d) => d.dailyHoldersRevenue);
+  const avgHoldersDay = fullDays.length ? fullDays.reduce((a, b) => a + b, 0) / fullDays.length : 0;
+  const holdersShare = r.revenue.totalRevenueUsd ? (totalHolders / r.revenue.totalRevenueUsd) * 100 : 0;
 
   const burnSources = Object.entries(r.burns.bySource)
     .map(([name, v]) => ({ name, value: v.valueUsd, count: v.count, tokens: v.amountTokens }))
@@ -43,6 +55,20 @@ export default async function FlywheelPage() {
         <KpiTile label="STONK bought back" value={fmtNum(r.revenue.boughtBackTokens)} sub={`${fmtUsd(r.revenue.boughtBackValueUsd)} · avg ${fmtUsd(avgPrice, { compact: false, digits: 4 })}`} />
         <KpiTile label="Burned (USD at burn)" value={fmtUsd(r.burns.totalValueUsdAtBurn)} sub={`${fmtNum(r.burns.burnCount)} burns · last buyback ${timeAgo(r.revenue.lastBuybackAt, now)}`} />
       </div>
+
+      <Section title="Rewards paid to holders (USD, notional)" action={<span className="num text-xs text-muted">per UTC day · StonkFun revenue history · 5 min</span>}>
+        <div className="kpis mb-4">
+          <KpiTile label="Today (UTC)" value={fmtUsd(todayHolders)} delta={yesterdayHolders ? ((todayHolders - yesterdayHolders) / yesterdayHolders) * 100 : null} sub="vs yesterday, partial day" />
+          <KpiTile label="Last 7 days" value={fmtUsd(holders7)} delta={holders7Delta} sub="vs prior 7d" />
+          <KpiTile label="Average full day" value={fmtUsd(avgHoldersDay)} sub={`over ${fullDays.length} complete days`} />
+          <KpiTile label="Lifetime" value={fmtUsd(totalHolders)} sub={`${holdersShare.toFixed(0)}% of all fee revenue`} />
+        </div>
+        <CountBarChart data={holdersSeries} name="To holders" fmt="usd" height={220} />
+        <div className="text-xs text-muted mt-2">
+          Reward-mode coins pay their trading fees to holders in the coin&apos;s quote asset. Figures are StonkFun&apos;s USD value at payout time, summed across every
+          reward coin; they are not marked to today&apos;s prices. The per-coin table below shows the same payouts in native units.
+        </div>
+      </Section>
 
       <div className="grid lg:grid-cols-3 gap-4">
         <Section title="Daily revenue split" className="lg:col-span-2">
