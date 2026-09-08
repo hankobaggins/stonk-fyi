@@ -114,7 +114,7 @@ export default function AboutPage() {
           </p>
           <p>
             <span className="text-primary">Jupiter</span> (<code className="font-mono text-xs">lite-api.jup.ag/price/v3</code>): current USD prices for the ~250
-            quote assets reward coins pay in. Used only on the Rewards page to value per-coin payouts, which StonkFun reports in native units. Marked to
+            quote assets reward coins pay in. Used on the Rewards page and on each reward coin&apos;s token page to value payouts, which StonkFun reports in native units. Marked to
             current prices, so it differs from StonkFun&apos;s USD-at-payout daily totals.
           </p>
           <p>

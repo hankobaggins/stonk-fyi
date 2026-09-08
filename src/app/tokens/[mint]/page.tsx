@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getToken, getTokenBacking, getTokenBurns, getTokenFees, getTokenRewards, resolveImage, SITE_BASE } from "@/lib/api";
+import { getUsdPrices } from "@/lib/jupiter";
 import { fmtDate, fmtNum, fmtPct, fmtPrice, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { Delta, ExplorerLink, KpiTile, ModePill, Section, StatusPill } from "@/components/ui";
 import TokenIcon from "@/components/TokenIcon";
@@ -48,6 +49,10 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
   const drawdown = m.peakMarketCapUsd && m.marketCapUsd ? ((m.marketCapUsd - m.peakMarketCapUsd) / m.peakMarketCapUsd) * 100 : undefined;
   const timeToGraduate = t.graduatedAt ? (Date.parse(t.graduatedAt) - Date.parse(t.createdAt)) / 60000 : undefined;
   const rw = rewards.data?.rewards ?? null;
+  const quote = rewards.data?.quote ?? null;
+  // Reward payouts arrive in native quote units; mark them to Jupiter's current price (5 min cache). Best-effort: null when unpriced.
+  const quotePrice = rw && quote?.mint ? ((await getUsdPrices([quote.mint]))[quote.mint] ?? null) : null;
+  const distributedUsdNow = quotePrice != null ? rw!.distributedTokens * quotePrice : null;
   const fe = fees.data;
 
   return (
@@ -124,17 +129,28 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
             <Unavailable what="Rewards" />
           ) : rw ? (
             <>
-              <div className="grid grid-cols-3 gap-3">
-                <Mini label="Distributed" value={`${fmtNum(rw.distributedTokens, 2)} ${rewards.data?.quote?.symbol ?? ""}`} />
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <Mini label="Distributed" value={`${fmtNum(rw.distributedTokens, 2)} ${quote?.symbol ?? ""}`} />
+                <Mini label="At today's price" value={distributedUsdNow != null ? fmtUsd(distributedUsdNow) : "—"} />
                 <Mini label="Payouts" value={fmtNum(rw.payoutCount)} />
                 <Mini label="Holders paid" value={fmtNum(rw.holderCount)} />
               </div>
-              <div className="text-xs text-muted mt-3">Trading fees paid to holders in {rewards.data?.quote?.symbol ?? "the quote asset"}, pro rata.</div>
+              <div className="text-xs text-muted mt-3">
+                Trading fees paid to holders in {quote?.symbol ?? "the quote asset"}, pro rata.{" "}
+                {quotePrice != null ? (
+                  <>
+                    USD is marked to {quote?.symbol}&apos;s current price, <span className="num">{fmtPrice(quotePrice)}</span>, not the
+                    price at each payout.
+                  </>
+                ) : (
+                  <>No current USD price for {quote?.symbol ?? "this quote asset"}, so payouts are shown in native units only.</>
+                )}
+              </div>
             </>
           ) : (
             <div className="text-xs text-muted">{rewards.data?.message ?? "Standard launch: fees are split with the creator, not paid to holders."}</div>
           )}
-          <div className="mt-2 src">StonkFun rewards · 60s</div>
+          <div className="mt-2 src">StonkFun rewards · 60s{rw ? " · Jupiter price · 5 min" : ""}</div>
         </Section>
 
         <Section title="Creator fees">
