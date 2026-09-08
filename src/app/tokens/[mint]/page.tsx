@@ -4,6 +4,8 @@ import { getToken, getTokenBacking, getTokenBurns, getTokenFees, getTokenRewards
 import { fmtDate, fmtNum, fmtPct, fmtPrice, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { Delta, ExplorerLink, KpiTile, ModePill, Section, StatusPill } from "@/components/ui";
 import TokenIcon from "@/components/TokenIcon";
+import TokenHistoryChart from "@/components/TokenHistoryChart";
+import { getTokenHistory } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -34,12 +36,14 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
   const launch = res.data.launch;
   const m = t.market ?? {};
   const now = nowMs();
-  const [burns, rewards, fees, backing] = await Promise.all([
+  const [burns, rewards, fees, backing, history] = await Promise.all([
     settle(getTokenBurns(mint)),
     settle(getTokenRewards(mint)),
     settle(getTokenFees(mint)),
     settle(getTokenBacking(mint)),
+    settle(getTokenHistory(mint, 7)),
   ]);
+  const hist = history.data;
   const img = resolveImage(t.imageUrl);
   const drawdown = m.peakMarketCapUsd && m.marketCapUsd ? ((m.marketCapUsd - m.peakMarketCapUsd) / m.peakMarketCapUsd) * 100 : undefined;
   const timeToGraduate = t.graduatedAt ? (Date.parse(t.graduatedAt) - Date.parse(t.createdAt)) / 60000 : undefined;
@@ -81,6 +85,17 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
         <KpiTile label="24h volume" value={fmtUsd(m.volume24hUsd)} sub={m.marketCapUsd && m.volume24hUsd ? `${(m.volume24hUsd / m.marketCapUsd).toFixed(2)}× market cap` : undefined} />
         <KpiTile label="From peak" value={<Delta value={drawdown} />} sub={m.liquidityUsd ? `liquidity ${fmtUsd(m.liquidityUsd)}` : undefined} />
       </div>
+
+      <Section title="History, 7d" action={hist ? <span className="num text-xs text-muted">{fmtNum(hist.samples)} snapshots · since {timeAgo(hist.from, now)} · stonk.fyi snapshots · 5 min</span> : null}>
+        {hist ? (
+          <TokenHistoryChart points={hist.points} />
+        ) : (
+          <div className="text-sm text-muted">
+            No history recorded yet. stonk.fyi snapshots the top 100 tokens by volume every 5 minutes, the top 500 hourly and every token daily; the chart
+            appears after the second snapshot.
+          </div>
+        )}
+      </Section>
 
       <div className="grid md:grid-cols-2 gap-4">
         <Section title="Launch">
@@ -182,12 +197,6 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
         </Section>
       )}
 
-      <Section title="Price history">
-        <div className="text-sm text-muted">
-          StonkFun&apos;s API only exposes current market values. Price, market cap and volume charts will appear here from stonk.fyi&apos;s own 5-minute snapshots
-          once enough history has accumulated (the top 100 tokens by volume are recorded every 5 minutes, the top 500 hourly).
-        </div>
-      </Section>
     </div>
   );
 }

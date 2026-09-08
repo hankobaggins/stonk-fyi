@@ -165,20 +165,23 @@ export function ShareBar({ data, fmt = "usd" }: { data: { name: string; value: n
 
 // ---------- Launches per day (single series) ----------
 
-export function CountBarChart({ data, height = 200, name = "Launches", fmt = "count" }: { data: { date: string; value: number }[]; height?: number; name?: string; fmt?: Fmt }) {
+const fmtHour = (d: string) => new Date(d).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "UTC" });
+
+export function CountBarChart({ data, height = 200, name = "Launches", fmt = "count", tick = "day" }: { data: { date: string; value: number }[]; height?: number; name?: string; fmt?: Fmt; tick?: "day" | "hour" }) {
   const format = F[fmt];
+  const fmtTick = tick === "hour" ? fmtHour : fmtDay;
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
         <CartesianGrid vertical={false} />
-        <XAxis dataKey="date" tickFormatter={fmtDay} tickLine={false} axisLine={false} minTickGap={28} />
+        <XAxis dataKey="date" tickFormatter={fmtTick} tickLine={false} axisLine={false} minTickGap={28} />
         <YAxis tickFormatter={(v) => format(v)} tickLine={false} axisLine={false} width={fmt === "usd" ? 56 : 40} />
         <Tooltip
           cursor={{ fill: "var(--surface-2)" }}
           content={({ label, payload }) =>
             payload?.length ? (
               <div className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-xs shadow-lg">
-                <div className="text-muted">{fmtDay(String(label))}</div>
+                <div className="text-muted">{tick === "hour" ? `${fmtDay(String(label))} ${fmtHour(String(label))} UTC` : fmtDay(String(label))}</div>
                 <div className="num">{name}: {format(payload[0].value as number)}</div>
               </div>
             ) : null
@@ -229,7 +232,7 @@ export function PriceChart({ data, height = 280 }: { data: { ts: number; price: 
 
 // ---------- Burn events over time (bars, single series) ----------
 
-export function BurnBarChart({ data, height = 220 }: { data: { date: string; value: number }[]; height?: number }) {
+export function BurnBarChart({ data, height = 220 }: { data: { date: string; value: number; usd?: number }[]; height?: number }) {
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
@@ -243,6 +246,7 @@ export function BurnBarChart({ data, height = 220 }: { data: { date: string; val
               <div className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-xs shadow-lg">
                 <div className="text-muted">{String(label)}</div>
                 <div className="num">{fmtNum(payload[0].value as number)} STONK burned</div>
+                {payload[0].payload?.usd !== undefined && <div className="num text-secondary">{fmtUsd(payload[0].payload.usd)} at burn</div>}
               </div>
             ) : null
           }

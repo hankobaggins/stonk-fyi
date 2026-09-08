@@ -21,14 +21,17 @@ export default async function StonkPage() {
   const r = d.revenue;
 
   // Burn events bucketed by 10-minute window for the recent-burns chart.
-  const buckets = new Map<string, number>();
+  const buckets = new Map<string, { tokens: number; usd: number }>();
   for (const b of d.burns?.burns ?? []) {
     const dt = new Date(b.burnedAt);
     dt.setUTCMinutes(Math.floor(dt.getUTCMinutes() / 10) * 10, 0, 0);
     const key = dt.toISOString().slice(11, 16);
-    buckets.set(key, (buckets.get(key) ?? 0) + b.amountTokens);
+    const cur = buckets.get(key) ?? { tokens: 0, usd: 0 };
+    buckets.set(key, { tokens: cur.tokens + b.amountTokens, usd: cur.usd + b.valueUsdAtBurn });
   }
-  const burnSeries = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, value]) => ({ date, value }));
+  const burnSeries = [...buckets.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, value: v.tokens, usd: v.usd }));
+  const recentBurnTokens = (d.burns?.burns ?? []).reduce((s, b) => s + b.amountTokens, 0);
+  const recentBurnUsd = (d.burns?.burns ?? []).reduce((s, b) => s + b.valueUsdAtBurn, 0);
 
   // Buyback dollars per day ≈ buyback share × daily revenue (the flywheel's fuel line).
   const buybackShare = r.revenue.totalRevenueUsd ? r.revenue.totalBuybackUsd / r.revenue.totalRevenueUsd : 0;
@@ -112,7 +115,7 @@ export default async function StonkPage() {
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <Section title="Recent STONK burns" action={<span className="text-xs text-muted num">last {d.burns?.burns.length ?? 0} events · UTC · 60s</span>}>
+        <Section title="Recent STONK burns" action={<span className="text-xs text-muted num">last {d.burns?.burns.length ?? 0} events · {fmtNum(recentBurnTokens)} STONK · {fmtUsd(recentBurnUsd)} · UTC · 60s</span>}>
           {burnSeries.length ? <BurnBarChart data={burnSeries} /> : <div className="text-sm text-muted">No burn events.</div>}
           <div className="table-wrap mt-3 max-h-64 overflow-y-auto">
             <table className="data">

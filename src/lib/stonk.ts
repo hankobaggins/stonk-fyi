@@ -135,7 +135,7 @@ async function computeStonkData(): Promise<StonkData> {
       label: "Burn velocity",
       value: burnRate ? `${burnRate.pctSupplyPerDay.toFixed(2)}% / day` : "—",
       detail: burnRate
-        ? `${num(burnRate.tokensPerHour)} STONK/hour over the last ${burnRate.sample} burns (${burnRate.windowHours.toFixed(1)}h) · ${burnRate.annualizedPct.toFixed(0)}% of supply a year at this pace.`
+        ? `${num(burnRate.tokensPerHour)} STONK (${usd(burnRate.usdPerHour)}) per hour over the last ${burnRate.sample} burns (${burnRate.windowHours.toFixed(1)}h) · ${usd(burnRate.usdPerHour * 24)}/day · ${burnRate.annualizedPct.toFixed(0)}% of supply a year.`
         : "Burn ledger unavailable.",
       signal: burnRate ? (burnRate.pctSupplyPerDay > 0.3 ? "bull" : burnRate.pctSupplyPerDay > 0.05 ? "neutral" : "bear") : "info",
       group: "flywheel",

@@ -40,7 +40,7 @@ export default async function FlywheelPage() {
       <div className="kpis">
         <KpiTile label="Lifetime revenue" value={fmtUsd(r.revenue.totalRevenueUsd)} sub={`${fmtUsd(totalHolders)} holders · ${fmtUsd(totalProtocol)} protocol`} />
         <KpiTile label="Total buybacks" value={fmtUsd(r.revenue.totalBuybackUsd)} sub={`${fmtNum(r.revenue.buybackCount)} txs · avg ${fmtUsd(avgBuyback)}`} />
-        <KpiTile label="STONK bought back" value={fmtNum(r.revenue.boughtBackTokens)} sub={`avg price ${fmtUsd(avgPrice, { compact: false, digits: 4 })}`} />
+        <KpiTile label="STONK bought back" value={fmtNum(r.revenue.boughtBackTokens)} sub={`${fmtUsd(r.revenue.boughtBackValueUsd)} · avg ${fmtUsd(avgPrice, { compact: false, digits: 4 })}`} />
         <KpiTile label="Burned (USD at burn)" value={fmtUsd(r.burns.totalValueUsdAtBurn)} sub={`${fmtNum(r.burns.burnCount)} burns · last buyback ${timeAgo(r.revenue.lastBuybackAt, now)}`} />
       </div>
 
