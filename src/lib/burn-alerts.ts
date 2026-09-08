@@ -44,18 +44,15 @@ export type BurnAlertRow = {
   error: string | null;
 };
 
-// Plain-language tweet. No hype adjectives, USD labeled as StonkFun pricing, tx link for provenance.
+// Plain-language tweet, two paragraphs, no links (the card carries provenance; /burn-card/{id} keeps it).
 export function buildPostText(w: BurnWindow, ctx: BurnAlertContext): string {
   const n = w.burns.length;
   const txs = n === 1 ? "1 tx" : `${n} txs`;
-  const lines = [
+  const velocity = ctx.velocityPctDay !== null ? ` Burn velocity ${ctx.velocityPctDay.toFixed(2)}%/day.` : "";
+  return [
     `${fmtNum(w.amountTokens)} $STONK burned in the last ${BURN_ALERT_WINDOW_MIN} minutes (${txs}), about ${fmtUsd(w.valueUsd)} at StonkFun pricing.`,
-    `${ctx.supplyBurnedPct.toFixed(2)}% of supply is now gone.` +
-      (ctx.velocityPctDay !== null ? ` Burn velocity ${ctx.velocityPctDay.toFixed(2)}%/day.` : ""),
-    `Largest tx: https://solscan.io/tx/${w.largest.signature}`,
-    `${SITE_URL} · unofficial · not financial advice`,
-  ];
-  return lines.join("\n\n");
+    `${ctx.supplyBurnedPct.toFixed(2)}% of supply is now gone.${velocity}`,
+  ].join("\n\n");
 }
 
 export async function alreadyAnnounced(db: SupabaseClient, signatures: string[]): Promise<Set<string>> {
