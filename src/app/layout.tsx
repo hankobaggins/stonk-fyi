@@ -7,8 +7,9 @@ import Nav from "@/components/Nav";
 import Ticker from "@/components/Ticker";
 import BuybackToasts from "@/components/BuybackToasts";
 import AlertsToggle from "@/components/AlertsToggle";
+import WalletLink from "@/components/WalletLink";
 import { getStonkData } from "@/lib/stonk";
-import { OG_SIZE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImageUrl } from "@/lib/site";
+import { OG_SIZE, SITE_DESCRIPTION, SITE_NAME, SITE_TAGLINE, SITE_URL, ogImageUrl, X_HANDLE, X_URL } from "@/lib/site";
 import { nowMs } from "@/lib/format";
 
 // Metadata is generated per request so the social card URL carries the current 5-minute
@@ -44,6 +45,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
             <span>USD figures are StonkFun&apos;s own pricing; burn amounts and tx signatures are on-chain.</span>
             <span>Not financial advice.</span>
             <Link href="/about" className="hover:text-primary underline underline-offset-2">Methodology &amp; sources</Link>
+            <a href={X_URL} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline underline-offset-2">@{X_HANDLE} on X</a>
+            <WalletLink />
             <AlertsToggle />
           </div>
         </footer>
