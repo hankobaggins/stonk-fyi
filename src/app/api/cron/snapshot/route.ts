@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getDb } from "@/lib/db";
+import { runBurnAlert } from "@/lib/burn-alerts";
 import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
-import { STONK_POOL } from "@/lib/stonk";
+import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import type { Token } from "@/lib/types";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
@@ -11,6 +12,7 @@ import type { Token } from "@/lib/types";
 //   GET /api/cron/snapshot            -> platform stats, revenue, buybacks, launches, revenue_daily, STONK + top 100 tokens by volume
 //   GET /api/cron/snapshot?hourly=1   -> same, but top 500 tokens
 //   GET /api/cron/snapshot?full=1     -> walks the entire token list, then prunes non-STONK snapshots older than 30 days
+//   ...&dry=1                         -> the burn_alert step records the alert but never posts to X
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -66,10 +68,12 @@ export async function GET(req: Request) {
   const params = new URL(req.url).searchParams;
   const full = params.get("full") === "1";
   const hourly = params.get("hourly") === "1";
+  const dry = params.get("dry") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
   const errors: string[] = [];
+  const notes: Record<string, string> = {};
   const step = async (name: string, fn: () => Promise<number>) => {
     try {
       counts[name] = await fn();
@@ -170,6 +174,23 @@ export async function GET(req: Request) {
     return rows.length;
   });
 
+  await step("burn_alert", async () => {
+    // ≥ BURN_ALERT_THRESHOLD STONK burned inside the last BURN_ALERT_WINDOW_MIN minutes (minus burns
+    // already announced) → /burn-card/{id} rendered and posted to X via SocialBu. See src/lib/burn-alerts.ts.
+    const d = await getStonkData();
+    const burns = d.burns?.burns ?? [];
+    if (!burns.length) return 0;
+    const v = d.indicators.find((i) => i.key === "burnrate");
+    const r = await runBurnAlert(db, burns, {
+      supplyBurnedPct: d.supply.burnedPct,
+      velocityPctDay: d.burnRate?.pctSupplyPerDay ?? null,
+      velocitySignal: v?.signal ?? "info",
+      priceUsd: d.token.market?.priceUsd ?? null,
+    }, { dry });
+    if (r.alertId) notes.burn_alert = `#${r.alertId} ${r.status}`;
+    return r.created;
+  });
+
   await step("pool", async () => {
     const p = await getPoolInfo(STONK_POOL);
     if (!p) return 0;
@@ -251,5 +272,5 @@ export async function GET(req: Request) {
     });
   }
 
-  return NextResponse.json({ ok: errors.length === 0, ts, mode: full ? "full" : hourly ? "hourly" : "tick", counts, errors });
+  return NextResponse.json({ ok: errors.length === 0, ts, mode: full ? "full" : hourly ? "hourly" : "tick", counts, notes, errors });
 }

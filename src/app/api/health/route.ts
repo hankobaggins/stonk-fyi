@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
 import { getDb } from "@/lib/db";
+import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 
@@ -59,6 +60,14 @@ export async function GET() {
       const { error, count } = await db.from("platform_snapshots").select("ts", { count: "exact", head: true });
       if (error) throw new Error(error.message);
       return `${count ?? 0} platform snapshots`;
+    }),
+    run("burn_alerts", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const rows = await recentBurnAlerts(db, 1);
+      const mode = process.env.SOCIALBU_TOKEN && process.env.SOCIALBU_ACCOUNT_ID ? `posting to SocialBu account ${process.env.SOCIALBU_ACCOUNT_ID}` : "dry-run (SOCIALBU_TOKEN / SOCIALBU_ACCOUNT_ID unset)";
+      const last = rows[0] ? `last #${rows[0].id} ${rows[0].status} ${rows[0].amount_tokens.toFixed(0)} STONK at ${rows[0].ts}` : "none yet";
+      return `≥$${BURN_ALERT_THRESHOLD_USD} burned (StonkFun pricing) / ${BURN_ALERT_WINDOW_MIN} min · ${mode} · ${last}`;
     }),
   ]);
 

@@ -37,7 +37,8 @@ src/app/                    routes
   about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
   api/buybacks/route.ts     protocol-event feed for the toasts: recent buybacks + non-buyback STONK burns, sorted (no-store; upstream 20-30s)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
-  api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6
+  api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6; includes the burn_alert step (§6a)
+  burn-card/[id]/route.tsx  1600×900 PNG for a big-burn alert (what gets tweeted; /burn-card/preview for eyeballing)
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
                             convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
                             `generateMetadata` points og:image/twitter:image at `/og?v=<5-min bucket>` (`ogImageUrl` in site.ts)
@@ -187,6 +188,26 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 **What unlocks now that data accumulates:** real STONK price/mcap/volume charts on the token page (replace the "Price history" placeholder), burns-per-day over full history, buyback USD per day from the actual ledger instead of the revenue × share estimate, the net-flow indicator (after 12h), volume-by-pair over time, and STONK-quoted-token count over time.
 
+## 6a — Big-burn alerts → X (added 2026-09-08)
+
+**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$50,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens), the worker posts a card to X. Runs as the `burn_alert` step of every 5-minute tick, so consecutive ticks overlap by 5 min and no burn is missed or double-counted.
+
+**Pipeline (`src/lib/burn-alerts.ts` → `runBurnAlert`)**
+1. `getStonkData()` (live burns window, supply %, burn-velocity indicator, price).
+2. `findBigBurnWindow()` (`src/lib/burn-window.ts`, pure) with `exclude` = signatures already in `burn_alert_signatures`.
+3. Insert a `burn_alerts` row (status `pending` or `dry_run`) and claim the signatures **before** posting, so a concurrent tick can't announce them twice.
+4. Card URL = `https://stonk.fyi/burn-card/{id}` — rendered by `next/og` from the stored row, so the image is reproducible and stays as provenance.
+5. SocialBu REST: `POST /upload_media_by_url {url, name}` → `upload_token`; `POST /posts {content, accounts:[SOCIALBU_ACCOUNT_ID], publish_at: now UTC, existing_attachments:[{upload_token}]}`. Base `https://socialbu.com/api/v1`, `Authorization: Bearer $SOCIALBU_TOKEN` (Settings → API for Developers). Success → status `posted` + `socialbu_post_id`; failure → `failed` + `error` (signatures stay claimed; re-post by hand if it matters).
+
+**Card content** (`src/app/burn-card/[id]/route.tsx`): exact amount (not "300K+"), tx count and sources, USD at StonkFun pricing (labelled), total supply burned as the burn ring, burn velocity with its real scorecard state (bullish / neutral / caution / unscored — never a hard-coded "Bullish"), largest tx short sig, UTC timestamp, the provenance footer and "not financial advice". Tweet text mirrors it in plain language with a Solscan link to the largest tx and no hype adjectives (`buildPostText`).
+
+**Ops**
+- Env: `SOCIALBU_TOKEN`, `SOCIALBU_ACCOUNT_ID=201802` (the stonk.fyi X account in SocialBu; `StickPicker` is 201510 — don't mix them up). Unset → the step still records alerts as `dry_run` with a card URL, nothing is posted. `?dry=1` on the cron URL forces that.
+- Migration `supabase/migrations/0003_burn_alerts.sql` must be applied before the step can write.
+- `/api/health` → `burn_alerts` check shows threshold, posting vs dry-run mode, and the last alert. `/burn-card/preview` renders the card from the newest burns regardless of threshold.
+- The worker step is isolated like the others: a SocialBu outage fails only `burn_alert`, not the snapshot.
+- Once real STONK-burn history is in `token_burns`, consider a daily "burned today" card on the same rail (roadmap #6).
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -194,7 +215,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 3. ~~**Independent price check**~~ — done via GMGN (Orca STONK/SOL pool price, spread under the hero price). Jupiter/DexScreener would add a second independent source.
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
-6. **Alerts (optional):** a scheduled job that posts to Telegram/X when an indicator flips, a burn milestone passes (e.g. 15% of supply), or revenue sets a daily record.
+6. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records.
 
 ---
 
@@ -207,6 +228,8 @@ RAYDIUM_API_BASE                    # override, default https://api-v3.raydium.i
 COINGECKO_STONK_ID=stonk-3          # optional; COINGECKO_API_KEY optional demo key
 GMGN_API_KEY                        # optional; enables the Holders & flow section + gmgn worker step
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
+SOCIALBU_TOKEN, SOCIALBU_ACCOUNT_ID=201802             # big-burn alerts to X (§6a); unset = dry run
+BURN_ALERT_THRESHOLD_USD=50000, BURN_ALERT_WINDOW_MIN=10  # optional overrides (USD at burn)
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```
 
@@ -235,7 +258,7 @@ Run: `npm install && npm run dev` → http://localhost:3000. Health: `/api/healt
 | Domain | Namecheap | `A @ 216.198.79.1`, `CNAME www f88710b66a90a2cc.vercel-dns-017.com` |
 | Database | Supabase project `stonk-fyi` (`hhmvbsianukqhbzsmuuh`), East US, free tier | org "hankobaggins's Org" |
 | Snapshot tick | GitHub Actions `snapshot` workflow | secrets `SNAPSHOT_URL`, `CRON_SECRET` |
-| Vercel env | `DATA_SOURCE=live`, `CRON_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | service-role key is the *legacy* `service_role` JWT from Supabase → API Keys |
+| Vercel env | `DATA_SOURCE=live`, `CRON_SECRET`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SOCIALBU_TOKEN`, `SOCIALBU_ACCOUNT_ID` | service-role key is the *legacy* `service_role` JWT from Supabase → API Keys |
 
 **Deploy:** push to `main`. Vercel builds in ~40s. Preview deploys for branches share the same env except `SUPABASE_*` (Production only) — previews run without the DB, which is the intended fallback.
 
