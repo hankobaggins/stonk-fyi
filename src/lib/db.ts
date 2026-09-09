@@ -196,3 +196,38 @@ export async function getRewardWindows(winHours: number): Promise<Map<string, Re
   }
   return out;
 }
+
+export type BuybackLeaderRow = { symbol: string; mint: string; spentUsd: number; stonkBought: number; txs: number; share: number };
+export type BuybackLeaderboard = { from: string; to: string; hours: number; rows: BuybackLeaderRow[]; totalUsd: number; totalStonk: number; txs: number; quotes: number };
+
+// Which fee/quote coins funded STONK buybacks over a window, from the buyback ledger the worker
+// accumulates (§6). Ranked by USD spent (StonkFun's value at the time of the buy). `to` is the
+// newest buy in the window, so a stalled worker shows up as a stale `to`, not as a quiet hour.
+export async function getBuybackLeaderboard(hours = 1, top = 10): Promise<BuybackLeaderboard | null> {
+  const db = getDb();
+  if (!db) return null;
+  const since = new Date(Date.now() - hours * 3.6e6).toISOString();
+  const { data, error } = await db
+    .from("buybacks")
+    .select("quote_mint, quote_symbol, spent_value_usd, bought_tokens, bought_at")
+    .gte("bought_at", since)
+    .order("bought_at", { ascending: false })
+    .limit(5000);
+  if (error || !data) return null;
+  const by = new Map<string, BuybackLeaderRow>();
+  let totalUsd = 0;
+  let totalStonk = 0;
+  for (const r of data as { quote_mint: string | null; quote_symbol: string | null; spent_value_usd: number | null; bought_tokens: number | null; bought_at: string }[]) {
+    const key = r.quote_mint ?? r.quote_symbol ?? "?";
+    const row = by.get(key) ?? { symbol: r.quote_symbol ?? "?", mint: r.quote_mint ?? "", spentUsd: 0, stonkBought: 0, txs: 0, share: 0 };
+    row.spentUsd += r.spent_value_usd ?? 0;
+    row.stonkBought += r.bought_tokens ?? 0;
+    row.txs += 1;
+    by.set(key, row);
+    totalUsd += r.spent_value_usd ?? 0;
+    totalStonk += r.bought_tokens ?? 0;
+  }
+  const rows = [...by.values()].sort((a, b) => b.spentUsd - a.spentUsd);
+  for (const r of rows) r.share = totalUsd > 0 ? r.spentUsd / totalUsd : 0;
+  return { from: since, to: data[0]?.bought_at ?? since, hours, rows: rows.slice(0, top), totalUsd, totalStonk, txs: data.length, quotes: rows.length };
+}
