@@ -41,6 +41,8 @@ src/app/                    routes
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
   api/cron/snapshot/route.ts  snapshot worker (Phase 2) — tiered cadence, see §6; includes the burn_alert step (§6a)
   burn-card/[id]/route.tsx  1600×900 PNG for a big-burn alert (what gets tweeted; /burn-card/preview for eyeballing)
+  ath-card/route.tsx        1200×1200 PNG for an all-time-high post (headline = StonkFun's peakMarketCapUsd, plus where it stands now,
+                            24h change, peak vs launch, supply burned). Card itself is the pure `lib/ath-card.tsx`, rendered live; nothing stored
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
                             convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
                             `generateMetadata` points og:image/twitter:image at `/og?v=<5-min bucket>` (`ogImageUrl` in site.ts)

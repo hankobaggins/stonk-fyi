@@ -40,6 +40,7 @@ export type StonkData = {
   gmgnHistory: Awaited<ReturnType<typeof getGmgnHistory>>;
   projection: { price: number; supply: number; marketCap: number; dailyRevenue: number; buybackShare: number; volume24h: number; quoteDepthUsd: number | null; poolVolume24h: number | null };
   supply: { initial: number; burned: number; burnedPct: number; circulating: number; impliedFromMarket?: number };
+  launchMarketCapUsd: number; // from the launch record; ~$5K for STONK
   burnRate: { tokensPerHour: number; usdPerHour: number; windowHours: number; sample: number; pctSupplyPerDay: number; annualizedPct: number } | null;
   indicators: Indicator[];
   watch: { label: string; detail: string }[];
@@ -303,6 +304,7 @@ async function computeStonkData(): Promise<StonkData> {
       poolVolume24h: pool?.day?.volume ?? null,
     },
     supply,
+    launchMarketCapUsd: launchMcap,
     burnRate,
     indicators,
     watch,
