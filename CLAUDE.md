@@ -43,9 +43,9 @@ src/app/                    routes
   burn-card/[id]/route.tsx  1600×900 PNG for a big-burn alert (what gets tweeted; /burn-card/preview for eyeballing)
   ath-card/route.tsx        1200×1200 PNG for an all-time-high post (headline = StonkFun's peakMarketCapUsd, plus where it stands now,
                             24h change, peak vs launch, supply burned). Card itself is the pure `lib/ath-card.tsx`, rendered live; nothing stored
-  buyback-card/route.tsx    1600×900 PNG: top 10 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
+  buyback-card/route.tsx    1200×1200 PNG: top 5 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
                             `buybacks` ledger via `getBuybackLeaderboard()` (added 2026-09-09). `?format=json` returns the numbers.
-                            Card is the pure `lib/buyback-card.tsx`. 503 when the DB is unset or the window is empty. Note "coins"
+                            Card is the pure `lib/buyback-card.tsx`, big figures only, bars in `--up`. 503 when the DB is unset or the window is empty. Note "coins"
                             here are the fee/quote assets that funded buybacks — the API has no per-launched-token revenue figure
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
                             convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
