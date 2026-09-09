@@ -14,6 +14,7 @@ const links = [
   { href: "/flywheel", label: "Flywheel" },
   { href: "/launches", label: "Launches" },
   { href: "/rewards", label: "Rewards" },
+  { href: "/yield", label: "Yield" },
   { href: "/about", label: "About" },
 ];
 

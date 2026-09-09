@@ -34,6 +34,8 @@ src/app/                    routes
   pairs/page.tsx            volume & mcap by quote asset / category (aggregates top 300 by volume)
   flywheel/page.tsx         revenue → buyback → burn
   launches/page.tsx         launch ledger & velocity
+  yield/page.tsx            holder-fee APR table: the 10 largest reward coins (≥72h old) that paid holders in the last 3 days, with
+                            24h- and 3d-based realized APR bars (added 2026-09-09; needs migration 0005 + the `rewards` worker step)
   about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
   api/buybacks/route.ts     protocol-event feed for the toasts: recent buybacks + non-buyback STONK burns, sorted (no-store; upstream 20-30s)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
@@ -66,6 +68,7 @@ src/components/
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
 supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
+supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table + reward_payout_window(win_hours) SQL function — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
@@ -168,7 +171,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` per reward coin that paid in the last 7 days → `reward_snapshots`, ~50 rows a tick; feeds `/yield`), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -187,6 +190,10 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 **Verify it's alive:** `/api/health` → `supabase` check reports the `platform_snapshots` count and the age of the newest one, and **fails when it's older than 15 min** (a stalled tick is the first thing to suspect when any DB-backed chart stops moving); or in the Supabase SQL editor: `select ts, count(*) from token_snapshots group by ts order by ts desc limit 5;` — expect ~100 rows every 5 min, ~500 at the top of the hour. `gh run list --repo hankobaggins/stonk-fyi --workflow snapshot` shows tick results (the step fails on any non-200).
 
 **What unlocks now that data accumulates:** real STONK price/mcap/volume charts on the token page (replace the "Price history" placeholder), burns-per-day over full history, buyback USD per day from the actual ledger instead of the revenue × share estimate, the net-flow indicator (after 12h), volume-by-pair over time, and STONK-quoted-token count over time.
+
+## 6b — Holder-fee APR (`/yield`, added 2026-09-09)
+
+The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a third-party chart whose formula (volume × fee rate with assumed exclusions and an "operating fee") is not reproducible. The site instead shows a **realized** APR: `(Δ lifetime payout tokens over the window × quote USD price now) ÷ market cap now × (8760 ÷ hours covered)`. Payout deltas come from `reward_snapshots` via the `reward_payout_window(win_hours)` SQL function (newest reading, and the newest reading at or before the window start, falling back to the earliest reading); a window is shown once readings cover ≥80% of it, else the cell says "collecting". Coins must be ≥72h old and have paid inside the 72h window; ranking is by market cap (top 100 reward coins by mcap from `/tokens?mode=reward`). Quote prices: Jupiter, STONK at StonkFun's price. Market cap is the denominator (understates yield on eligible balance — said on the page and on /about#yield). The whole table is empty until ~20h of readings exist and the 3d column until ~58h. `/api/health` → `reward_snapshots` shows row count, hours of history and staleness (an error there means 0005 isn't applied).
 
 ## 6a — Big-burn alerts → X (added 2026-09-08)
 
@@ -215,7 +222,8 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 3. ~~**Independent price check**~~ — done via GMGN (Orca STONK/SOL pool price, spread under the hero price). Jupiter/DexScreener would add a second independent source.
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
-6. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records.
+6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
+7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records.
 
 ---
 

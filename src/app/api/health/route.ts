@@ -68,6 +68,17 @@ export async function GET() {
       if (ageMin > 15) throw new Error(`${note} — snapshot tick stalled`);
       return note;
     }),
+    run("reward_snapshots", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const { error, count } = await db.from("reward_snapshots").select("ts", { count: "exact", head: true });
+      if (error) throw new Error(`${error.message} (migration 0005 applied?)`);
+      const { data: first } = await db.from("reward_snapshots").select("ts").order("ts", { ascending: true }).limit(1);
+      const { data: last } = await db.from("reward_snapshots").select("ts").order("ts", { ascending: false }).limit(1);
+      if (!first?.[0] || !last?.[0]) return `${count ?? 0} rows, none yet`;
+      const hours = (Date.parse(last[0].ts) - Date.parse(first[0].ts)) / 3.6e6;
+      return `${count ?? 0} rows, ${hours.toFixed(1)}h of history, last ${((Date.now() - Date.parse(last[0].ts)) / 60000).toFixed(0)} min ago`;
+    }),
     run("burn_alerts", async () => {
       const db = getDb();
       if (!db) return "not configured (needs supabase)";

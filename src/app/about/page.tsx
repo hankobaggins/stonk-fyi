@@ -62,6 +62,7 @@ const CADENCE: [string, string, string][] = [
   ["Revenue history (daily)", "StonkFun API", "5 min"],
   ["Net flow, holder growth, token history", "stonk.fyi snapshots in Postgres: STONK, the main pool and the top 100 tokens every 5 min; top 500 hourly; all tokens daily", "5 min"],
   ["Quote-asset USD prices for holder rewards", "Jupiter price API", "5 min"],
+  ["Holder-fee APR (24h / 3d)", "stonk.fyi readings of each reward coin's lifetime payouts, every 5 min for coins that paid in the last 7 days", "5 min"],
   ["90-day price chart", "CoinGecko", "10 min"],
   ["Social card (link preview)", "rendered live; its URL changes every 5 min so link scrapers, which cache by URL, fetch a new render", "5 min"],
 ];
@@ -197,6 +198,13 @@ export default function AboutPage() {
             assumes, and the other ~99% of order flow (everyone else buying and selling) is not modeled at all. Read it as a sensitivity tool, not a
             forecast.
           </p>
+        </div>
+      </Section>
+
+      <div id="yield" className="scroll-mt-20" /><Section title="Holder-fee APR">
+        <div className="text-sm text-secondary space-y-2 leading-relaxed">
+          <p>The <Link href="/yield" className="underline underline-offset-2 hover:text-primary">Yield page</Link> ranks the largest reward-mode coins by a realized APR: tokens paid to holders over a window (from this site&apos;s 5-minute readings of StonkFun&apos;s lifetime payout figure per coin) × the quote asset&apos;s USD price now, divided by the coin&apos;s market cap now, annualized by the hours the window actually covers. The 24h column uses the last day of payouts; the 3d column averages over 72 hours. A window is shown once readings cover at least 80% of it, and coins need 72 hours of trading history to be listed.</p>
+          <p>It is deliberately not volume × fee rate. Volume-based estimates depend on assumptions about eligible balances, operating fees and which pools count; payouts are what happened. The trade-off is lag: a coin that started paying an hour ago shows nothing until its window fills. Market cap as the denominator understates a holder&apos;s own yield, since pool and program balances are not paid.</p>
         </div>
       </Section>
 

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
+import { getLaunches, getRevenue, getRevenueHistory, getRewards, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getDb } from "@/lib/db";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { getGmgnStonk } from "@/lib/gmgn";
@@ -207,6 +207,20 @@ export async function GET(req: Request) {
     });
     if (error) throw new Error(error.message);
     return 1;
+  });
+
+  await step("rewards", async () => {
+    // Lifetime payouts per reward coin, for coins that paid inside the last 7 days (~50 rows a tick).
+    // /yield turns the 24h / 72h deltas into a realized holder-fee APR (src/lib/yield.ts).
+    const r = await getRewards();
+    const cutoff = Date.now() - 7 * 864e5;
+    const rows = r.data.launches
+      .filter((l) => l.payoutCount > 0 && l.lastPayoutAt && Date.parse(l.lastPayoutAt) >= cutoff)
+      .map((l) => ({ mint: l.mint, ts, quote_mint: l.quote.mint, distributed_tokens: l.distributedTokens, payout_count: l.payoutCount, holder_count: l.holderCount }));
+    if (!rows.length) return 0;
+    const { error } = await db.from("reward_snapshots").upsert(rows, { onConflict: "mint,ts" });
+    if (error) throw new Error(error.message);
+    return rows.length;
   });
 
   await step("gmgn", async () => {

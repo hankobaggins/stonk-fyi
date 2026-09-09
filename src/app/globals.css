@@ -158,3 +158,11 @@ table.data td.r, table.data th.r { text-align: right; }
 .toast::before { content: ""; position: absolute; left: 0; top: 9px; bottom: 9px; width: 3px; border-radius: 0 2px 2px 0; background: var(--series-2); }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+/* Holder-fee APR bars (/yield): scaled to the column's largest value; one series color per window. */
+.aprbar { display: inline-block; height: 10px; border-radius: 3px; background: var(--surface-2); overflow: hidden; vertical-align: middle; }
+.aprbar > i { display: block; height: 100%; border-radius: 3px; }
+.aprbar > i.apr1 { background: var(--series-3); }
+.aprbar > i.apr3 { background: var(--series-4); }
+span.apr1 { color: var(--series-3); }
+span.apr3 { color: var(--series-4); }

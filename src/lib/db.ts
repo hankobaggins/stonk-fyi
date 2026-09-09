@@ -171,3 +171,28 @@ export async function getLaunchVelocity(hours = 24): Promise<LaunchVelocity | nu
   const launches = Math.max(0, last.tokens_total - first.tokens_total);
   return { from: first.ts, to: last.ts, hours: span, launches, perHour: launches / span, samples: rows.length, hourly };
 }
+
+export type RewardWindow = { mint: string; quoteMint: string; from: string; to: string; fromTokens: number; toTokens: number; hours: number };
+
+// Lifetime-payout delta per reward coin over a window, from reward_snapshots via the
+// reward_payout_window() SQL function (migration 0005). `hours` is the real span covered, which can
+// be shorter than requested while history is still accumulating; callers decide what counts.
+export async function getRewardWindows(winHours: number): Promise<Map<string, RewardWindow> | null> {
+  const db = getDb();
+  if (!db) return null;
+  const { data, error } = await db.rpc("reward_payout_window", { win_hours: winHours });
+  if (error || !data) return null;
+  const out = new Map<string, RewardWindow>();
+  for (const r of data as { mint: string; quote_mint: string; from_ts: string; to_ts: string; from_tokens: number; to_tokens: number }[]) {
+    out.set(r.mint, {
+      mint: r.mint,
+      quoteMint: r.quote_mint,
+      from: r.from_ts,
+      to: r.to_ts,
+      fromTokens: r.from_tokens,
+      toTokens: r.to_tokens,
+      hours: (Date.parse(r.to_ts) - Date.parse(r.from_ts)) / 3.6e6,
+    });
+  }
+  return out;
+}
