@@ -43,6 +43,10 @@ src/app/                    routes
   burn-card/[id]/route.tsx  1600×900 PNG for a big-burn alert (what gets tweeted; /burn-card/preview for eyeballing)
   ath-card/route.tsx        1200×1200 PNG for an all-time-high post (headline = StonkFun's peakMarketCapUsd, plus where it stands now,
                             24h change, peak vs launch, supply burned). Card itself is the pure `lib/ath-card.tsx`, rendered live; nothing stored
+  buyback-card/route.tsx    1600×900 PNG: top 10 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
+                            `buybacks` ledger via `getBuybackLeaderboard()` (added 2026-09-09). `?format=json` returns the numbers.
+                            Card is the pure `lib/buyback-card.tsx`. 503 when the DB is unset or the window is empty. Note "coins"
+                            here are the fee/quote assets that funded buybacks — the API has no per-launched-token revenue figure
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
                             convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
                             `generateMetadata` points og:image/twitter:image at `/og?v=<5-min bucket>` (`ogImageUrl` in site.ts)
@@ -225,7 +229,7 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records.
+7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records. `/buyback-card?hours=1` (2026-09-09) is a hand-posted card for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 

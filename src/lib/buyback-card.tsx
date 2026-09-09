@@ -43,7 +43,7 @@ export function BuybackCard({ board, supplyBurnedPct, at }: BuybackCardProps) {
   );
 
   const row = (r: BuybackLeaderboard["rows"][number], i: number) => (
-    <div key={r.mint || r.symbol} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "14px 0", borderBottom: `1px solid ${C.line}` }}>
+    <div key={r.mint || r.symbol} style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, flex: 1, borderBottom: `1px solid ${C.line}` }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
         <div style={{ ...mono, display: "flex", width: 34, fontSize: 18, color: C.ink3 }}>{String(i + 1).padStart(2, "0")}</div>
         <div style={{ display: "flex", fontSize: 28, fontWeight: 600, letterSpacing: -0.5, whiteSpace: "nowrap" }}>{r.symbol}</div>
@@ -69,14 +69,14 @@ export function BuybackCard({ board, supplyBurnedPct, at }: BuybackCardProps) {
 
       {/* headline + totals */}
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", padding: "30px 0 26px", borderBottom: `1px solid ${C.line}` }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", fontSize: 46, fontWeight: 600, letterSpacing: -1.5, lineHeight: 1 }}>
             <span>Top {rows.length} coins buying</span>
             <span style={{ color: C.burn, marginLeft: 14 }}>$STONK</span>
           </div>
-          <div style={{ ...mono, display: "flex", fontSize: 18, color: C.ink2 }}>{`Fee revenue in each quote coin, swept into STONK buybacks and burned · ${board.quotes} coins paid in this window`}</div>
+          <div style={{ ...mono, display: "flex", fontSize: 18, color: C.ink2 }}>{`Fee revenue per quote coin, swept into STONK buybacks and burned · ${board.quotes} coins paid`}</div>
         </div>
-        <div style={{ display: "flex", gap: 44 }}>
+        <div style={{ display: "flex", gap: 44, flexShrink: 0 }}>
           {kpi("BOUGHT BACK", usd(board.totalUsd), "USD")}
           {kpi("STONK BOUGHT", count(board.totalStonk))}
           {kpi("BUYBACK TXS", String(board.txs))}
@@ -84,7 +84,7 @@ export function BuybackCard({ board, supplyBurnedPct, at }: BuybackCardProps) {
       </div>
 
       {/* two-column table */}
-      <div style={{ display: "flex", flex: 1, gap: 64 }}>
+      <div style={{ display: "flex", flex: 1, gap: 64, padding: "6px 0 10px" }}>
         {cols.map((c, ci) => (
           <div key={ci} style={{ display: "flex", flexDirection: "column", flex: 1 }}>
             {c.map((r, i) => row(r, ci * half + i))}
