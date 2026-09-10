@@ -306,7 +306,7 @@ Run: `npm install && npm run dev` → http://localhost:3000. Health: `/api/healt
 
 ## 9. Known gaps & honest notes
 
-- Burn velocity is computed from the burns endpoint's recent window (~25 events, ~1–2h). It's a spot rate and swings with platform activity; the label says "at this pace."
+- Burn velocity is a rolling 4h rate (2026-09-10): burns recorded in `token_burns` over the trailing 4h, merged with the API's live tail (~25 events) so the newest burns count before the worker has stored them, divided by a fixed 4h. Without a DB only the API tail exists; then the window is however far back it reaches (≤4h) and the detail says "estimate". `BURN_RATE_WINDOW_H` in `lib/stonk.ts`.
 - `/tokens/{mint}/burns` does not paginate the full 10k+ ledger (or we haven't found how); full history comes from the worker accumulating it.
 - Daily buyback dollars on the home page are an estimate (daily revenue × lifetime buyback share) until the worker records real buybacks.
 - STONK also trades outside the main pool (Jupiter routing, and every STONK-quoted pool holds STONK). The pool-depth and net-flow indicators cover the main pool only.

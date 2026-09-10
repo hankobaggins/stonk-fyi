@@ -2,7 +2,7 @@ import { cache } from "react";
 import "server-only";
 import { getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "./api";
 import { getPoolInfo, poolSides } from "./raydium";
-import { getGmgnHistory, getPoolFlow } from "./db";
+import { getBurnsSince, getGmgnHistory, getPoolFlow } from "./db";
 import { getGmgnStonk, type GmgnData } from "./gmgn";
 import type { BurnEvent, PoolFlow, PoolInfo, PricePoint, Revenue, RevenueDay, Stats, Token, TokenBurns } from "./types";
 
@@ -41,7 +41,7 @@ export type StonkData = {
   projection: { price: number; supply: number; marketCap: number; dailyRevenue: number; buybackShare: number; volume24h: number; quoteDepthUsd: number | null; poolVolume24h: number | null };
   supply: { initial: number; burned: number; burnedPct: number; circulating: number; impliedFromMarket?: number };
   launchMarketCapUsd: number; // from the launch record; ~$5K for STONK
-  burnRate: { tokensPerHour: number; usdPerHour: number; windowHours: number; sample: number; pctSupplyPerDay: number; annualizedPct: number } | null;
+  burnRate: { tokensPerHour: number; usdPerHour: number; windowHours: number; sample: number; pctSupplyPerDay: number; annualizedPct: number; estimate: boolean } | null;
   indicators: Indicator[];
   watch: { label: string; detail: string }[];
   generatedAt: string;
@@ -49,17 +49,33 @@ export type StonkData = {
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
-function computeBurnRate(burns: BurnEvent[], supply: number) {
-  if (burns.length < 2) return null;
-  const sorted = [...burns].sort((a, b) => Date.parse(a.burnedAt) - Date.parse(b.burnedAt));
-  const first = Date.parse(sorted[0].burnedAt);
-  const last = Date.parse(sorted[sorted.length - 1].burnedAt);
-  const hours = Math.max((last - first) / 3.6e6, 1 / 60);
-  const tokens = sum(sorted.map((b) => b.amountTokens));
-  const usd = sum(sorted.map((b) => b.valueUsdAtBurn));
+const BURN_RATE_WINDOW_H = 4;
+
+// Rolling burn velocity: everything burned in the trailing BURN_RATE_WINDOW_H hours ÷ that window.
+// `ledger` is the DB's copy of the window (full coverage); `recent` is the API's live tail (~25 events),
+// merged in so the newest burns count before the worker has recorded them. Without a DB the API tail
+// is all we have; then the window is however far back it reaches (capped at 4h) and the rate is an estimate.
+function computeBurnRate(ledger: BurnEvent[] | null, recent: BurnEvent[], supply: number, now = Date.now()) {
+  const since = now - BURN_RATE_WINDOW_H * 3.6e6;
+  const byId = new Map<string, BurnEvent>();
+  for (const b of [...(ledger ?? []), ...recent]) {
+    const t = Date.parse(b.burnedAt);
+    if (Number.isFinite(t) && t >= since && t <= now) byId.set(b.signature, b);
+  }
+  const events = [...byId.values()].sort((a, b) => Date.parse(a.burnedAt) - Date.parse(b.burnedAt));
+  if (!events.length) return null;
+  const estimate = !ledger;
+  let hours = BURN_RATE_WINDOW_H;
+  if (estimate) {
+    // The API tail may not reach back 4h; using the full 4h would understate the rate.
+    const oldestApi = Math.min(...recent.map((b) => Date.parse(b.burnedAt)).filter(Number.isFinite));
+    hours = Math.min(BURN_RATE_WINDOW_H, Math.max((now - oldestApi) / 3.6e6, 1 / 60));
+  }
+  const tokens = sum(events.map((b) => b.amountTokens));
+  const usd = sum(events.map((b) => b.valueUsdAtBurn));
   const perHour = tokens / hours;
   const pctPerDay = (perHour * 24) / supply;
-  return { tokensPerHour: perHour, usdPerHour: usd / hours, windowHours: hours, sample: sorted.length, pctSupplyPerDay: pctPerDay * 100, annualizedPct: pctPerDay * 365 * 100 };
+  return { tokensPerHour: perHour, usdPerHour: usd / hours, windowHours: hours, sample: events.length, pctSupplyPerDay: pctPerDay * 100, annualizedPct: pctPerDay * 365 * 100, estimate };
 }
 
 async function computeStonkData(): Promise<StonkData> {
@@ -89,11 +105,11 @@ async function computeStonkData(): Promise<StonkData> {
   const impliedFromMarket = m.priceUsd && m.marketCapUsd ? m.marketCapUsd / m.priceUsd : undefined;
   const supply = { initial: STONK_INITIAL_SUPPLY, burned, burnedPct: (burned / STONK_INITIAL_SUPPLY) * 100, circulating, impliedFromMarket };
   const sides = pool ? poolSides(pool, STONK_MINT, m.priceUsd) : null;
-  const [flow, gmgn, gmgnHistory] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnStonk(), getGmgnHistory(24)]);
+  const [flow, gmgn, gmgnHistory, burnLedger] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnStonk(), getGmgnHistory(24), getBurnsSince(STONK_MINT, BURN_RATE_WINDOW_H)]);
   // A reserve delta over a few minutes is noise, not a 24h flow: only score once the window has real coverage.
   const flowHours = flow ? (new Date(flow.to).getTime() - new Date(flow.from).getTime()) / 3.6e6 : 0;
   const flowReady = flowHours >= 12;
-  const burnRate = burns ? computeBurnRate(burns.burns, circulating) : null;
+  const burnRate = burns || burnLedger ? computeBurnRate(burnLedger, burns?.burns ?? [], circulating) : null;
 
   // ---- Revenue / buyback pressure ----
   const last7 = days.slice(-7);
@@ -136,7 +152,7 @@ async function computeStonkData(): Promise<StonkData> {
       label: "Burn velocity",
       value: burnRate ? `${burnRate.pctSupplyPerDay.toFixed(2)}% / day` : "—",
       detail: burnRate
-        ? `${num(burnRate.tokensPerHour)} STONK (${usd(burnRate.usdPerHour)}) per hour over the last ${burnRate.sample} burns (${burnRate.windowHours.toFixed(1)}h) · ${usd(burnRate.usdPerHour * 24)}/day · ${burnRate.annualizedPct.toFixed(0)}% of supply a year.`
+        ? `${num(burnRate.tokensPerHour)} STONK (${usd(burnRate.usdPerHour)}) per hour, ${burnRate.sample} burns in the ${burnRate.estimate ? `last ${burnRate.windowHours.toFixed(1)}h (estimate)` : "rolling 4h window"} · ${usd(burnRate.usdPerHour * 24)}/day · ${burnRate.annualizedPct.toFixed(0)}% of supply a year.`
         : "Burn ledger unavailable.",
       signal: burnRate ? (burnRate.pctSupplyPerDay > 0.3 ? "bull" : burnRate.pctSupplyPerDay > 0.05 ? "neutral" : "bear") : "info",
       group: "flywheel",

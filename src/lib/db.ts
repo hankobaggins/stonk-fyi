@@ -1,6 +1,6 @@
 import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { PoolFlow } from "./types";
+import type { BurnEvent, PoolFlow } from "./types";
 
 // Returns null when Supabase isn't configured so the app runs fine as a pure API-poller.
 export function getDb(): SupabaseClient | null {
@@ -36,6 +36,30 @@ export async function getPoolFlow(poolId: string, hours = 24, stonkPriceUsd?: nu
     netStonkUsd: net * (stonkPriceUsd ?? 0),
     samples: data.length,
   };
+}
+
+// Every recorded burn for a mint inside the trailing window (default 4h), oldest first. The worker
+// upserts the API's ~25-event window every tick, so this is the full ledger once it has run for a while.
+export async function getBurnsSince(mint: string, hours = 4): Promise<BurnEvent[] | null> {
+  const db = getDb();
+  if (!db) return null;
+  const since = new Date(Date.now() - hours * 3.6e6).toISOString();
+  const { data, error } = await db
+    .from("token_burns")
+    .select("signature, amount_tokens, value_usd_at_burn, source, burned_at")
+    .eq("mint", mint)
+    .gte("burned_at", since)
+    .order("burned_at", { ascending: true })
+    .limit(5000);
+  if (error || !data) return null;
+  return data.map((r) => ({
+    signature: r.signature,
+    symbol: "STONK",
+    amountTokens: r.amount_tokens ?? 0,
+    valueUsdAtBurn: r.value_usd_at_burn ?? 0,
+    source: r.source ?? "",
+    burnedAt: r.burned_at,
+  }));
 }
 
 export type GmgnHistoryPoint = { ts: string; holderCount: number; priceUsd: number | null };
