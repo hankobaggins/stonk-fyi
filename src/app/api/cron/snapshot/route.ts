@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getDb, pruneRewardSnapshots } from "@/lib/db";
 import { runBurnAlert } from "@/lib/burn-alerts";
+import { runBurnMilestone } from "@/lib/burn-milestones";
 import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
@@ -190,6 +191,27 @@ export async function GET(req: Request) {
       priceUsd: d.token.market?.priceUsd ?? null,
     }, { dry });
     if (r.alertId) notes.burn_alert = `#${r.alertId} ${r.status}`;
+    return r.created;
+  });
+
+  await step("burn_milestone", async () => {
+    // Every whole percent of the 1B supply burned → /milestone-card/{pct} posted to X. First run seeds the
+    // current level and posts nothing. See src/lib/burn-milestones.ts.
+    const d = await getStonkData();
+    if (!d.burns) return 0;
+    const v = d.indicators.find((i) => i.key === "burnrate");
+    const r = await runBurnMilestone(db, {
+      burnedTokens: d.supply.burned,
+      burnedValueUsd: d.burns.totals.valueUsdAtBurn ?? null,
+      burnCount: d.burns.totals.burnCount ?? null,
+      supplyBurnedPct: d.supply.burnedPct,
+      velocityPctDay: d.burnRate?.pctSupplyPerDay ?? null,
+      velocitySignal: v?.signal ?? "info",
+      priceUsd: d.token.market?.priceUsd ?? null,
+      marketCapUsd: d.token.market?.marketCapUsd ?? null,
+      burns: d.burns.burns,
+    }, { dry });
+    if (r.pct) notes.burn_milestone = `${r.pct}% ${r.status}${r.skipped?.length ? ` (skipped ${r.skipped.join(", ")})` : ""}`;
     return r.created;
   });
 

@@ -43,6 +43,8 @@ src/app/                    routes
   burn-card/[id]/route.tsx  1600×900 PNG for a big-burn alert (what gets tweeted; /burn-card/preview for eyeballing)
   ath-card/route.tsx        1200×1200 PNG for an all-time-high post (headline = StonkFun's peakMarketCapUsd, plus where it stands now,
                             24h change, peak vs launch, supply burned). Card itself is the pure `lib/ath-card.tsx`, rendered live; nothing stored
+  milestone-card/[id]/route.tsx  1200×1200 PNG for a burn milestone (id = whole percent, e.g. /milestone-card/14; /milestone-card/preview
+                            renders the current level live). Card is the pure `lib/milestone-card.tsx`; the worker step is §6c
   buyback-card/route.tsx    1200×1200 PNG: top 5 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
                             `buybacks` ledger via `getBuybackLeaderboard()` (added 2026-09-09). `?format=json` returns the numbers.
                             Card is the pure `lib/buyback-card.tsx`, big figures only, bars in `--up`. 503 when the DB is unset or the window is empty. Note "coins"
@@ -78,9 +80,11 @@ src/components/
   Projection.tsx            client-side flywheel projection with sliders (floor & ceiling models)
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
+src/lib/burn-milestones.ts, milestone-math.ts   burn-milestone worker step (§6c) and its pure math (scripts/burn-milestone-check.ts)
 supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
 supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste into the SQL editor by hand
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
+supabase/migrations/0007_burn_milestones.sql   burn_milestones table (§6c) — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
@@ -183,7 +187,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -229,6 +233,24 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 - The worker step is isolated like the others: a SocialBu outage fails only `burn_alert`, not the snapshot.
 - Once real STONK-burn history is in `token_burns`, consider a daily "burned today" card on the same rail (roadmap #6).
 
+## 6c — Burn milestones → X (added 2026-09-10)
+
+**Rule:** every whole percent of the fixed 1B supply burned (13%, 14%, …) gets one card posted to X. Runs as the `burn_milestone` step of every tick, right after `burn_alert`, on the same `getStonkData()` read (lifetime burned share from `/tokens/{mint}/burns` totals). Step size is hard-coded at 1% (`MILESTONE_STEP_PCT` in `milestone-math.ts`; owner's call 2026-09-10).
+
+**Pipeline (`src/lib/burn-milestones.ts` → `runBurnMilestone`)**
+1. `latestMilestone()` = highest `pct` in `burn_milestones`. **Empty table → seed** one row at the current floor with status `seeded`, post nothing. So turning the feature on never replays old milestones; the first tweet is the next whole percent.
+2. `newMilestones(current, last)` = every whole percent in (last, floor(current)]. Normally one. If the worker was down long enough to skip several, only the highest gets a card; the ones below are inserted as `skipped` so the ledger stays contiguous (and "last 1% took" is left blank for that post).
+3. `findCrossing()` walks the ~25 recent burns newest-first, subtracting from the lifetime total, to find the tx that crossed the line (`reached_at`, `crossing_signature`); null when the crossing predates the window — then the card stamps detection time.
+4. Insert the row (**pct is the primary key, so a concurrent tick's insert fails instead of double-posting**) with `card_url = https://stonk.fyi/milestone-card/{pct}`, then `postCardToX()` (shared with §6a, in `burn-alerts.ts`). Status `posted` / `failed` / `dry_run` as in §6a.
+
+**Card** (`lib/milestone-card.tsx`, square): the whole percent as the headline, the burn ring at 300px (bite = burned share), tokens burned of 1B and days since launch, then 2×2: tokens burned, lifetime USD at burn (StonkFun pricing, labelled), "last 1% took" (from the previous row's `reached_at`; "first tracked" when unknown), burn velocity with its real scorecard state and "next 1% in ~N days" at that pace in the label. Tweet (`buildMilestoneText`): two plain sentences, no links — `14% of $STONK supply is now burned: 140,012,345 tokens, about $2.1M at StonkFun pricing, 49 days after launch.` / `The last 1% took 4.2 days. Burn velocity 0.31%/day.`
+
+**Ops**
+- Same env as §6a (`SOCIALBU_TOKEN`, `SOCIALBU_ACCOUNT_ID`); unset or `?dry=1` → `dry_run` rows with a card URL, nothing posted.
+- **Migration `0007_burn_milestones.sql` must be pasted into the SQL editor by hand before the step can write**; until then the step fails (isolated, the rest of the tick is unaffected) and `/api/health` → `burn_milestones` reports the error.
+- `/api/health` → `burn_milestones`: mode, last row (`13% seeded at …`), and the next percent that will post. Tick response `notes.burn_milestone` says `14% posted` (or `dry_run`, plus any skipped).
+- Re-post by hand: the card at `/milestone-card/{pct}` is reproducible from the stored row; `seeded` and `skipped` rows 404 there.
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -237,7 +259,7 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
+7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 

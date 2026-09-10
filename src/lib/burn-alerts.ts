@@ -104,9 +104,14 @@ function utcStamp(d = new Date()): string {
 }
 
 export async function postBurnCard(cardUrl: string, text: string, alertId: number): Promise<string> {
+  return postCardToX(cardUrl, text, `stonk-burn-${alertId}.png`);
+}
+
+// Generic "image card + text → the stonk.fyi X account" used by every alert rail (big burns, milestones).
+export async function postCardToX(cardUrl: string, text: string, fileName: string): Promise<string> {
   const accountId = Number(process.env.SOCIALBU_ACCOUNT_ID);
   if (!accountId) throw new Error("SOCIALBU_ACCOUNT_ID not set");
-  const token = await uploadMediaByUrl(cardUrl, `stonk-burn-${alertId}.png`);
+  const token = await uploadMediaByUrl(cardUrl, fileName);
   const r = await socialbu<{ id?: number | string; post?: { id?: number | string }; posts?: { id?: number | string }[] }>("/posts", {
     content: text,
     accounts: [accountId],
