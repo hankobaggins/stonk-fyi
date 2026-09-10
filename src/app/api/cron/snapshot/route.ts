@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
-import { getLaunches, getRevenue, getRevenueHistory, getRewards, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
-import { getDb } from "@/lib/db";
+import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
+import { getDb, pruneRewardSnapshots } from "@/lib/db";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
+import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
 import type { Token } from "@/lib/types";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
@@ -20,6 +21,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const SNAPSHOT_RETENTION_DAYS = 30;
+const REWARD_RETENTION_DAYS = 14;
 
 function tokenRow(t: Token) {
   return {
@@ -210,16 +212,27 @@ export async function GET(req: Request) {
   });
 
   await step("rewards", async () => {
-    // Lifetime payouts per reward coin, for coins that paid inside the last 7 days (~50 rows a tick).
-    // /yield turns the 24h / 72h deltas into a realized holder-fee APR (src/lib/yield.ts).
-    const r = await getRewards();
-    const cutoff = Date.now() - 7 * 864e5;
-    const rows = r.data.launches
-      .filter((l) => l.payoutCount > 0 && l.lastPayoutAt && Date.parse(l.lastPayoutAt) >= cutoff)
-      .map((l) => ({ mint: l.mint, ts, quote_mint: l.quote.mint, distributed_tokens: l.distributedTokens, payout_count: l.payoutCount, holder_count: l.holderCount }));
+    // Lifetime payouts for the YIELD_TRACKED largest reward coins by market cap (~200 rows a tick).
+    // /yield turns the 24h / 72h deltas into a realized holder-fee APR (src/lib/yield.ts). Only
+    // these coins can appear on the page, so only these are recorded: the first version snapshotted
+    // every coin that paid in the last 7 days, which live was 5,300 rows a tick (1.2M rows / 333 MB
+    // in 21 h) and made the table unreadable inside the API timeout.
+    const coins = await getRewardCoinsByMcap(YIELD_TRACKED);
+    const rows = coins.map(({ token, launch: l }) => ({
+      mint: token.mint,
+      ts,
+      quote_mint: l.quote.mint,
+      distributed_tokens: l.distributedTokens,
+      payout_count: l.payoutCount,
+      holder_count: l.holderCount,
+    }));
     if (!rows.length) return 0;
     const { error } = await db.from("reward_snapshots").upsert(rows, { onConflict: "mint,ts" });
     if (error) throw new Error(error.message);
+    if (full) {
+      const dropped = await pruneRewardSnapshots(rows.map((r) => r.mint), REWARD_RETENTION_DAYS);
+      notes.rewards = `pruned ${dropped}`;
+    }
     return rows.length;
   });
 

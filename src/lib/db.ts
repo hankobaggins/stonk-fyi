@@ -175,14 +175,21 @@ export async function getLaunchVelocity(hours = 24): Promise<LaunchVelocity | nu
 export type RewardWindow = { mint: string; quoteMint: string; from: string; to: string; fromTokens: number; toTokens: number; hours: number };
 
 // Lifetime-payout delta per reward coin over a window, from reward_snapshots via the
-// reward_payout_window() SQL function (migration 0005). `hours` is the real span covered, which can
-// be shorter than requested while history is still accumulating; callers decide what counts.
-export async function getRewardWindows(winHours: number): Promise<Map<string, RewardWindow> | null> {
+// reward_payout_window(win_hours, mints) SQL function (migration 0006). Scoped to `mints` so the
+// query is a handful of primary-key probes per coin regardless of table size (the unscoped 0005
+// version stopped finishing inside the API's 8 s statement timeout at ~1M rows). `hours` is the
+// real span covered, which can be shorter than requested while history is still accumulating;
+// callers decide what counts. Returns null on a DB error (logged), never a partial map.
+export async function getRewardWindows(winHours: number, mints: string[]): Promise<Map<string, RewardWindow> | null> {
   const db = getDb();
   if (!db) return null;
-  const { data, error } = await db.rpc("reward_payout_window", { win_hours: winHours });
-  if (error || !data) return null;
   const out = new Map<string, RewardWindow>();
+  if (!mints.length) return out;
+  const { data, error } = await db.rpc("reward_payout_window", { win_hours: winHours, mints });
+  if (error || !data) {
+    console.error(`reward_payout_window(${winHours}h, ${mints.length} mints) failed: ${error?.message ?? "no data"} (migration 0006 applied?)`);
+    return null;
+  }
   for (const r of data as { mint: string; quote_mint: string; from_ts: string; to_ts: string; from_tokens: number; to_tokens: number }[]) {
     out.set(r.mint, {
       mint: r.mint,
@@ -195,6 +202,17 @@ export async function getRewardWindows(winHours: number): Promise<Map<string, Re
     });
   }
   return out;
+}
+
+// Drops reward_snapshots rows for coins that are no longer tracked and anything older than
+// `retentionDays` (reward_snapshots_prune, migration 0006). Returns rows deleted.
+export async function pruneRewardSnapshots(keepMints: string[], retentionDays: number): Promise<number> {
+  const db = getDb();
+  if (!db) return 0;
+  const keepAfter = new Date(Date.now() - retentionDays * 864e5).toISOString();
+  const { data, error } = await db.rpc("reward_snapshots_prune", { keep_mints: keepMints, keep_after: keepAfter });
+  if (error) throw new Error(`reward_snapshots_prune: ${error.message} (migration 0006 applied?)`);
+  return Number(data ?? 0);
 }
 
 export type BuybackLeaderRow = { symbol: string; mint: string; spentUsd: number; stonkBought: number; txs: number; share: number };

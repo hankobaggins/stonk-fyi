@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
-import { getDb } from "@/lib/db";
+import { getDb, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
+import { getRewardCoinsByMcap } from "@/lib/yield";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -71,13 +72,25 @@ export async function GET() {
     run("reward_snapshots", async () => {
       const db = getDb();
       if (!db) return "not configured (needs supabase)";
-      const { error, count } = await db.from("reward_snapshots").select("ts", { count: "exact", head: true });
+      const { data: last, error } = await db.from("reward_snapshots").select("ts").order("ts", { ascending: false }).limit(1);
       if (error) throw new Error(`${error.message} (migration 0005 applied?)`);
-      const { data: first } = await db.from("reward_snapshots").select("ts").order("ts", { ascending: true }).limit(1);
-      const { data: last } = await db.from("reward_snapshots").select("ts").order("ts", { ascending: false }).limit(1);
-      if (!first?.[0] || !last?.[0]) return `${count ?? 0} rows, none yet`;
-      const hours = (Date.parse(last[0].ts) - Date.parse(first[0].ts)) / 3.6e6;
-      return `${count ?? 0} rows, ${hours.toFixed(1)}h of history, last ${((Date.now() - Date.parse(last[0].ts)) / 60000).toFixed(0)} min ago`;
+      if (!last?.[0]) return "no readings yet";
+      // No count(*) here: it was a 3 s full scan at 1.2M rows and the table is meant to stay small.
+      const ageMin = (Date.now() - Date.parse(last[0].ts)) / 60000;
+      const note = `last reading ${ageMin.toFixed(0)} min ago`;
+      if (ageMin > 15) throw new Error(`${note} — rewards step stalled`);
+      return note;
+    }),
+    run("reward_windows", async () => {
+      // The exact call /yield makes, on the coins it shows: fails on a missing 0006 or a timeout.
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const coins = await getRewardCoinsByMcap(100);
+      const w = await getRewardWindows(72, coins.map((c) => c.token.mint));
+      if (!w) throw new Error("reward_payout_window failed (migration 0006 applied? see server log)");
+      let hours = 0;
+      for (const x of w.values()) hours = Math.max(hours, x.hours);
+      return `${w.size} of ${coins.length} tracked coins have readings, ${hours.toFixed(1)}h of history`;
     }),
     run("burn_alerts", async () => {
       const db = getDb();

@@ -44,6 +44,7 @@ export default async function YieldPage() {
       </PageHeader>
 
       {t.status === "no-db" && <Empty>This page needs the site&apos;s payout snapshots (Postgres), which this deployment does not have.</Empty>}
+      {t.status === "db-error" && <Empty>The payout readings could not be read just now (the snapshot store did not answer). The worker keeps recording; try again in a minute, or check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → reward_windows.</Empty>}
       {t.status === "collecting" && (
         <Empty>
           Collecting payout readings: {t.historyHours < 1 ? "under an hour" : `${t.historyHours.toFixed(1)} hours`} so far. The 24h column appears after about 20 hours of readings, the 3-day column after about 58.
