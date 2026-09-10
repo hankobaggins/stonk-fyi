@@ -49,7 +49,7 @@ src/app/                    routes
                             `buybacks` ledger via `getBuybackLeaderboard()` (added 2026-09-09). `?format=json` returns the numbers.
                             Card is the pure `lib/buyback-card.tsx`, big figures only, bars in `--up`. 503 when the DB is unset or the window is empty. Note "coins"
                             here are the fee/quote assets that funded buybacks — the API has no per-launched-token revenue figure
-  yield-card/route.tsx      1600×900 PNG: top 10 coins on the /yield table by realized holder-fee APR over `?window=3d` (default) or `24h`
+  yield-card/route.tsx      1600×900 PNG: top 10 coins on the /yield table by USD paid to holders over `?window=3d` (default) or `24h`, APR beside each
                             (added 2026-09-10). `?format=json` returns the board. Card is the pure `lib/yield-card.tsx` (`yieldBoard()` does the
                             ranking), same masthead/footer/palette as the buyback card, bars in `--accent`, wide layout: headline + totals left, ranking right.
                             503 when the DB is unset, still collecting, or no coin has a full window. Offline sample render:
