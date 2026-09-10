@@ -1,36 +1,56 @@
 import Link from "next/link";
-import { CATEGORY_LABEL, getHoldersTable, HOLDERS_TRACKED, STOCK_CATEGORIES, type Change } from "@/lib/holders";
-import { fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
+import { CATEGORY_LABEL, getHoldersTable, HOLDERS_TRACKED } from "@/lib/holders";
+import { nowMs, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
-import TokenIcon from "@/components/TokenIcon";
-import { Empty, PageHeader, Section, TokenLink } from "@/components/ui";
+import HoldersTable, { type HolderRow } from "@/components/HoldersTable";
+import { Empty, PageHeader, Section } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Holders of stock-quoted assets" };
 
-const COINS_SHOWN = 50;
 const hhmm = (iso: string) => iso.slice(11, 16) + " UTC";
 const dmy = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
-const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
-
-function ChangeCell({ c }: { c: Change }) {
-  if (!c) return <span className="text-muted text-xs">collecting</span>;
-  const cls = c.abs > 0 ? "text-up" : c.abs < 0 ? "text-down" : "text-muted";
-  return (
-    <span className="num" title={`${fmtNum(c.abs + 0)} over ${c.hours.toFixed(1)}h · ${hhmm(c.from)} → ${hhmm(c.to)}`}>
-      <span className={`${cls} text-[14px]`}>{signed(c.abs)}</span>
-      {c.pct !== null && <span className="text-muted text-xs"> {c.pct > 0 ? "+" : ""}{c.pct.toFixed(1)}%</span>}
-    </span>
-  );
-}
 
 export default async function HoldersPage() {
   const now = nowMs();
   const t = await getHoldersTable();
-  const coins = t.coins.slice(0, COINS_SHOWN);
   const reads = t.quotes.map((q) => q.readAt).filter(Boolean) as string[];
   const lastRead = reads.length ? reads.sort()[reads.length - 1] : null;
   const withReading = t.quotes.filter((q) => q.holders !== null).length;
+
+  // One flat row list for the client table: plain data only (rule 3 in CLAUDE.md).
+  const rows: HolderRow[] = [
+    ...t.quotes.map<HolderRow>((q) => ({
+      mint: q.mint,
+      kind: "quote",
+      symbol: q.symbol,
+      name: q.name,
+      logoUrl: resolveImage(q.logoUrl),
+      provider: q.categoryLabel,
+      marketCapUsd: null,
+      holders: q.holders,
+      d1: q.d1,
+      d7: q.d7,
+      at: q.readAt,
+      href: `https://gmgn.ai/sol/token/${q.mint}`,
+      external: true,
+    })),
+    ...t.coins.map<HolderRow>((c) => ({
+      mint: c.mint,
+      kind: "coin",
+      symbol: c.symbol,
+      name: c.name,
+      provider: CATEGORY_LABEL[c.quoteCategory] ?? c.quoteCategory,
+      quoteSymbol: c.quoteSymbol,
+      marketCapUsd: c.marketCapUsd,
+      holders: c.holders,
+      d1: c.d1,
+      d7: c.d7,
+      at: c.createdAt,
+      href: `/tokens/${c.mint}`,
+      external: false,
+    })),
+  ];
 
   return (
     <div className="space-y-5">
@@ -55,101 +75,24 @@ export default async function HoldersPage() {
       )}
 
       {t.status === "ok" && (
-        <>
-          <Section
-            title="Quote assets"
-            action={<span className="num text-xs text-muted">GMGN holder count · stonk.fyi snapshots · hourly</span>}
-          >
-            <div className="table-wrap">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th>Asset</th>
-                    <th>Provider</th>
-                    <th className="r">Holders</th>
-                    <th className="r">24h</th>
-                    <th className="r">7d</th>
-                    <th className="r">Read</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {STOCK_CATEGORIES.flatMap((cat) =>
-                    t.quotes
-                      .filter((q) => q.category === cat)
-                      .sort((a, b) => (b.holders ?? -1) - (a.holders ?? -1))
-                      .map((q) => (
-                        <tr key={q.mint}>
-                          <td>
-                            <a href={`https://gmgn.ai/sol/token/${q.mint}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-accent">
-                              <TokenIcon src={resolveImage(q.logoUrl)} symbol={q.symbol} size={20} />
-                              <span className="font-medium text-[14px]">{q.symbol}</span>
-                              <span className="text-muted text-xs truncate max-w-[16rem]">{q.name}</span>
-                            </a>
-                          </td>
-                          <td className="text-secondary text-xs">{CATEGORY_LABEL[cat]}</td>
-                          <td className="r num text-[14px]">{q.holders === null ? <span className="text-muted text-xs">no reading</span> : fmtNum(q.holders)}</td>
-                          <td className="r"><ChangeCell c={q.d1} /></td>
-                          <td className="r"><ChangeCell c={q.d7} /></td>
-                          <td className="r num text-muted text-xs">{q.readAt ? timeAgo(q.readAt, now) : "—"}</td>
-                        </tr>
-                      )),
-                  )}
-                </tbody>
-              </table>
+        <Section
+          title={`${t.quotes.length} quote assets · ${t.coins.length} coins`}
+          action={<span className="num text-xs text-muted">GMGN holder count · StonkFun rewards ledger · stonk.fyi snapshots · hourly</span>}
+        >
+          <HoldersTable rows={rows} now={now} />
+          <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
+            <p className="font-medium">The two kinds of row count holders differently. Sort within a kind, or compare a row with itself over time.</p>
+            <p className="text-secondary text-[13px]">Quote assets: GMGN&apos;s holder count for the mint, every wallet with a balance across all venues, read hourly; assets GMGN does not index show no reading ({withReading} of {t.quotes.length} have one). Coins: StonkFun&apos;s own count of reward-eligible wallets from its rewards ledger, live, with changes from this site&apos;s hourly readings; only reward-mode coins carry a holder figure, so standard-mode coins are not listed. Market cap is shown for coins only. Read / age is the newest reading for a quote asset and time since launch for a coin.</p>
+            <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
+              <span>Sources: GMGN · StonkFun rewards · stonk.fyi snapshots · StonkFun market data</span>
+              <span>Change columns appear once readings cover 80% of the window</span>
             </div>
-            <div className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-muted num">
-              <span>Holder count as GMGN reports it for the mint (every wallet with a balance, across all venues). Quote assets GMGN does not index show no reading.</span>
-              <span>{withReading} / {t.quotes.length} with a reading</span>
-            </div>
-          </Section>
-
-          <Section
-            title={`Largest coins quoted in them · top ${coins.length} of ${t.coins.length} tracked`}
-            action={<span className="num text-xs text-muted">StonkFun rewards ledger · stonk.fyi snapshots · hourly</span>}
-          >
-            <div className="table-wrap">
-              <table className="data">
-                <thead>
-                  <tr>
-                    <th className="r">#</th>
-                    <th>Coin</th>
-                    <th>Quote</th>
-                    <th className="r">Market cap</th>
-                    <th className="r">Holders</th>
-                    <th className="r">24h</th>
-                    <th className="r">7d</th>
-                    <th className="r">Age</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {coins.map((c, i) => (
-                    <tr key={c.mint}>
-                      <td className="r text-muted num">{String(i + 1).padStart(2, "0")}</td>
-                      <td>
-                        <TokenLink mint={c.mint}>
-                          <span className="font-medium text-[14px]">{c.symbol}</span> <span className="text-muted text-xs">{c.name}</span>
-                        </TokenLink>
-                      </td>
-                      <td className="text-secondary text-xs">{c.quoteSymbol} <span className="text-muted">· {CATEGORY_LABEL[c.quoteCategory] ?? c.quoteCategory}</span></td>
-                      <td className="r num text-[14px]">{fmtUsd(c.marketCapUsd, { compact: true })}</td>
-                      <td className="r num text-[14px]">{fmtNum(c.holders)}</td>
-                      <td className="r"><ChangeCell c={c.d1} /></td>
-                      <td className="r"><ChangeCell c={c.d7} /></td>
-                      <td className="r num text-muted text-xs">{timeAgo(c.createdAt, now)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-3 text-xs text-muted">
-              Holders here is StonkFun&apos;s own count of reward-eligible wallets for the coin (the figure in its rewards ledger), live; the changes are from this site&apos;s hourly readings of it. Only reward-mode coins have a holder figure in the API, so standard-mode coins are not listed. Ranked by market cap.
-            </div>
-          </Section>
-        </>
+          </div>
+        </Section>
       )}
 
       <p className="text-xs text-muted">
-        The two holder counts are different measures from different providers and are not comparable with each other. A window is shown once readings cover at least 80% of it. Method on <Link href="/about#holders" className="underline underline-offset-2 hover:text-primary">the About page</Link>. Not financial advice.
+        Method on <Link href="/about#holders" className="underline underline-offset-2 hover:text-primary">the About page</Link>. Not financial advice.
       </p>
     </div>
   );
