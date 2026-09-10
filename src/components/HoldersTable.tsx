@@ -18,7 +18,7 @@ export type HolderRow = {
   symbol: string;
   name: string;
   logoUrl?: string;
-  provider: string; // xStocks / Backpack / Pre-stocks / Tessera
+  provider: string; // issuer: xStocks / Backpack / Pre-stocks / Tessera
   quoteSymbol?: string; // coins: the asset they trade in
   marketCapUsd: number | null; // coins only
   holders: number | null;
@@ -78,12 +78,15 @@ function Th({ k, sort, onSort, right = false, children }: { k: SortKey; sort: { 
 
 export default function HoldersTable({ rows, now }: { rows: HolderRow[]; now: number }) {
   const [kind, setKind] = useState<Kind>("all");
+  const [issuer, setIssuer] = useState<string>("all");
+  // Issuer chips come from the rows themselves, in first-seen order (xStocks, Backpack, Pre-stocks, Tessera).
+  const issuers = [...new Set(rows.map((r) => r.provider))];
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "holders", desc: true });
 
   const toggle = (key: SortKey) => setSort((s) => (s.key === key ? { key, desc: !s.desc } : { key, desc: key !== "symbol" && key !== "provider" }));
 
   const shown = rows
-    .filter((r) => kind === "all" || r.kind === kind)
+    .filter((r) => (kind === "all" || r.kind === kind) && (issuer === "all" || r.provider === issuer))
     .sort((a, b) => {
       const va = sortValue(a, sort.key);
       const vb = sortValue(b, sort.key);
@@ -104,6 +107,14 @@ export default function HoldersTable({ rows, now }: { rows: HolderRow[]; now: nu
             </button>
           ))}
         </div>
+        <div className="flex gap-1">
+          <button type="button" onClick={() => setIssuer("all")} aria-current={issuer === "all"}>All issuers</button>
+          {issuers.map((p) => (
+            <button key={p} type="button" onClick={() => setIssuer(p)} aria-current={issuer === p}>
+              {p}
+            </button>
+          ))}
+        </div>
         <span className="text-xs text-muted num ml-auto">{shown.length} rows · click a column to sort</span>
       </div>
       <div className="table-wrap">
@@ -113,7 +124,7 @@ export default function HoldersTable({ rows, now }: { rows: HolderRow[]; now: nu
               <th className="r">#</th>
               <Th k="symbol" sort={sort} onSort={toggle}>Asset</Th>
               <th>Kind</th>
-              <Th k="provider" sort={sort} onSort={toggle}>Provider</Th>
+              <Th k="provider" sort={sort} onSort={toggle}>Issuer</Th>
               <Th k="holders" sort={sort} onSort={toggle} right>Holders</Th>
               <Th k="d1" sort={sort} onSort={toggle} right>24h</Th>
               <Th k="d7" sort={sort} onSort={toggle} right>7d</Th>

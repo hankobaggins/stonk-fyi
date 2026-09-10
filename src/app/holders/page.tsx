@@ -18,7 +18,8 @@ export default async function HoldersPage() {
   const lastRead = reads.length ? reads.sort()[reads.length - 1] : null;
   const withReading = t.quotes.filter((q) => q.holders !== null).length;
 
-  // One flat row list for the client table: plain data only (rule 3 in CLAUDE.md).
+  // One flat row list for the client table: plain data only (rule 3 in CLAUDE.md). Quote assets first
+  // so the issuer chips come out in category order.
   const rows: HolderRow[] = [
     ...t.quotes.map<HolderRow>((q) => ({
       mint: q.mint,
