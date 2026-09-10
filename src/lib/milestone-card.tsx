@@ -36,7 +36,6 @@ const usd = (n: number | null): string => {
   return `$${n.toFixed(0)}`;
 };
 const tokens = (n: number): string => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n.toLocaleString("en-US", { maximumFractionDigits: 0 }));
-const stampUtc = (iso: string): string => `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 
 export function MilestoneCard(p: MilestoneCardProps) {
   const at = p.reachedAt ?? p.at;
@@ -70,17 +69,10 @@ export function MilestoneCard(p: MilestoneCardProps) {
         <div style={{ ...mono, fontSize: 18, color: C.ink3, marginLeft: "auto", letterSpacing: 2 }}>MILESTONE · $STONK · SOLANA</div>
       </div>
 
-      {/* hero: headline left, the ring (the bite is the burned share) right */}
+      {/* hero: headline left, the ring (the bite is the burned share) right; no badge or subtitle (owner's call 2026-09-10) */}
       <div style={{ display: "flex", alignItems: "center", flex: 1 }}>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 18, ...mono, fontSize: 21 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, background: `${C.burn}22`, color: C.burn, padding: "9px 16px", borderRadius: 5, fontWeight: 500 }}>
-              <div style={{ width: 10, height: 10, borderRadius: 5, background: C.burn }} />
-              Burn milestone
-            </div>
-            <div style={{ display: "flex", color: C.ink2, whiteSpace: "nowrap" }}>{`Supply · on-chain · ${stampUtc(at)}`}</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-end", marginTop: 40 }}>
+          <div style={{ display: "flex", alignItems: "flex-end" }}>
             <div style={{ ...mono, display: "flex", fontSize: 300, fontWeight: 500, letterSpacing: -18, lineHeight: 0.85 }}>{p.pct}</div>
             <div style={{ ...mono, display: "flex", fontSize: 120, fontWeight: 500, color: C.ink2, lineHeight: 0.85, marginLeft: 6 }}>%</div>
           </div>
@@ -88,7 +80,7 @@ export function MilestoneCard(p: MilestoneCardProps) {
             <span style={{ color: C.burn }}>$STONK</span>
             <span style={{ marginLeft: 18 }}>supply burned.</span>
           </div>
-          <div style={{ display: "flex", ...mono, fontSize: 21, color: C.ink2, marginTop: 30 }}>{`${p.burnedTokens.toLocaleString("en-US", { maximumFractionDigits: 0 })} of 1,000,000,000 tokens · ${daysLive} days after launch`}</div>
+          <div style={{ display: "flex", ...mono, fontSize: 21, color: C.ink2, marginTop: 30 }}>{`${p.burnedTokens.toLocaleString("en-US", { maximumFractionDigits: 0 })} tokens · ${daysLive} days after launch`}</div>
         </div>
         <div style={{ display: "flex", marginLeft: 24 }}>
           <Ring pct={p.supplyBurnedPct} size={300} stroke={C.accent} track={C.line} width={30} />
