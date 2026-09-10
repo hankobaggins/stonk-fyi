@@ -66,7 +66,7 @@ export function YieldCard({ board, supplyBurnedPct, at }: YieldCardProps) {
         <div style={{ ...mono, display: "flex", width: 250, justifyContent: "flex-end", fontSize: 52, fontWeight: 500, letterSpacing: -2, color: C.bull, whiteSpace: "nowrap" }}>{pct(r.apr)}</div>
       </div>
       <div style={{ display: "flex", height: 10, background: C.line, borderRadius: 5, marginLeft: 66 }}>
-        <div style={{ display: "flex", width: `${maxApr > 0 ? Math.max(1, (r.apr / maxApr) * 100) : 0}%`, background: C.bull, borderRadius: 5 }} />
+        <div style={{ display: "flex", width: `${maxApr > 0 ? Math.max(1, (r.apr / maxApr) * 100) : 0}%`, background: C.accent, borderRadius: 5 }} />
       </div>
     </div>
   );

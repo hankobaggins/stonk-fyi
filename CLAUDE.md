@@ -49,7 +49,7 @@ src/app/                    routes
                             here are the fee/quote assets that funded buybacks — the API has no per-launched-token revenue figure
   yield-card/route.tsx      1600×900 PNG: top 5 coins on the /yield table by realized holder-fee APR over `?window=3d` (default) or `24h`
                             (added 2026-09-10). `?format=json` returns the board. Card is the pure `lib/yield-card.tsx` (`yieldBoard()` does the
-                            ranking), same masthead/footer/palette as the buyback card, wide layout: headline + totals left, ranking right.
+                            ranking), same masthead/footer/palette as the buyback card, bars in `--accent`, wide layout: headline + totals left, ranking right.
                             503 when the DB is unset, still collecting, or no coin has a full window. Offline sample render:
                             `Claude outputs/render-yield-card-sample.tsx` (copy to the repo root, `npx tsx --tsconfig tsconfig.json`)
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
