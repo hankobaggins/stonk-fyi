@@ -47,6 +47,11 @@ src/app/                    routes
                             `buybacks` ledger via `getBuybackLeaderboard()` (added 2026-09-09). `?format=json` returns the numbers.
                             Card is the pure `lib/buyback-card.tsx`, big figures only, bars in `--up`. 503 when the DB is unset or the window is empty. Note "coins"
                             here are the fee/quote assets that funded buybacks — the API has no per-launched-token revenue figure
+  yield-card/route.tsx      1600×900 PNG: top 5 coins on the /yield table by realized holder-fee APR over `?window=3d` (default) or `24h`
+                            (added 2026-09-10). `?format=json` returns the board. Card is the pure `lib/yield-card.tsx` (`yieldBoard()` does the
+                            ranking), same masthead/footer/palette as the buyback card, wide layout: headline + totals left, ranking right.
+                            503 when the DB is unset, still collecting, or no coin has a full window. Offline sample render:
+                            `Claude outputs/render-yield-card-sample.tsx` (copy to the repo root, `npx tsx --tsconfig tsconfig.json`)
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
                             convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
                             `generateMetadata` points og:image/twitter:image at `/og?v=<5-min bucket>` (`ogImageUrl` in site.ts)
@@ -232,7 +237,7 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records. `/buyback-card?hours=1` (2026-09-09) is a hand-posted card for now; an hourly or daily "who paid for the buybacks" post could reuse it.
+7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). Next on the same rail: indicator flips, burn milestones (e.g. 15% of supply), daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 
