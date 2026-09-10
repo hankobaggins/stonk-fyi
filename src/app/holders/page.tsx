@@ -36,7 +36,7 @@ export default async function HoldersPage() {
     <div className="space-y-5">
       <PageHeader
         title="Holders of stock-quoted assets"
-        sub={`Wallets holding each tokenized-stock quote asset on StonkFun (xStocks, Backpack, pre-stocks, Tessera), and the ${HOLDERS_TRACKED} largest reward coins launched against them, with the change over 24 hours and 7 days.`}
+        sub={`Wallets holding each tokenized-stock quote asset (xStocks, Backpack, pre-stocks, Tessera) and the ${HOLDERS_TRACKED} largest reward coins quoted in them, with 24h and 7d change.`}
       >
         <div className="text-right text-xs text-secondary num space-y-0.5">
           <div><span className="pill up">unique holders</span></div>

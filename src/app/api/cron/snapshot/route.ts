@@ -278,7 +278,10 @@ export async function GET(req: Request) {
     return rows.length;
   });
 
-  if (hourly || full) {
+  // Once an hour, on the :30 tick (not the hourly run, whose 500-token walk already takes a while):
+  // the GMGN calls are paced one every 1.2 s, so this step alone is ~2 min.
+  const minute = new Date(ts).getUTCMinutes();
+  if (full || (!hourly && minute >= 30 && minute < 35)) {
     await step("holders", async () => {
       // Unique holders of the stock-quoted quote assets (GMGN, ~80 calls) and the HOLDERS_TRACKED largest
       // reward coins quoted in them (StonkFun /rewards holderCount) → holder_snapshots, once an hour.

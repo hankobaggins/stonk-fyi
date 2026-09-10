@@ -119,13 +119,23 @@ export async function getGmgnStonk(): Promise<GmgnData | null> {
 // caching: the worker calls this once an hour per mint and nothing else does. Fixture mode → null.
 export async function getGmgnHolderCount(mint: string): Promise<{ holders: number | null; error: string | null }> {
   if (USE_FIXTURES || !process.env.GMGN_API_KEY) return { holders: null, error: USE_FIXTURES ? null : "GMGN_API_KEY not set" };
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const info = await call<any>("/v1/token/info", { chain: "sol", address: mint });
-    const n = num(info?.holder_count ?? info?.stat?.holder_count);
-    return n > 0 ? { holders: Math.round(n), error: null } : { holders: null, error: "no holder_count in response" };
-  } catch (e) {
-    return { holders: null, error: e instanceof Error ? e.message : String(e) };
+  // The free plan throttles far below the documented 20/s: the first hourly run got 6 answers out of
+  // 80 sequential-ish calls before every call 429'd. So: retry a 429 after a growing pause.
+  const waits = [4_000, 12_000, 30_000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const info = await call<any>("/v1/token/info", { chain: "sol", address: mint });
+      const n = num(info?.holder_count ?? info?.stat?.holder_count);
+      return n > 0 ? { holders: Math.round(n), error: null } : { holders: null, error: "no holder_count in response" };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (attempt < waits.length && /\b429\b|rate/i.test(msg)) {
+        await new Promise((r) => setTimeout(r, waits[attempt]));
+        continue;
+      }
+      return { holders: null, error: msg };
+    }
   }
 }
 

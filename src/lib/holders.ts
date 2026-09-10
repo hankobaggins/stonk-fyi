@@ -95,8 +95,8 @@ export async function getStockCoinsByMcap(n = HOLDERS_TRACKED): Promise<StockCoi
   return out.slice(0, n);
 }
 
-// Sequential-ish GMGN reads: `concurrency` in flight, a short gap between starts, so ~80 mints take
-// about a minute and never approach the 20/s bucket that 429'd on bursts.
+// GMGN reads one at a time with a gap between them: the free plan answered only the first 6 of 80
+// calls when 3 were in flight with a 150 ms gap (2026-09-10), so ~80 mints now take ~2 minutes.
 async function mapLimit<T, R>(items: T[], concurrency: number, gapMs: number, fn: (x: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
   let i = 0;
@@ -120,7 +120,7 @@ export async function runHoldersSnapshot(db: SupabaseClient, ts: string): Promis
   const [quotes, coins] = await Promise.all([getStockQuoteAssets(), getStockCoinsByMcap(HOLDERS_TRACKED)]);
   let firstError: string | null = null;
   const quoteReads = process.env.GMGN_API_KEY
-    ? await mapLimit(quotes, 3, 150, async (q) => {
+    ? await mapLimit(quotes, 1, 1_200, async (q) => {
         const r = await getGmgnHolderCount(q.mint);
         if (r.error && !firstError) firstError = `${q.symbol}: ${r.error}`;
         return { mint: q.mint, holders: r.holders };

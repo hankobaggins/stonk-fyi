@@ -41,12 +41,13 @@ export function Section({ title, action, children, className = "" }: { title: st
 
 export function PageHeader({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3 mb-5 pb-4 border-b border-border">
-      <div>
+    <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 mb-5 pb-4 border-b border-border">
+      <div className="min-w-0 max-w-3xl">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         {sub && <p className="text-sm text-muted mt-0.5">{sub}</p>}
       </div>
-      {children}
+      {/* Trailing block keeps to the right edge even when the header wraps onto two lines. */}
+      {children && <div className="ml-auto shrink-0">{children}</div>}
     </div>
   );
 }
