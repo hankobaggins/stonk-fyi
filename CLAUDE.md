@@ -36,6 +36,9 @@ src/app/                    routes
   launches/page.tsx         launch ledger & velocity
   yield/page.tsx            holder-fee APR table: the 10 largest reward coins (≥72h old) that paid holders in the last 3 days, with
                             24h- and 3d-based realized APR bars (added 2026-09-09; needs migration 0005 + the `rewards` worker step)
+  holders/page.tsx          unique holders of the stock-quoted side: every xstock/backpack/prestock/tessera quote asset (GMGN holder
+                            count) and the 100 largest reward coins quoted in them (StonkFun holderCount), 24h and 7d change from hourly
+                            `holder_snapshots` (added 2026-09-10; needs migration 0009 + the hourly `holders` worker step, §6e)
   about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
   api/buybacks/route.ts     protocol-event feed for the toasts: recent buybacks + non-buyback STONK burns, sorted (no-store; upstream 20-30s)
   api/health/route.ts       per-upstream diagnostics (USE THIS FIRST when anything looks wrong)
@@ -87,6 +90,7 @@ supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied 
 supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste into the SQL editor by hand
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
 supabase/migrations/0007_burn_milestones.sql   burn_milestones table (§6c) — paste into the SQL editor by hand
+supabase/migrations/0009_holder_snapshots.sql   holder_snapshots + holder_window(win_hours, mints) + holder_snapshots_prune() (§6e) — paste by hand
 supabase/migrations/0008_ath_alerts.sql   ath_alerts table (§6d) — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
@@ -190,7 +194,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `holders` (hourly and full mode only, §6e), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -273,6 +277,18 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 - `/api/health` → `ath_alerts`: mode, cooldown, the bar (highest row, its status and source) and the last post. Tick response `notes.ath_alert` says `#12 posted at $191,240,000` (or `quiet` / `seeded` / `dry_run`).
 - Re-post by hand: `/ath-card/{id}` is reproducible from the row. Price ATH is deliberately not tracked (burns let price hit a high while market cap does not; owner chose market cap 2026-09-10).
 
+## 6e — Holders of stock-quoted assets (`/holders`, added 2026-09-10)
+
+Owner asked for unique holders, with 24h and 1-week change, for "stocks + Backpack quoted assets". Scope settled 2026-09-10: both the quote assets themselves and the coins launched against them; categories `xstock`, `prestock`, `tessera`, `backpack` (StonkFun's `/pairs` tags; 24 + 7 + 2 + 47 = 80 mints live); holder source GMGN; own page.
+
+**Two counts, two providers, stated on the page as not comparable:**
+- *Quote assets* — GMGN `/v1/token/info` `holder_count` (every wallet with a balance, all venues), one weight-1 call per mint (`getGmgnHolderCount` in `gmgn.ts`, no cache). GMGN has no batch route. Quote assets GMGN does not index show "no reading" and are counted in the tick note.
+- *Coins* — the `HOLDERS_TRACKED`=100 largest **reward-mode** coins by market cap across the four categories (`getStockCoinsByMcap`: one `/tokens?mode=reward&category=X&sort=marketCap` page per category, merged), holder count = StonkFun's `holderCount` in `/rewards` (one call, reward-eligible wallets). Standard-mode coins have no holder figure in the API and are not listed (live: ~19.5K coins in these categories, ~15.4K reward-mode).
+
+**Cadence:** the `holders` worker step runs only with `?hourly=1` / `?full=1` (~180 rows an hour → `holder_snapshots`; GMGN calls 3 in flight with a 150 ms gap, ~20 s). Full mode also prunes untracked mints and readings older than `HOLDERS_RETENTION_DAYS`=14 via `holder_snapshots_prune`. Sized from the live endpoints (0005 lesson). Windows come from `holder_window(win_hours, mints)` (three PK probes per mint, same shape as 0006); a column shows once readings cover ≥80% of the window — 24h after ~20 h, 7d after ~5.5 days.
+
+**Ops:** migration `0009_holder_snapshots.sql` must be pasted into the SQL editor by hand; until then the step fails (isolated) and `/api/health` → `holder_snapshots` reports the error. `/api/health` → `holder_snapshots` (staleness; fails past 75 min) and `holder_windows` (the page's exact query on the tracked mints; coverage + hours of history). Tick response `notes.holders` = `78 quote assets read, 2 failed (SYM: <first error>), 100 coins`. Page states: `no-db`, `db-error`, `collecting` (no readings at all), `ok`.
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -281,7 +297,8 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
+7. **Holders (§6e):** once a week of `holder_snapshots` exists, consider per-asset sparklines and a "holders added, 7d" ranking; a Helius on-chain count would make the quote-asset figure first-party and cover standard-mode coins.
+8. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 
