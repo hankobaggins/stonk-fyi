@@ -2,12 +2,12 @@ import { C, Ring } from "@/lib/card";
 import { SITE_NAME } from "@/lib/site";
 import type { YieldRow, YieldTable } from "@/lib/yield";
 
-// 1600×900 "who pays holders the most" card: the top 5 coins on the /yield table by realized holder-fee
+// 1600×900 "who pays holders the most" card: the top 10 coins on the /yield table by realized holder-fee
 // APR over one window (3d default, or 24h). Same ledger palette, Geist faces, masthead and footer as the
 // square buyback card, laid out for the wide frame: headline + totals down the left, ranking on the right.
 // Pure: the /yield-card route and offline renders draw the same image from the same props.
 export const YIELD_CARD_SIZE = { width: 1600, height: 900 };
-export const YIELD_CARD_TOP = 5;
+export const YIELD_CARD_TOP = 10;
 
 export type YieldWindow = "24h" | "3d";
 export type YieldCardRow = { mint: string; symbol: string; quoteSymbol: string; marketCapUsd: number; apr: number; usd: number; hours: number };
@@ -57,16 +57,16 @@ export function YieldCard({ board, supplyBurnedPct, at }: YieldCardProps) {
   );
 
   const row = (r: YieldCardRow, i: number) => (
-    <div key={r.mint} style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 14, flex: 1, borderBottom: `1px solid ${C.line}` }}>
+    <div key={r.mint} style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 8, flex: 1, borderBottom: i < rows.length - 1 ? `1px solid ${C.line}` : "none" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 22 }}>
-        <div style={{ ...mono, display: "flex", width: 44, fontSize: 24, color: C.ink3 }}>{String(i + 1).padStart(2, "0")}</div>
-        <div style={{ display: "flex", fontSize: 52, fontWeight: 600, letterSpacing: -1.5, whiteSpace: "nowrap" }}>{r.symbol}</div>
-        <div style={{ ...mono, display: "flex", fontSize: 20, color: C.ink3, letterSpacing: 1, whiteSpace: "nowrap" }}>{`PAYS ${r.quoteSymbol}`}</div>
-        <div style={{ ...mono, display: "flex", marginLeft: "auto", fontSize: 24, color: C.ink2, whiteSpace: "nowrap" }}>{`${usd(r.marketCapUsd)} MCAP`}</div>
-        <div style={{ ...mono, display: "flex", width: 250, justifyContent: "flex-end", fontSize: 52, fontWeight: 500, letterSpacing: -2, color: C.bull, whiteSpace: "nowrap" }}>{pct(r.apr)}</div>
+        <div style={{ ...mono, display: "flex", width: 44, fontSize: 18, color: C.ink3 }}>{String(i + 1).padStart(2, "0")}</div>
+        <div style={{ display: "flex", fontSize: 34, fontWeight: 600, letterSpacing: -1, whiteSpace: "nowrap" }}>{r.symbol}</div>
+        <div style={{ ...mono, display: "flex", fontSize: 16, color: C.ink3, letterSpacing: 1, whiteSpace: "nowrap" }}>{`PAYS ${r.quoteSymbol}`}</div>
+        <div style={{ ...mono, display: "flex", marginLeft: "auto", fontSize: 18, color: C.ink2, whiteSpace: "nowrap" }}>{`${usd(r.marketCapUsd)} MCAP`}</div>
+        <div style={{ ...mono, display: "flex", width: 190, justifyContent: "flex-end", fontSize: 34, fontWeight: 500, letterSpacing: -1.5, color: C.bull, whiteSpace: "nowrap" }}>{pct(r.apr)}</div>
       </div>
-      <div style={{ display: "flex", height: 10, background: C.line, borderRadius: 5, marginLeft: 66 }}>
-        <div style={{ display: "flex", width: `${maxApr > 0 ? Math.max(1, (r.apr / maxApr) * 100) : 0}%`, background: C.accent, borderRadius: 5 }} />
+      <div style={{ display: "flex", height: 6, background: C.line, borderRadius: 3, marginLeft: 66 }}>
+        <div style={{ display: "flex", width: `${maxApr > 0 ? Math.max(1, (r.apr / maxApr) * 100) : 0}%`, background: C.accent, borderRadius: 3 }} />
       </div>
     </div>
   );
@@ -97,7 +97,7 @@ export function YieldCard({ board, supplyBurnedPct, at }: YieldCardProps) {
         </div>
 
         {/* right: ranking */}
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "16px 0 12px" }}>{rows.map(row)}</div>
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "10px 0" }}>{rows.map(row)}</div>
       </div>
 
       {/* footer */}
