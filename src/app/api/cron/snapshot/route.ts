@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getDb, pruneRewardSnapshots } from "@/lib/db";
+import { runAthAlert } from "@/lib/ath-alerts";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { runBurnMilestone } from "@/lib/burn-milestones";
 import { getGmgnStonk } from "@/lib/gmgn";
@@ -14,7 +15,7 @@ import type { Token } from "@/lib/types";
 //   GET /api/cron/snapshot            -> platform stats, revenue, buybacks, launches, revenue_daily, STONK + top 100 tokens by volume
 //   GET /api/cron/snapshot?hourly=1   -> same, but top 500 tokens
 //   GET /api/cron/snapshot?full=1     -> walks the entire token list, then prunes non-STONK snapshots older than 30 days
-//   ...&dry=1                         -> the burn_alert step records the alert but never posts to X
+//   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert steps record but never post to X
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -212,6 +213,24 @@ export async function GET(req: Request) {
       burns: d.burns.burns,
     }, { dry });
     if (r.pct) notes.burn_milestone = `${r.pct}% ${r.status}${r.skipped?.length ? ` (skipped ${r.skipped.join(", ")})` : ""}`;
+    return r.created;
+  });
+
+  await step("ath_alert", async () => {
+    // New all-time-high market cap (max of live mcap and StonkFun's peakMarketCapUsd, above every figure in
+    // `ath_alerts`) → /ath-card/{id} posted to X, at most once per ATH_ALERT_COOLDOWN_MIN; highs inside the
+    // cooldown are recorded as quiet. First run seeds StonkFun's peak and posts nothing. See src/lib/ath-alerts.ts.
+    const d = await getStonkData();
+    const m = d.token.market ?? {};
+    const r = await runAthAlert(db, {
+      marketCapUsd: m.marketCapUsd ?? null,
+      peakMarketCapUsd: m.peakMarketCapUsd ?? null,
+      priceUsd: m.priceUsd ?? null,
+      priceChange24h: m.priceChange24h ?? null,
+      launchMarketCapUsd: d.launchMarketCapUsd,
+      supplyBurnedPct: d.supply.burnedPct,
+    }, { dry });
+    if (r.status) notes.ath_alert = `#${r.id} ${r.status} at $${Math.round(r.marketCapUsd ?? 0).toLocaleString("en-US")}`;
     return r.created;
   });
 

@@ -4,6 +4,7 @@ import { getPoolInfo } from "@/lib/raydium";
 import { getDb, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
+import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
@@ -108,6 +109,16 @@ export async function GET() {
       const mode = process.env.SOCIALBU_TOKEN && process.env.SOCIALBU_ACCOUNT_ID ? "posting" : "dry-run";
       if (!last) return `every 1% of supply · ${mode} · not seeded yet (first tick seeds the current level)`;
       return `every 1% of supply · ${mode} · last ${last.pct}% ${last.status} at ${last.ts} · next post at ${last.pct + 1}%`;
+    }),
+    run("ath_alerts", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const [high, post] = await Promise.all([highestAth(db), lastAthPost(db)]); // throws if migration 0008 is missing
+      const mode = process.env.SOCIALBU_TOKEN && process.env.SOCIALBU_ACCOUNT_ID ? "posting" : "dry-run";
+      if (!high) return `market-cap ATH · ${mode} · not seeded yet (first tick seeds StonkFun's peak)`;
+      const bar = `bar $${Math.round(high.market_cap_usd).toLocaleString("en-US")} (${high.status}, ${high.source}) at ${high.ts}`;
+      const last = post ? `last post #${post.id} ${post.status} at ${post.ts}` : "no post yet";
+      return `market-cap ATH · ${mode} · cooldown ${ATH_ALERT_COOLDOWN_MIN} min · ${bar} · ${last}`;
     }),
   ]);
 

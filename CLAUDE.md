@@ -43,6 +43,7 @@ src/app/                    routes
   burn-card/[id]/route.tsx  1600×900 PNG for a big-burn alert (what gets tweeted; /burn-card/preview for eyeballing)
   ath-card/route.tsx        1200×1200 PNG for an all-time-high post (headline = StonkFun's peakMarketCapUsd, plus where it stands now,
                             24h change, peak vs launch, supply burned). Card itself is the pure `lib/ath-card.tsx`, rendered live; nothing stored
+  ath-card/[id]/route.tsx   the same card from a stored `ath_alerts` row (what the worker's ath_alert step posts, §6d); seeded/quiet rows 404
   milestone-card/[id]/route.tsx  1200×1200 PNG for a burn milestone (id = whole percent, e.g. /milestone-card/14; /milestone-card/preview
                             renders the current level live). Card is the pure `lib/milestone-card.tsx`; the worker step is §6c
   buyback-card/route.tsx    1200×1200 PNG: top 5 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
@@ -81,10 +82,12 @@ src/components/
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
 src/lib/burn-milestones.ts, milestone-math.ts   burn-milestone worker step (§6c) and its pure math (scripts/burn-milestone-check.ts)
+src/lib/ath-alerts.ts, ath-math.ts   all-time-high worker step (§6d) and its pure math (scripts/ath-alert-check.ts)
 supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
 supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste into the SQL editor by hand
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
 supabase/migrations/0007_burn_milestones.sql   burn_milestones table (§6c) — paste into the SQL editor by hand
+supabase/migrations/0008_ath_alerts.sql   ath_alerts table (§6d) — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
@@ -187,7 +190,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -251,6 +254,25 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 - `/api/health` → `burn_milestones`: mode, last row (`13% seeded at …`), and the next percent that will post. Tick response `notes.burn_milestone` says `14% posted` (or `dry_run`, plus any skipped).
 - Re-post by hand: the card at `/milestone-card/{pct}` is reproducible from the stored row; `seeded` and `skipped` rows 404 there.
 
+## 6d — All-time-high alerts → X (added 2026-09-10)
+
+**Rule:** when $STONK's market cap (USD, StonkFun pricing) breaks its previous all-time high, a card is posted to X. "Previous ATH" is the highest figure ever recorded in `ath_alerts`, seeded on the first run from StonkFun's `peakMarketCapUsd`, so the first tweet is a real new high and never a replay. Runs as the `ath_alert` step of every tick, after `burn_milestone`, on the same `getStonkData()` read.
+
+**Throttle (owner's call 2026-09-10: cooldown only, no minimum gain):** at most one post per `ATH_ALERT_COOLDOWN_MIN` (default 60). A new high inside the cooldown is still recorded (status `quiet`) and raises the bar, so the next post needs a high above it after the cooldown. Consequence: a spike that peaks and fades inside the cooldown is never announced — the alternative (tweeting a stale figure once the cooldown ends) would be wrong.
+
+**Pipeline (`src/lib/ath-alerts.ts` → `runAthAlert`, pure math in `ath-math.ts`)**
+1. Candidate = the higher of live `marketCapUsd` and StonkFun's `peakMarketCapUsd` (`athCandidate`; their peak can lag a tick, live can beat it). `source` records which one.
+2. `evaluateAth(candidate, highestAth, lastPostAt, now)`: `newHigh` when candidate > the highest row (any status); `announce` when the cooldown since the newest posted/pending/dry_run row has elapsed (failed rows don't count, so the next high retries).
+3. Empty table → insert `seeded`, post nothing. Not a new high → nothing. New high in cooldown → `quiet` row. Otherwise insert `pending`/`dry_run` first (**unique index on `market_cap_usd`: a concurrent tick inserting the same figure fails instead of double-posting**), set `card_url = https://stonk.fyi/ath-card/{id}`, then `postCardToX()` (shared with §6a/§6c). Status `posted` / `failed` as in §6a.
+
+**Card** (`lib/ath-card.tsx`, the existing square ATH card with an optional `prevHighUsd`): headline = the new high, sub-line "previous high $X (+Y%)", then price now, 24h change, peak vs launch, supply burned. Tweet (`buildAthText`): `New $STONK all-time high: $191.24M market cap at StonkFun pricing, +2.9% over the previous high of $185.94M set 2026-09-09.` / `Price $0.2214 (+18.3% 24h). 13.41% of supply burned.` Gains under 0.05% read "just above the previous high". Offline sample render: `Claude outputs/render-ath-card-sample.tsx` (copy to the repo root, `npx tsx --tsconfig tsconfig.json`).
+
+**Ops**
+- Env: `SOCIALBU_TOKEN`, `SOCIALBU_ACCOUNT_ID` as §6a (unset or `?dry=1` → `dry_run` rows, nothing posted); `ATH_ALERT_COOLDOWN_MIN` optional.
+- **Migration `0008_ath_alerts.sql` must be pasted into the SQL editor by hand**; until then the step fails (isolated) and `/api/health` → `ath_alerts` reports the error. The first tick after that seeds the bar; check it says `seeded` at StonkFun's peak before trusting the feature.
+- `/api/health` → `ath_alerts`: mode, cooldown, the bar (highest row, its status and source) and the last post. Tick response `notes.ath_alert` says `#12 posted at $191,240,000` (or `quiet` / `seeded` / `dry_run`).
+- Re-post by hand: `/ath-card/{id}` is reproducible from the row. Price ATH is deliberately not tracked (burns let price hit a high while market cap does not; owner chose market cap 2026-09-10).
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -259,7 +281,7 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
+7. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 
@@ -274,6 +296,7 @@ GMGN_API_KEY                        # optional; enables the Holders & flow secti
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
 SOCIALBU_TOKEN, SOCIALBU_ACCOUNT_ID=201802             # big-burn alerts to X (§6a); unset = dry run
 BURN_ALERT_THRESHOLD_USD=10000, BURN_ALERT_WINDOW_MIN=10  # optional overrides (USD at burn)
+ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```
 

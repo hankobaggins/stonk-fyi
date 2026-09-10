@@ -13,6 +13,7 @@ export type AthCardProps = {
   priceChange24h: number | null;
   launchMarketCapUsd: number;
   supplyBurnedPct: number;
+  prevHighUsd?: number | null; // the high this one broke (worker posts); omitted on the live card
   at: string; // ISO timestamp of the render
 };
 
@@ -37,6 +38,10 @@ export function AthCard(p: AthCardProps) {
   const fromPeak = p.marketCapUsd !== null ? ((p.marketCapUsd - p.peakMarketCapUsd) / p.peakMarketCapUsd) * 100 : null;
   const atPeak = fromPeak !== null && fromPeak > -1;
   const nowLine = p.marketCapUsd === null ? "" : atPeak ? ` · now ${usd(p.marketCapUsd)}` : ` · now ${usd(p.marketCapUsd)} (${fromPeak!.toFixed(1)}% from peak)`;
+  const prevGain = p.prevHighUsd ? ((p.peakMarketCapUsd - p.prevHighUsd) / p.prevHighUsd) * 100 : null;
+  const subLine = p.prevHighUsd
+    ? `Peak at StonkFun pricing · previous high ${usd(p.prevHighUsd)}${prevGain !== null && prevGain >= 0.05 ? ` (+${prevGain.toFixed(1)}%)` : ""}`
+    : `Peak at StonkFun pricing${nowLine}`;
 
   // Number + smaller unit on a shared baseline (Satori needs explicit line-height on both).
   const num = (value: string, unit?: string, color = C.ink, size = 56) => (
@@ -76,7 +81,7 @@ export function AthCard(p: AthCardProps) {
           <span style={{ color: C.burn }}>$STONK</span>
           <span style={{ marginLeft: 18 }}>all-time high.</span>
         </div>
-        <div style={{ display: "flex", ...mono, fontSize: 21, color: C.ink2, marginTop: 30 }}>{`Peak at StonkFun pricing${nowLine}`}</div>
+        <div style={{ display: "flex", ...mono, fontSize: 21, color: C.ink2, marginTop: 30 }}>{subLine}</div>
       </div>
 
       {/* stats: 2 × 2, tiles separated by rules */}
