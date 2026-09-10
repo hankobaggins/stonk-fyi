@@ -4,6 +4,7 @@ import { getRewardsOverview } from "@/lib/rewards";
 import { fmtNum, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { ExplorerLink, KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
 import { CountBarChart, HBarChart } from "@/components/charts";
+import { TradeLink } from "@/components/BuyButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Holder rewards" };
@@ -43,7 +44,7 @@ export default async function RewardsPage() {
       <Section title="Top reward coins by lifetime payout" action={<span className="num text-xs text-muted">top {top.length} of {fmtNum(o.coins)} · valued at today&apos;s prices</span>}>
         <div className="table-wrap">
           <table className="data">
-            <thead><tr><th className="r">#</th><th>Token</th><th>Paid in</th><th className="r">Distributed</th><th className="r">USD now</th><th className="r">Payouts</th><th className="r">Holders</th><th className="r">Last payout</th></tr></thead>
+            <thead><tr><th className="r">#</th><th>Token</th><th>Paid in</th><th className="r">Distributed</th><th className="r">USD now</th><th className="r">Payouts</th><th className="r">Holders</th><th className="r">Last payout</th><th className="r">Trade</th></tr></thead>
             <tbody>
               {top.map((r, i) => (
                 <tr key={r.mint}>
@@ -59,6 +60,7 @@ export default async function RewardsPage() {
                   <td className="r num">{fmtNum(r.payoutCount)}</td>
                   <td className="r num">{fmtNum(r.holderCount)}</td>
                   <td className="r num text-muted">{timeAgo(r.lastPayoutAt, now)}</td>
+                  <td className="r"><TradeLink mint={r.mint} /></td>
                 </tr>
               ))}
             </tbody>

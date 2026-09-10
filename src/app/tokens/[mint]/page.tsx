@@ -7,6 +7,7 @@ import { Delta, ExplorerLink, KpiTile, ModePill, Section, StatusPill } from "@/c
 import TokenIcon from "@/components/TokenIcon";
 import TokenHistoryChart from "@/components/TokenHistoryChart";
 import { getTokenHistory } from "@/lib/db";
+import BuyButton from "@/components/BuyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -77,6 +78,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
           </div>
         </div>
         <div className="ml-auto flex flex-col items-end gap-1 text-xs">
+          <BuyButton mint={t.mint} symbol={t.symbol} size="sm" className="mb-1" />
           <a href={`${SITE_BASE}/token/${t.mint}`} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Open on StonkFun ↗</a>
           {t.links?.twitter && <a href={t.links.twitter} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Twitter ↗</a>}
           {t.links?.website && <a href={t.links.website} target="_blank" rel="noreferrer" className="text-secondary hover:text-accent">Website ↗</a>}

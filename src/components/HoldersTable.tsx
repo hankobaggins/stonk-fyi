@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import TokenIcon from "./TokenIcon";
+import { TradeLink } from "./BuyButton";
 import { fmtNum, fmtUsd, timeAgo } from "@/lib/format";
 
 // One sortable table for both kinds of tracked mint. Rows are plain data (no functions) so the
@@ -130,6 +131,7 @@ export default function HoldersTable({ rows, now }: { rows: HolderRow[]; now: nu
               <Th k="d7" sort={sort} onSort={toggle} right>7d</Th>
               <Th k="marketCapUsd" sort={sort} onSort={toggle} right>Market cap</Th>
               <th className="r">Read / age</th>
+              <th className="r">Trade</th>
             </tr>
           </thead>
           <tbody>
@@ -160,6 +162,7 @@ export default function HoldersTable({ rows, now }: { rows: HolderRow[]; now: nu
                 <td className="r"><ChangeCell c={r.d7} /></td>
                 <td className="r num text-[14px]">{r.marketCapUsd === null ? <span className="text-muted">—</span> : fmtUsd(r.marketCapUsd, { compact: true })}</td>
                 <td className="r num text-muted text-xs">{r.at ? timeAgo(r.at, now) : "—"}</td>
+                <td className="r"><TradeLink mint={r.mint} /></td>
               </tr>
             ))}
           </tbody>

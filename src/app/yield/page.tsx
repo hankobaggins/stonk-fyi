@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getYieldTable, YIELD_MIN_AGE_HOURS, YIELD_ROWS, type AprCell } from "@/lib/yield";
 import { fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { Empty, PageHeader, Section, TokenLink } from "@/components/ui";
+import { TradeLink } from "@/components/BuyButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Holder-fee yield" };
@@ -75,6 +76,7 @@ export default async function YieldPage() {
                   <th>Paid in</th>
                   <th className="r">Fee</th>
                   <th className="r">Last payout</th>
+                  <th className="r">Trade</th>
                 </tr>
               </thead>
               <tbody>
@@ -92,6 +94,7 @@ export default async function YieldPage() {
                     <td className="font-medium">{r.quoteSymbol}{r.quotePriceUsd === null && <span className="text-muted text-xs"> unpriced</span>}</td>
                     <td className="r num text-muted">{r.transferFeeBps !== null ? `${(r.transferFeeBps / 100).toFixed(1)}%` : "—"}</td>
                     <td className="r num text-muted">{timeAgo(r.lastPayoutAt, now)}</td>
+                    <td className="r"><TradeLink mint={r.mint} /></td>
                   </tr>
                 ))}
               </tbody>

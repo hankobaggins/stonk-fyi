@@ -10,6 +10,7 @@ import { GMGN_TOKEN_URL } from "@/lib/gmgn";
 import BuybackFeed from "@/components/BuybackFeed";
 import TokenTable from "@/components/TokenTable";
 import Projection from "@/components/Projection";
+import BuyButton from "@/components/BuyButton";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,10 @@ export default async function StonkPage() {
               {" "}· {fmtNum(d.gmgn.holderCount)} holders
             </div>
           )}
+          <div className="mt-4 flex md:justify-end">
+            <BuyButton mint={STONK_MINT} size="lg" />
+          </div>
+          <div className="text-[11px] text-muted mt-2">Affiliate link · stonk.fyi earns a referral fee on trades started here. Not financial advice.</div>
         </div>
       </div>
 

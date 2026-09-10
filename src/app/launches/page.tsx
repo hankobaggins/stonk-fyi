@@ -3,6 +3,7 @@ import { getLaunchVelocity } from "@/lib/db";
 import { fmtNum, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { ExplorerLink, KpiTile, ModePill, PageHeader, Section, TokenLink } from "@/components/ui";
 import { CountBarChart, ShareBar } from "@/components/charts";
+import { TradeLink } from "@/components/BuyButton";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Launches" };
@@ -76,6 +77,7 @@ export default async function LaunchesPage() {
                 <th>Launchpad</th>
                 <th className="r">Start MC</th>
                 <th>Creator</th>
+                <th className="r">Trade</th>
               </tr>
             </thead>
             <tbody>
@@ -92,6 +94,7 @@ export default async function LaunchesPage() {
                   <td className="text-secondary">{l.launchpad}</td>
                   <td className="r num">{fmtUsd(l.startMarketCapUsd)}</td>
                   <td>{l.creator ? <ExplorerLink addr={l.creator} label={shortAddr(l.creator)} /> : "—"}</td>
+                  <td className="r"><TradeLink mint={l.mint} /></td>
                 </tr>
               ))}
             </tbody>

@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import LiveRefresh from "./LiveRefresh";
 import BurnRing from "./BurnRing";
+import BuyButton from "./BuyButton";
+import { STONK_MINT_PUBLIC } from "@/lib/jtx";
 
 const links = [
   { href: "/", label: "$STONK" },
@@ -70,6 +72,7 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
 
         <div className="ml-auto shrink-0 flex items-center gap-2">
           <LiveRefresh intervalMs={60_000} />
+          <span className="hidden sm:block"><BuyButton mint={STONK_MINT_PUBLIC} size="sm" /></span>
           {/* Menu button (tablet and smaller). */}
           <button
             type="button"
@@ -106,6 +109,7 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
             className="absolute left-0 right-0 top-full z-20 border-b border-border bg-bg shadow-[0_12px_32px_rgba(0,0,0,0.45)]"
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 grid gap-0.5 text-[15px]">
+              <div className="sm:hidden mb-1.5 grid"><BuyButton mint={STONK_MINT_PUBLIC} size="md" /></div>
               {links.map((l) => {
                 const active = isActive(l.href);
                 return (

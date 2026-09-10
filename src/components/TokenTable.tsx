@@ -3,6 +3,7 @@ import { fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
 import { Delta, ModePill, StatusPill, TokenLink } from "./ui";
 import TokenIcon from "./TokenIcon";
+import { TradeLink } from "./BuyButton";
 
 export default function TokenTable({ tokens, startRank = 1, now, compact = false }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean }) {
   return (
@@ -25,6 +26,7 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                 <th className="r">Age</th>
               </>
             )}
+            <th className="r">Trade</th>
           </tr>
         </thead>
         <tbody>
@@ -64,6 +66,7 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                     <td className="r text-muted num">{timeAgo(t.createdAt, now)}</td>
                   </>
                 )}
+                <td className="r"><TradeLink mint={t.mint} /></td>
               </tr>
             );
           })}

@@ -143,6 +143,12 @@ table.data th button { font: inherit; color: inherit; letter-spacing: inherit; t
 .recharts-tooltip-cursor { stroke: var(--border-strong); }
 
 @keyframes pulse-dot { 0%, 100% { opacity: 1 } 50% { opacity: .35 } }
+/* Buy button (JTX affiliate link): the only accent-filled element on the site. */
+.btn-buy { background: var(--accent); color: var(--bg); border: 1px solid transparent; transition: background 120ms ease, transform 120ms ease; }
+.btn-buy:hover { background: color-mix(in oklab, var(--accent) 88%, white); }
+.btn-buy:active { transform: translateY(1px); }
+.btn-buy:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 

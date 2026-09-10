@@ -72,6 +72,7 @@ src/lib/
   types.ts                  API response types (hand-derived from live responses)
   format.ts                 formatting helpers; nowMs() and cumulative() exist to satisfy the React Compiler lint
   site.ts                   SITE_URL / SITE_NAME / tagline / description (NEXT_PUBLIC_SITE_URL overrides the origin)
+  jtx.ts                    JTX affiliate trade URL (`ref=stonk`), client-safe; see working rule 13
 src/components/
   charts.tsx                Recharts wrappers (client). Formatting is chosen by a `fmt: "usd" | "count"` prop — never pass functions from server to client components
   Foundation.tsx            one-way facts block (burn ring at 128px, supply ledger, contract/LP checklist) — unscored by design
@@ -83,6 +84,7 @@ src/components/
                             burns in between, so expect a toast every 2-5 minutes, not continuously.
   Projection.tsx            client-side flywheel projection with sliders (floor & ceiling models)
   TokenTable.tsx, BuybackFeed.tsx, Nav.tsx, LiveRefresh.tsx, ui.tsx
+  BuyButton.tsx             `BuyButton` (nav / hero / token header) and `TradeLink` (table cell) → JTX with the referral code
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
 src/lib/burn-milestones.ts, milestone-math.ts   burn-milestone worker step (§6c) and its pure math (scripts/burn-milestone-check.ts)
 src/lib/ath-alerts.ts, ath-math.ts   all-time-high worker step (§6d) and its pure math (scripts/ath-alert-check.ts)
@@ -187,7 +189,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 10. **Rates need a real window.** The API pages at 100 and launches now exceed 100/hour, so "newest 100 tokens ÷ span" saturates (it showed a constant 100.0/h for days). Rates come from `platform_snapshots` deltas (`getLaunchVelocity`) when the DB is present; API-window fallbacks are labelled as estimates and never floor the span at 1h.
 11. **Refresh cadence is stated where the number is.** Every `source` line names the provider in a few words plus its cache window (`StonkFun revenue · 30s`, `Raydium · 60s`, `stonk.fyi pool snapshots · 5 min`) — never endpoint paths or hostnames, chart headers carry their resolution, the nav pill says "updated Ns ago", and /about has the full "How fresh is this?" table. Keep those in sync when changing a `revalidate`.
 12. **Icons go through `/api/icon?u=`.** Token images are hosted by creators on a long tail of gateways; `gateway.irys.xyz` (≈80% of them) went down on 2026-09-08 and blanked every table, on StonkFun's own site too. `TokenIcon` proxies through `/api/icon` (edge-cached a week on success, 5 min on failure) and falls back to initials on error. Never render a raw `<img>` for a token image.
-13. **Not financial advice.** Keep the disclaimers that exist; don't add "buy" language anywhere.
+13. **Not financial advice.** Keep the disclaimers that exist. The one exception to "no buy language" is the JTX affiliate button (owner's call 2026-09-10): `BuyButton` / `TradeLink` in `components/BuyButton.tsx`, URL built by `lib/jtx.ts` (`https://app.jtx.com/?mint=<mint>&ref=stonk`, `rel="sponsored"`). It sits in the nav (site-wide), the $STONK hero (large, with an affiliate disclosure line), the token detail header, and as a trailing "Trade" column in every token table (TokenTable, yield, rewards, launches, holders). It is the only accent-filled element (`.btn-buy`); don't reuse that fill. `lib/jtx.ts` has no server-only imports because the Nav is a client component, so it carries its own copy of the STONK mint — keep it equal to `STONK_MINT` in `lib/api.ts`. Everything else keeps the no-buy-language rule.
 14. **Commit hygiene** (if a repo is set up): conventional short messages; never commit `.env.local`; `next-env.d.ts` and `.next/` are generated.
 
 ---
