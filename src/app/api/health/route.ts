@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
-import { getDb, getRewardWindows } from "@/lib/db";
+import { getDb, getHolderWindows, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
+import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -93,6 +94,30 @@ export async function GET() {
       let hours = 0;
       for (const x of w.values()) hours = Math.max(hours, x.hours);
       return `${w.size} of ${coins.length} tracked coins have readings, ${hours.toFixed(1)}h of history`;
+    }),
+    run("holder_snapshots", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const { data: last, error } = await db.from("holder_snapshots").select("ts, kind").order("ts", { ascending: false }).limit(1);
+      if (error) throw new Error(`${error.message} (migration 0009 applied?)`);
+      if (!last?.[0]) return "no readings yet (first hourly run after 0009 writes them)";
+      const ageMin = (Date.now() - Date.parse(last[0].ts)) / 60000;
+      const note = `last reading ${ageMin.toFixed(0)} min ago (hourly)`;
+      if (ageMin > 75) throw new Error(`${note} — holders step stalled`);
+      return note;
+    }),
+    run("holder_windows", async () => {
+      // The exact call /holders makes: fails on a missing 0009 or a timeout.
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const [quotes, coins] = await Promise.all([getStockQuoteAssets(), getStockCoinsByMcap()]);
+      const mints = trackedMints(quotes, coins);
+      const w = await getHolderWindows(168, mints);
+      if (!w) throw new Error("holder_window failed (migration 0009 applied? see server log)");
+      let hours = 0;
+      for (const x of w.values()) hours = Math.max(hours, x.hours);
+      const q = quotes.filter((x) => w.has(x.mint)).length;
+      return `${q} of ${quotes.length} quote assets and ${coins.filter((c) => w.has(c.token.mint)).length} of ${coins.length} coins have readings, ${hours.toFixed(1)}h of history`;
     }),
     run("burn_alerts", async () => {
       const db = getDb();

@@ -115,4 +115,18 @@ export async function getGmgnStonk(): Promise<GmgnData | null> {
   return data;
 }
 
+// Holder count for any mint (the /holders page's quote assets). One weight-1 token-info call, no
+// caching: the worker calls this once an hour per mint and nothing else does. Fixture mode → null.
+export async function getGmgnHolderCount(mint: string): Promise<{ holders: number | null; error: string | null }> {
+  if (USE_FIXTURES || !process.env.GMGN_API_KEY) return { holders: null, error: USE_FIXTURES ? null : "GMGN_API_KEY not set" };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const info = await call<any>("/v1/token/info", { chain: "sol", address: mint });
+    const n = num(info?.holder_count ?? info?.stat?.holder_count);
+    return n > 0 ? { holders: Math.round(n), error: null } : { holders: null, error: "no holder_count in response" };
+  } catch (e) {
+    return { holders: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export const GMGN_TOKEN_URL = `https://gmgn.ai/sol/token/${STONK_MINT}`;

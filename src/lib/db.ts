@@ -273,3 +273,34 @@ export async function getBuybackLeaderboard(hours = 1, top = 10): Promise<Buybac
   for (const r of rows) r.share = totalUsd > 0 ? r.spentUsd / totalUsd : 0;
   return { from: since, to: data[0]?.bought_at ?? since, hours, rows: rows.slice(0, top), totalUsd, totalStonk, txs: data.length, quotes: rows.length };
 }
+
+// ---------- holder_snapshots (migration 0009; /holders) ----------
+
+export type HolderWindow = { mint: string; from: string; to: string; fromHolders: number; toHolders: number; hours: number };
+
+// Per mint: newest reading and the reading `winHours` ago (or the earliest, when history is shorter;
+// the caller checks coverage). Mints with no readings are absent. null = the RPC failed.
+export async function getHolderWindows(winHours: number, mints: string[]): Promise<Map<string, HolderWindow> | null> {
+  const db = getDb();
+  if (!db) return null;
+  const out = new Map<string, HolderWindow>();
+  if (!mints.length) return out;
+  const { data, error } = await db.rpc("holder_window", { win_hours: winHours, mints });
+  if (error || !data) {
+    console.error(`holder_window(${winHours}h, ${mints.length} mints) failed: ${error?.message ?? "no data"} (migration 0009 applied?)`);
+    return null;
+  }
+  for (const r of data as { mint: string; from_ts: string; to_ts: string; from_holders: number; to_holders: number }[]) {
+    out.set(r.mint, { mint: r.mint, from: r.from_ts, to: r.to_ts, fromHolders: r.from_holders, toHolders: r.to_holders, hours: (Date.parse(r.to_ts) - Date.parse(r.from_ts)) / 3.6e6 });
+  }
+  return out;
+}
+
+export async function pruneHolderSnapshots(keepMints: string[], retentionDays: number): Promise<number> {
+  const db = getDb();
+  if (!db) return 0;
+  const keepAfter = new Date(Date.now() - retentionDays * 864e5).toISOString();
+  const { data, error } = await db.rpc("holder_snapshots_prune", { keep_mints: keepMints, keep_after: keepAfter });
+  if (error) throw new Error(error.message);
+  return Number(data ?? 0);
+}

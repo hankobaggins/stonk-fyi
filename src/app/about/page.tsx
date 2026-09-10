@@ -62,6 +62,7 @@ const CADENCE: [string, string, string][] = [
   ["Revenue history (daily)", "StonkFun API", "5 min"],
   ["Net flow, holder growth, token history", "stonk.fyi snapshots in Postgres: STONK, the main pool and the top 100 tokens every 5 min; top 500 hourly; all tokens daily", "5 min"],
   ["Quote-asset USD prices for holder rewards", "Jupiter price API", "5 min"],
+  ["Holders of stock-quoted assets (24h / 7d)", "stonk.fyi hourly readings: GMGN holder count per quote asset, StonkFun's holderCount per reward coin", "hourly"],
   ["Holder-fee APR (24h / 3d)", "stonk.fyi readings of each reward coin's lifetime payouts, every 5 min for coins that paid in the last 7 days", "5 min"],
   ["90-day price chart", "CoinGecko", "10 min"],
   ["Social card (link preview)", "rendered live; its URL changes every 5 min so link scrapers, which cache by URL, fetch a new render", "5 min"],
@@ -205,6 +206,13 @@ export default function AboutPage() {
         <div className="text-sm text-secondary space-y-2 leading-relaxed">
           <p>The <Link href="/yield" className="underline underline-offset-2 hover:text-primary">Yield page</Link> ranks the largest reward-mode coins by a realized APR: tokens paid to holders over a window (from this site&apos;s 5-minute readings of StonkFun&apos;s lifetime payout figure per coin) × the quote asset&apos;s USD price now, divided by the coin&apos;s market cap now, annualized by the hours the window actually covers. The 24h column uses the last day of payouts; the 3d column averages over 72 hours. A window is shown once readings cover at least 80% of it, and coins need 72 hours of trading history to be listed.</p>
           <p>It is deliberately not volume × fee rate. Volume-based estimates depend on assumptions about eligible balances, operating fees and which pools count; payouts are what happened. The trade-off is lag: a coin that started paying an hour ago shows nothing until its window fills. Market cap as the denominator understates a holder&apos;s own yield, since pool and program balances are not paid.</p>
+        </div>
+      </Section>
+
+      <div id="holders" className="scroll-mt-20" /><Section title="Holders of stock-quoted assets">
+        <div className="text-sm text-secondary space-y-2 leading-relaxed">
+          <p>The <Link href="/holders" className="underline underline-offset-2 hover:text-primary">Holders page</Link> tracks unique holders on two sides of the tokenized-stock market on StonkFun. The quote assets are every pair StonkFun tags as xStocks, Backpack, pre-stocks or Tessera (about 80 mints); their holder count is GMGN&apos;s figure for the mint, read once an hour, which counts every wallet with a balance across all venues, not only StonkFun. The coins are the 100 largest reward-mode coins by market cap quoted in those assets; their holder count is StonkFun&apos;s own count of reward-eligible wallets from its rewards ledger, also read hourly. Standard-mode coins have no holder figure in the API and are not listed.</p>
+          <p>The 24h and 7d columns are the difference between the newest reading and the newest reading at or before the window start, shown once readings cover at least 80% of the window (so the 24h column needs about 20 hours of history, the 7d column about 5½ days). The two counts are different measures from different providers: compare an asset with itself over time, not a quote asset with a coin. Readings are kept for 14 days.</p>
         </div>
       </Section>
 
