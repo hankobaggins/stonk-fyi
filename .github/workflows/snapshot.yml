@@ -7,6 +7,11 @@ on:
   schedule:
     - cron: "*/5 * * * *"
   workflow_dispatch:
+    inputs:
+      census:
+        description: "Run the wallet census (?census=1) on this tick"
+        type: boolean
+        default: false
 concurrency:
   group: snapshot
   cancel-in-progress: false
@@ -24,6 +29,8 @@ jobs:
           full=""
           # top of the hour → wider token snapshot (top 500); the daily full walk runs from Vercel cron
           if [ "$(date -u +%M)" -lt 5 ]; then full="?hourly=1"; fi
+          # manual run with the census box ticked → on-demand wallet census (CLAUDE.md §6f)
+          if [ "${{ inputs.census }}" = "true" ]; then full="?census=1"; fi
           code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time 280 \
             -H "Authorization: Bearer $CRON_SECRET" "$SNAPSHOT_URL/api/cron/snapshot$full")
           echo "HTTP $code"; cat /tmp/out.json | head -c 4000; echo
