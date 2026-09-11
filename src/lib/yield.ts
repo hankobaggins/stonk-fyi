@@ -85,6 +85,73 @@ function cell(w: RewardWindow | undefined, winHours: number, price: number | nul
   return { apr: (usd / mcap) * (8760 / w.hours) * 100, usd, tokens, hours: w.hours, from: w.from, to: w.to };
 }
 
+// Quote-asset USD prices for a set of quote mints: Jupiter, with STONK at StonkFun's own price.
+async function quotePrices(quoteMints: string[]): Promise<Record<string, number>> {
+  const prices = await getUsdPrices(quoteMints);
+  if (quoteMints.includes(STONK_MINT)) {
+    const s = await getToken(STONK_MINT).catch(() => null);
+    if (s?.data.token.market?.priceUsd) prices[STONK_MINT] = s.data.token.market.priceUsd;
+  }
+  return prices;
+}
+
+// APR for an arbitrary list of tokens (the /tokens page: whatever StonkFun returned for the current
+// search/filter/page). Only reward-mode coins can have one, and only the YIELD_TRACKED largest by market
+// cap are snapshotted, so each cell also says why it is empty: `standard` (pays holders nothing),
+// `untracked` (reward coin outside the tracked set — no readings), `collecting` (readings cover under
+// 80% of the window yet), `unpriced` (no Jupiter price for the quote asset).
+export type AprReason = "standard" | "untracked" | "collecting" | "unpriced" | "no-db" | "db-error";
+export type TokenApr = { d1: AprCell; d3: AprCell; why: AprReason | null };
+export type AprLookup = { status: YieldTable["status"]; byMint: Record<string, TokenApr>; generatedAt: string };
+
+export async function getAprForTokens(tokens: Token[]): Promise<AprLookup> {
+  const generatedAt = new Date().toISOString();
+  const db = getDb();
+  const byMint: Record<string, TokenApr> = {};
+  const reward = tokens.filter((t) => t.mode === "reward");
+  for (const t of tokens) if (t.mode !== "reward") byMint[t.mint] = { d1: null, d3: null, why: "standard" };
+  if (!db) {
+    for (const t of reward) byMint[t.mint] = { d1: null, d3: null, why: "no-db" };
+    return { status: "no-db", byMint, generatedAt };
+  }
+  if (!reward.length) return { status: "ok", byMint, generatedAt };
+  const mints = reward.map((t) => t.mint);
+  const [w24, w72, prices] = await Promise.all([getRewardWindows(24, mints), getRewardWindows(72, mints), quotePrices([...new Set(reward.map((t) => t.quote.mint))])]);
+  if (w24 === null || w72 === null) {
+    for (const t of reward) byMint[t.mint] = { d1: null, d3: null, why: "db-error" };
+    return { status: "db-error", byMint, generatedAt };
+  }
+  for (const t of reward) {
+    const price = prices[t.quote.mint] ?? null;
+    const mcap = t.market?.marketCapUsd ?? 0;
+    const a = w24.get(t.mint);
+    const b = w72.get(t.mint);
+    const d1 = cell(a, 24, price, mcap);
+    const d3 = cell(b, 72, price, mcap);
+    const why: AprReason | null = d1 || d3 ? null : !a && !b ? "untracked" : price === null ? "unpriced" : "collecting";
+    byMint[t.mint] = { d1, d3, why };
+  }
+  return { status: "ok", byMint, generatedAt };
+}
+
+// The /tokens "Yield" sort: every tracked reward coin (≥72h old, paid inside the last 3 days), ranked by
+// 3d APR, then 24h APR where the 3d window is not ready. Computed here, not by StonkFun, so it covers only
+// the tracked set; the page applies its own search/filters and paging on top.
+export type YieldRanking = { status: YieldTable["status"]; tokens: Token[]; apr: AprLookup; historyHours: number; candidates: number };
+
+export async function getYieldRanking(): Promise<YieldRanking> {
+  const cutoff = Date.now() - YIELD_MIN_AGE_HOURS * 3.6e6;
+  const coins = (await getRewardCoinsByMcap(YIELD_TRACKED)).filter((c) => Date.parse(c.token.createdAt) <= cutoff);
+  const apr = await getAprForTokens(coins.map((c) => c.token));
+  const score = (m: string) => apr.byMint[m]?.d3?.apr ?? (apr.byMint[m]?.d1 ? apr.byMint[m].d1!.apr : -1);
+  const paid = coins.map((c) => c.token).filter((t) => apr.byMint[t.mint]?.d3?.tokens || apr.byMint[t.mint]?.d1?.tokens);
+  paid.sort((x, y) => score(y.mint) - score(x.mint));
+  let historyHours = 0;
+  for (const t of coins) historyHours = Math.max(historyHours, apr.byMint[t.token.mint]?.d3?.hours ?? apr.byMint[t.token.mint]?.d1?.hours ?? 0);
+  const status = apr.status !== "ok" ? apr.status : paid.length ? "ok" : "collecting";
+  return { status, tokens: paid, apr, historyHours, candidates: coins.length };
+}
+
 export async function getYieldTable(): Promise<YieldTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
@@ -96,12 +163,7 @@ export async function getYieldTable(): Promise<YieldTable> {
   // The RPC failing (timeout, missing migration) must not masquerade as "no history yet".
   const dbError = !!db && (w24 === null || w72 === null);
 
-  const quoteMints = [...new Set(coins.map((c) => c.launch.quote.mint))];
-  const prices = await getUsdPrices(quoteMints);
-  if (quoteMints.includes(STONK_MINT)) {
-    const s = await getToken(STONK_MINT);
-    if (s?.data.token.market?.priceUsd) prices[STONK_MINT] = s.data.token.market.priceUsd;
-  }
+  const prices = await quotePrices([...new Set(coins.map((c) => c.launch.quote.mint))]);
 
   let historyHours = 0;
   for (const w of w72?.values() ?? []) historyHours = Math.max(historyHours, w.hours);

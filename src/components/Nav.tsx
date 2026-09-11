@@ -11,12 +11,11 @@ import { STONK_MINT_PUBLIC } from "@/lib/jtx";
 const links = [
   { href: "/", label: "$STONK" },
   { href: "/platform", label: "Platform" },
-  { href: "/tokens", label: "Tokens" },
+  { href: "/tokens", label: "Tokens & yield" },
   { href: "/pairs", label: "Pairs" },
   { href: "/flywheel", label: "Flywheel" },
   { href: "/launches", label: "Launches" },
   { href: "/rewards", label: "Rewards" },
-  { href: "/yield", label: "Yield" },
   { href: "/holders", label: "Holders" },
   { href: "/about", label: "About" },
 ];

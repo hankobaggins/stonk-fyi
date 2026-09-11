@@ -11,7 +11,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/flywheel", priority: 0.7, freq: "hourly" },
     { path: "/launches", priority: 0.6, freq: "hourly" },
     { path: "/rewards", priority: 0.6, freq: "hourly" },
-    { path: "/yield", priority: 0.6, freq: "hourly" },
     { path: "/holders", priority: 0.6, freq: "hourly" },
     { path: "/about", priority: 0.5, freq: "monthly" },
   ];

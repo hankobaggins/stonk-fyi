@@ -29,13 +29,16 @@ You are the engineering lead for **StonkFun Metrics**, a public-facing live dash
 src/app/                    routes
   page.tsx                  $STONK home (hero, scorecard, price, supply ring, buybacks, burns, pool, projection, quoted tokens, watch list)
   platform/page.tsx         launchpad overview (was the original home page)
-  tokens/page.tsx           searchable/filterable/paginated token table (URL search params)
+  tokens/page.tsx           "Tokens & yield": searchable/filterable/paginated token table (URL search params) with realized holder-fee
+                            APR columns (24h / 3d bars, `getAprForTokens`) on every row — "—" for standard coins, "not tracked" for reward
+                            coins outside the YIELD_TRACKED=200 set — and a fourth sort, `?sort=yield` (`getYieldRanking`: tracked reward
+                            coins ≥72h old that paid in the last 3d, ranked by 3d then 24h APR, filtered/paged here). Merged from /yield 2026-09-11
   tokens/[mint]/page.tsx    token detail
   pairs/page.tsx            volume & mcap by quote asset / category (aggregates top 300 by volume)
   flywheel/page.tsx         revenue → buyback → burn
   launches/page.tsx         launch ledger & velocity
-  yield/page.tsx            holder-fee APR table: the 10 largest reward coins (≥72h old) that paid holders in the last 3 days, with
-                            24h- and 3d-based realized APR bars (added 2026-09-09; needs migration 0005 + the `rewards` worker step)
+  yield/page.tsx            redirect → /tokens?sort=yield (the table lived here 2026-09-09 → 2026-09-11). `getYieldTable()` in lib/yield.ts still
+                            exists for /yield-card and /api/health (needs migration 0005 + the `rewards` worker step)
   holders/page.tsx          wallet census block (§6f: unique wallets across all quote assets, issuer multi-select, 24h/7d/30d, chart) then
                             unique holders of the stock-quoted side: every xstock/backpack/prestock/tessera quote asset (GMGN holder
                             count) and the 100 largest reward coins quoted in them (StonkFun holderCount), 24h and 7d change from hourly
@@ -218,9 +221,11 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 **What unlocks now that data accumulates:** real STONK price/mcap/volume charts on the token page (replace the "Price history" placeholder), burns-per-day over full history, buyback USD per day from the actual ledger instead of the revenue × share estimate, the net-flow indicator (after 12h), volume-by-pair over time, and STONK-quoted-token count over time.
 
-## 6b — Holder-fee APR (`/yield`, added 2026-09-09)
+## 6b — Holder-fee APR (`/tokens`, added 2026-09-09 as `/yield`, merged into the tokens page 2026-09-11)
 
 The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a third-party chart whose formula (volume × fee rate with assumed exclusions and an "operating fee") is not reproducible. The site instead shows a **realized** APR: `(Δ lifetime payout tokens over the window × quote USD price now) ÷ market cap now × (8760 ÷ hours covered)`. Payout deltas come from `reward_snapshots` via the `reward_payout_window(win_hours, mints)` SQL function (per requested mint: newest reading, and the newest reading at or before the window start, falling back to the earliest reading — three primary-key probes per mint, so it stays fast at any table size); a window is shown once readings cover ≥80% of it, else the cell says "collecting". Coins must be ≥72h old and have paid inside the 72h window; ranking is by market cap (top 100 reward coins by mcap from `/tokens?mode=reward`). `getRewardCoinsByMcap(n)` in `lib/yield.ts` is the one definition of "tracked coins", used by both the worker (n=200) and the page (n=100).
+
+**Merged into `/tokens` (owner's call 2026-09-11):** every row of the token table carries the two APR columns (`getAprForTokens(tokens)`: one `reward_payout_window` call per window on the page's reward-mode mints, Jupiter prices for their quote assets, so ≤50 mints a request). A cell explains why it is empty: `standard` (pays nothing), `untracked` (reward coin outside the top-200 set, no readings), `collecting` (<80% window coverage), `unpriced`. `?sort=yield` (`getYieldRanking`) reproduces the old page: the tracked set, ≥72h old, paid inside 3d, ranked by 3d APR (24h where 3d isn't ready), with search/status/pair filters applied in the page since StonkFun can't sort by it; the Mode filter is hidden there (always reward). Nav label is "Tokens & yield"; `/yield` redirects. `getYieldTable()` (top 10 of the top 100 by mcap) is kept for `/yield-card` and the `reward_windows` health check.
 
 **Post-mortem 2026-09-10 ("yield never populated").** 0005's worker step recorded every coin that paid in the last 7 days, sized from the fixture (193 launches → "~50 rows a tick"). Live that was 5,328 coins a tick: 1,216,672 rows / 333 MB in 21.5 h, and the unscoped `reward_payout_window(win_hours)` (three full `DISTINCT ON` sorts) stopped finishing inside the API's 8 s statement timeout (its result, 5,376 rows, would also have exceeded PostgREST's 1,000-row cap). `getRewardWindows` swallowed the error and returned null, so the page said "collecting: under an hour" while `/api/health` happily reported 21.5 h of history. Fixes: scoped tracking + scoped function (0006), the RPC error is now logged and shown as its own page state (`db-error`), and `/api/health` → `reward_windows` makes the exact call the page makes. Lesson for every worker step: size the row count from the live endpoint, not the fixture, and give every DB read the page depends on a health check that runs the same query. Quote prices: Jupiter, STONK at StonkFun's price. Market cap is the denominator (understates yield on eligible balance — said on the page and on /about#yield). The whole table is empty until ~20h of readings exist and the 3d column until ~58h. `/api/health` → `reward_snapshots` shows staleness of the newest reading (error = 0005 missing or the step stalled) and `reward_windows` runs the page's own window query on the top-100 mints (error = 0006 missing or a timeout).
 

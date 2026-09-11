@@ -2,7 +2,7 @@ import { C, Ring } from "@/lib/card";
 import { SITE_NAME } from "@/lib/site";
 import type { YieldRow, YieldTable } from "@/lib/yield";
 
-// 1600×900 "who pays holders the most" card: the top 10 coins on the /yield table ranked by USD paid to
+// 1600×900 "who pays holders the most" card: the top 10 coins on the /tokens?sort=yield ranking, ranked by USD paid to
 // holders over one window (3d default, or 24h), with each coin's realized APR beside the payout. Same ledger palette, Geist faces, masthead and footer as the
 // square buyback card, laid out for the wide frame: headline + totals down the left, ranking on the right.
 // Pure: the /yield-card route and offline renders draw the same image from the same props.
@@ -13,7 +13,7 @@ export type YieldWindow = "24h" | "3d";
 export type YieldCardRow = { mint: string; symbol: string; quoteSymbol: string; marketCapUsd: number; apr: number; usd: number; hours: number };
 export type YieldBoard = { window: YieldWindow; hours: number; rows: YieldCardRow[]; paying: number; of: number; paidUsd: number };
 
-// Ranks the /yield table by USD paid to holders over `window`, keeping only rows that have that window. Shared by the
+// Ranks the yield table (getYieldTable) by USD paid to holders over `window`, keeping only rows that have that window. Shared by the
 // route's PNG and `?format=json` so both show the same board.
 export function yieldBoard(table: YieldTable, window: YieldWindow, top = YIELD_CARD_TOP): YieldBoard {
   const pick = (r: YieldRow) => (window === "24h" ? r.d1 : r.d3);
