@@ -71,7 +71,6 @@ export default async function StonkPage() {
           <div className="mt-4 flex md:justify-end">
             <BuyButton mint={STONK_MINT} size="lg" />
           </div>
-          <div className="text-[11px] text-muted mt-2">Affiliate link · stonk.fyi earns a referral fee on trades started here. Not financial advice.</div>
         </div>
       </div>
 
