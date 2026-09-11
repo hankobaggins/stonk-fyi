@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { CATEGORY_LABEL, getHoldersTable, HOLDERS_TRACKED } from "@/lib/holders";
-import { nowMs, timeAgo } from "@/lib/format";
+import { CATEGORY_LABEL, getHoldersTable, HOLDERS_TRACKED, STOCK_CATEGORIES } from "@/lib/holders";
+import { fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
 import HoldersTable, { type HolderRow } from "@/components/HoldersTable";
 import { Empty, PageHeader, Section } from "@/components/ui";
@@ -53,6 +53,27 @@ export default async function HoldersPage() {
     })),
   ];
 
+  // Per-issuer breakdown: the tracked coins' market cap and holders (StonkFun's count), and the
+  // quote assets' holders (GMGN's count) — the two holder sums are kept apart, not added.
+  const issuers = STOCK_CATEGORIES.map((cat) => {
+    const coins = t.coins.filter((c) => c.quoteCategory === cat);
+    const quotes = t.quotes.filter((q) => q.category === cat);
+    const read = quotes.filter((q) => q.holders !== null);
+    const coinD1 = coins.filter((c) => c.d1);
+    return {
+      cat,
+      label: CATEGORY_LABEL[cat],
+      coins: coins.length,
+      mcap: coins.reduce((a, c) => a + c.marketCapUsd, 0),
+      coinHolders: coins.reduce((a, c) => a + c.holders, 0),
+      coinHolders24h: coinD1.length ? coinD1.reduce((a, c) => a + c.d1!.abs, 0) : null,
+      quotes: quotes.length,
+      quotesRead: read.length,
+      quoteHolders: read.reduce((a, q) => a + (q.holders ?? 0), 0),
+    };
+  });
+  const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -76,6 +97,21 @@ export default async function HoldersPage() {
       )}
 
       {t.status === "ok" && (
+        <div className="kpis">
+          {issuers.map((x) => (
+            <div key={x.cat} className="kpi min-w-0">
+              <div className="label">{x.label}</div>
+              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{x.coins ? fmtUsd(x.mcap, { compact: true }) : "—"}</div>
+              <div className="mt-1.5 text-xs text-secondary num space-y-0.5">
+                <div>{x.coins ? <>{fmtNum(x.coins)} tracked coin{x.coins === 1 ? "" : "s"} · {fmtNum(x.coinHolders)} holders{x.coinHolders24h !== null && <span className={x.coinHolders24h > 0 ? " text-up" : x.coinHolders24h < 0 ? " text-down" : ""}> {signed(x.coinHolders24h)} 24h</span>}</> : "no tracked coins"}</div>
+                <div className="text-muted">{fmtNum(x.quotes)} quote asset{x.quotes === 1 ? "" : "s"} · {x.quotesRead ? <>{fmtNum(x.quoteHolders)} holders across {x.quotesRead} read</> : "no readings"}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {t.status === "ok" && (
         <Section
           title={`${t.quotes.length} quote assets · ${t.coins.length} coins`}
           action={<span className="num text-xs text-muted">GMGN holder count · StonkFun rewards ledger · stonk.fyi snapshots · hourly</span>}
@@ -84,6 +120,7 @@ export default async function HoldersPage() {
           <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
             <p className="font-medium">The two kinds of row count holders differently. Sort within a kind, or compare a row with itself over time.</p>
             <p className="text-secondary text-[13px]">Quote assets: GMGN&apos;s holder count for the mint, every wallet with a balance across all venues, read hourly; assets GMGN does not index show no reading ({withReading} of {t.quotes.length} have one). Coins: StonkFun&apos;s own count of reward-eligible wallets from its rewards ledger, live, with changes from this site&apos;s hourly readings; only reward-mode coins carry a holder figure, so standard-mode coins are not listed. Market cap is shown for coins only. Read / age is the newest reading for a quote asset and time since launch for a coin.</p>
+            <p className="text-secondary text-[13px]">The issuer tiles sum the tracked coins only (the {HOLDERS_TRACKED} largest by market cap across all four issuers, so a small issuer&apos;s total is its whole top end, a large one&apos;s is a slice): market cap and StonkFun holder count, with the 24h holder change where readings exist. The quote-asset line is GMGN holders summed over the assets that have a reading.</p>
             <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
               <span>Sources: GMGN · StonkFun rewards · stonk.fyi snapshots · StonkFun market data</span>
               <span>Change columns appear once readings cover 80% of the window</span>
