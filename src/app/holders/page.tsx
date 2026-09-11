@@ -3,6 +3,8 @@ import { CATEGORY_LABEL, getHoldersTable, HOLDERS_TRACKED, STOCK_CATEGORIES } fr
 import { fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
 import HoldersTable, { type HolderRow } from "@/components/HoldersTable";
+import WalletCensus from "@/components/WalletCensus";
+import { getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 import { Empty, PageHeader, Section } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +15,7 @@ const dmy = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2
 
 export default async function HoldersPage() {
   const now = nowMs();
-  const t = await getHoldersTable();
+  const [t, census] = await Promise.all([getHoldersTable(), getWalletCensus()]);
   const reads = t.quotes.map((q) => q.readAt).filter(Boolean) as string[];
   const lastRead = reads.length ? reads.sort()[reads.length - 1] : null;
   const withReading = t.quotes.filter((q) => q.holders !== null).length;
@@ -95,6 +97,19 @@ export default async function HoldersPage() {
           {t.quotes.length > 0 && <> {t.quotes.length} quote assets and {t.coins.length} coins are being tracked.</>}
         </Empty>
       )}
+
+      <Section
+        title="Unique wallets holding at least one quote asset"
+        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · every {WALLET_CENSUS_EVERY_H}h</span>}
+      >
+        {census.status === "no-db" && <Empty>This block needs the site&apos;s census runs (Postgres), which this deployment does not have.</Empty>}
+        {census.status === "db-error" && <Empty>The census could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → wallet_census.</Empty>}
+        {census.status === "empty" && <Empty>No census run stored yet. The worker counts every wallet holding any of the {census.quoteAssets} quote assets every {WALLET_CENSUS_EVERY_H} hours; the first run appears here, the 24h change after a day, 7d after six, 30d after 24.</Empty>}
+        {census.status === "ok" && <WalletCensus runs={census.runs} latest={census.latest} quoteAssets={census.quoteAssets} now={now} />}
+        <p className="mt-3 text-secondary text-[13px] leading-relaxed">
+          One wallet = one owner address with a non-zero balance of any selected quote asset, counted directly from token accounts on Solana; a wallet holding several assets counts once. Program-owned accounts (pool vaults, protocol treasuries) are included, since nothing on-chain marks them apart — a few dozen addresses among tens of thousands. This is a different measure again from the per-asset holder counts below.
+        </p>
+      </Section>
 
       {t.status === "ok" && (
         <div className="kpis">

@@ -9,6 +9,7 @@ import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getStockCoinsByMcap, getStockQuoteAssets, HOLDERS_RETENTION_DAYS, HOLDERS_TRACKED, runHoldersSnapshot, trackedMints } from "@/lib/holders";
 import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
+import { censusDue, runWalletCensus } from "@/lib/wallets";
 import type { Token } from "@/lib/types";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
@@ -74,6 +75,7 @@ export async function GET(req: Request) {
   const full = params.get("full") === "1";
   const hourly = params.get("hourly") === "1";
   const dry = params.get("dry") === "1";
+  const census = params.get("census") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -294,6 +296,17 @@ export async function GET(req: Request) {
         notes.holders += ` · pruned ${dropped}`;
       }
       return r.rows;
+    });
+  }
+
+  if (census || (!hourly && !full && censusDue(ts))) {
+    await step("wallet_census", async () => {
+      // Distinct wallets holding any stock-quoted quote asset, by issuer mask (Helius DAS, ~80 mints,
+      // a few hundred pages at 2/s → 2-3 min). Every WALLET_CENSUS_EVERY_H hours on the :45 tick,
+      // or on demand with ?census=1. Needs HELIUS_API_KEY; see src/lib/wallets.ts and CLAUDE.md §6f.
+      const r = await runWalletCensus(db, ts);
+      notes.wallet_census = `${r.wallets} wallets across ${r.mintsOk} quote assets${r.mintsFailed ? ` (${r.mintsFailed} failed: ${r.firstError})` : ""}, ${r.accounts} accounts, ${(r.durationMs / 1000).toFixed(0)}s`;
+      return r.wallets;
     });
   }
 

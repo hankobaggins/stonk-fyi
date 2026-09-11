@@ -9,6 +9,7 @@ import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
+import { getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -118,6 +119,20 @@ export async function GET() {
       for (const x of w.values()) hours = Math.max(hours, x.hours);
       const q = quotes.filter((x) => w.has(x.mint)).length;
       return `${q} of ${quotes.length} quote assets and ${coins.filter((c) => w.has(c.token.mint)).length} of ${coins.length} coins have readings, ${hours.toFixed(1)}h of history`;
+    }),
+    run("wallet_census", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const key = process.env.HELIUS_API_KEY ? "HELIUS_API_KEY set" : "HELIUS_API_KEY unset — the step cannot run";
+      const c = await getWalletCensus(2);
+      if (c.status === "db-error") throw new Error(`wallet_runs unreadable (migration 0010 applied?) · ${key}`);
+      if (!c.latest) return `${key} · no run yet (every ${WALLET_CENSUS_EVERY_H}h on the :45 tick, or ?census=1)`;
+      const ageH = (Date.now() - Date.parse(c.latest.ts)) / 3.6e6;
+      const last = c.runs[c.runs.length - 1];
+      const wallets = last ? last.hist.reduce((a, b) => a + b, 0) : 0;
+      const note = `${key} · last run ${ageH.toFixed(1)}h ago: ${wallets} wallets, ${c.latest.mintsOk} ok / ${c.latest.mintsFailed} failed${c.latest.firstError ? ` (${c.latest.firstError})` : ""}`;
+      if (ageH > WALLET_CENSUS_EVERY_H * 1.5) throw new Error(`${note} — census stalled`);
+      return note;
     }),
     run("burn_alerts", async () => {
       const db = getDb();

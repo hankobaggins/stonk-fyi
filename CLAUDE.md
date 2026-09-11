@@ -36,7 +36,8 @@ src/app/                    routes
   launches/page.tsx         launch ledger & velocity
   yield/page.tsx            holder-fee APR table: the 10 largest reward coins (≥72h old) that paid holders in the last 3 days, with
                             24h- and 3d-based realized APR bars (added 2026-09-09; needs migration 0005 + the `rewards` worker step)
-  holders/page.tsx          unique holders of the stock-quoted side: every xstock/backpack/prestock/tessera quote asset (GMGN holder
+  holders/page.tsx          wallet census block (§6f: unique wallets across all quote assets, issuer multi-select, 24h/7d/30d, chart) then
+                            unique holders of the stock-quoted side: every xstock/backpack/prestock/tessera quote asset (GMGN holder
                             count) and the 100 largest reward coins quoted in them (StonkFun holderCount), 24h and 7d change from hourly
                             `holder_snapshots` (added 2026-09-10; needs migration 0009 + the hourly `holders` worker step on the :30 tick, §6e)
   about/page.tsx            methodology, data sources, scorecard thresholds, projection model, known gaps (public)
@@ -92,6 +93,7 @@ supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied 
 supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste into the SQL editor by hand
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
 supabase/migrations/0007_burn_milestones.sql   burn_milestones table (§6c) — paste into the SQL editor by hand
+supabase/migrations/0010_wallet_census.sql   wallet_runs + wallet_run_meta + wallet_mint_counts (§6f) — paste by hand
 supabase/migrations/0009_holder_snapshots.sql   holder_snapshots + holder_window(win_hours, mints) + holder_snapshots_prune() (§6e) — paste by hand
 supabase/migrations/0008_ath_alerts.sql   ath_alerts table (§6d) — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
@@ -196,7 +198,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `holders` (the :30 tick and full mode only, §6e), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), `holders` (the :30 tick and full mode only, §6e), `wallet_census` (every 6 h on the :45 tick or `?census=1`, §6f), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -291,15 +293,29 @@ Owner asked for unique holders, with 24h and 1-week change, for "stocks + Backpa
 
 **Ops:** migration `0009_holder_snapshots.sql` must be pasted into the SQL editor by hand; until then the step fails (isolated) and `/api/health` → `holder_snapshots` reports the error. `/api/health` → `holder_snapshots` (staleness; fails past 75 min) and `holder_windows` (the page's exact query on the tracked mints; coverage + hours of history). Tick response `notes.holders` = `78 quote assets read, 2 failed (SYM: <first error>), 100 coins`. Page states: `no-db`, `db-error`, `collecting` (no readings at all), `ok`. **Layout (owner's call 2026-09-10):** one combined table, `components/HoldersTable.tsx` (client): a Kind filter (All / Quote assets / Coins), an Issuer filter (All / xStocks / Backpack / Pre-stocks / Tessera — chips derived from the rows) and click-to-sort headers (asset, provider, holders, 24h, 7d, market cap; nulls last; default holders desc). The page hands it plain rows (`HolderRow`), never functions. Above it, four `.kpis` tiles, one per issuer: tracked-coin market cap (headline), tracked-coin count and StonkFun holders with the summed 24h change once readings exist, and GMGN holders summed over the quote assets that have a reading — coin and quote-asset holder sums are never added together. The "two providers, not comparable" caveat sits under the table.
 
+## 6f — Wallet census: unique wallets holding any quote asset (`/holders`, added 2026-09-11)
+
+**Owner's ask (first priority):** the number of distinct wallets that hold at least one stock-quoted quote asset, with 24h / 7d / 30d change — one address holding both ZEC-x and TAO-x counts once — and (second) a multi-select issuer filter so stocks (xStocks + Backpack) can be separated from pre-IPO (Pre-stocks + Tessera). Neither StonkFun nor GMGN exposes wallet lists, so this is the first on-chain step (Phase 3), via **Helius DAS `getTokenAccounts`** (`src/lib/helius.ts`: `mint` + `limit 1000` + cursor, `showZeroBalance:false`; paced at 550 ms between calls for the free plan's 2 DAS req/s; 10 credits a page).
+
+**Design (`src/lib/wallets.ts` → `runWalletCensus`):** for each of the ~80 quote assets, every token account with a non-zero balance → owner; per owner, a 4-bit mask of the issuer categories held (bit = index in `STOCK_CATEGORIES`: 1 xstock, 2 backpack, 4 prestock, 8 tessera). Stored as a **15-row histogram per run** (`wallet_runs(ts, mask, wallets)`), never an address — any issuer subset is answered client-side as Σ wallets where `mask & subset ≠ 0` (`WalletCensus.tsx`). Also written: `wallet_mint_counts(mint, ts, category, owners, accounts)` — the on-chain owner count per quote asset from the same pull, kept apart from GMGN's `holder_snapshots` — and `wallet_run_meta` (mints ok/failed, first error, accounts, duration). A run with failed mints is stored and flagged as incomplete on the page (it undercounts). Migration `0010_wallet_census.sql`, by hand as usual.
+
+**Cadence:** every `WALLET_CENSUS_EVERY_H` (default 6) hours on the **:45 tick** (`censusDue`), or on demand with `?census=1` on the cron URL. Budget at launch: ~80 mints, a few hundred pages a run (APPLX alone is ~33), ≈2–3 min, ≈3K credits a run → ≈12K/day, well inside Helius's 1M/month free tier. If a mint ever exceeds `maxPages`=100 (100K token accounts) the count is truncated — raise the guard then.
+
+**Page:** the "Unique wallets holding at least one quote asset" block at the top of `/holders`: presets (All / Stocks / Pre-IPO) + four issuer toggles (never empty), tiles for the current count and 24h / 7d / 30d change (a window shows once runs cover ≥80% of it: ~1, ~6 and ~24 days), an area chart of the selected subset over the last 31 days, and the run's coverage line. Caveat on the page: program-owned accounts (pool vaults) are counted like any owner — nothing on-chain marks them apart.
+
+**Ops:** env `HELIUS_API_KEY` (free key at dashboard.helius.dev; `HELIUS_RPC_URL` optional). Unset → the step fails in isolation with "HELIUS_API_KEY not set". `/api/health` → `wallet_census`: key present?, last run age (fails past 1.5 × the cadence), wallets, mints ok/failed + first error. Tick response `notes.wallet_census` = `31234 wallets across 80 quote assets, 61234 accounts, 143s`. **First-run check:** after adding the key and 0010, hit the cron URL with `?census=1` (bearer) or wait for the next :45 slot, then confirm `mints_failed` = 0 in `wallet_run_meta` — the `getTokenAccounts`-by-mint shape was taken from Helius docs, not verified live from this sandbox (it cannot reach Helius).
+
+**Follow-up (owner's ask, third):** holder count by quote asset over time — `wallet_mint_counts` already accumulates it from the same runs; needs a per-asset sparkline/chart on the page.
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
 2. ~~Wire DB-backed charts~~ Done 2026-09-08 for token detail (`TokenHistoryChart`, 7d, `getTokenHistory`) and platform revenue pace (`getRevenuePace`) and launch velocity (`getLaunchVelocity`). Still open: STONK home price chart from snapshots instead of CoinGecko; the daily volume chart. Original note: wire DB-backed charts into the STONK page and token detail; add a `getStonkHistory()` in `db.ts` reading `token_snapshots` for `STONK_MINT`.
 3. ~~**Independent price check**~~ — done via GMGN (Orca STONK/SOL pool price, spread under the hero price). Jupiter/DexScreener would add a second independent source.
-4. **Phase 3 on-chain (Helius):** ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
+4. **Phase 3 on-chain (Helius):** started 2026-09-11 with the wallet census (§6f). ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Holders (§6e):** once a week of `holder_snapshots` exists, consider per-asset sparklines and a "holders added, 7d" ranking; a Helius on-chain count would make the quote-asset figure first-party and cover standard-mode coins.
+7. **Holders (§6e, §6f):** owner's next ask — holder count by quote asset over time (`wallet_mint_counts` is accumulating it; build the per-asset chart). Then per-asset sparklines in the table and a "holders added, 7d" ranking.
 8. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
@@ -315,6 +331,7 @@ GMGN_API_KEY                        # optional; enables the Holders & flow secti
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
 SOCIALBU_TOKEN, SOCIALBU_ACCOUNT_ID=201802             # big-burn alerts to X (§6a); unset = dry run
 BURN_ALERT_THRESHOLD_USD=10000, BURN_ALERT_WINDOW_MIN=10  # optional overrides (USD at burn)
+HELIUS_API_KEY, WALLET_CENSUS_EVERY_H=6                # wallet census (§6f); HELIUS_RPC_URL optional override
 ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```
