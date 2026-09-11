@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Script from "next/script";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
@@ -35,6 +36,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const d = await getStonkData().catch(() => null);
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}>
+      <head>
+        {/* Umami (cloud.umami.is): cookieless page-view analytics. Auto-tracks App Router navigations. */}
+        <Script defer src="https://cloud.umami.is/script.js" data-website-id="f14b334c-5d8e-4f06-be7e-ba8f41ca0d00" strategy="afterInteractive" />
+      </head>
       <body className="min-h-full flex flex-col">
         <Nav burnedPct={d?.supply.burnedPct ?? 0} />
         {d && <Ticker d={d} />}
