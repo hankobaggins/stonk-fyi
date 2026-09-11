@@ -2,7 +2,7 @@ import type { Token } from "@/lib/types";
 import type { AprCell, TokenApr } from "@/lib/yield";
 import { fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
-import { Delta, ModePill, StatusPill, TokenLink } from "./ui";
+import { Delta, StatusPill, TokenLink } from "./ui";
 import TokenIcon from "./TokenIcon";
 import { TradeLink } from "./BuyButton";
 
@@ -31,6 +31,8 @@ export function AprCol({ c, max, cls, why }: { c: AprCell; max: number; cls: str
 }
 
 // `apr` (per mint, from getAprForTokens) adds the two realized holder-fee APR columns in the /yield style.
+// The full table puts the JTX buy link where the Mode pill used to be (owner's call 2026-09-11; the APR column
+// already tells standard from reward); the compact table keeps it as a trailing Trade column.
 export default function TokenTable({ tokens, startRank = 1, now, compact = false, apr }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean; apr?: Record<string, TokenApr> }) {
   const max1 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d1?.apr ?? 0)) : 0;
   const max3 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d3?.apr ?? 0)) : 0;
@@ -61,12 +63,12 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
             {!compact && (
               <>
                 <th className="r">Vol / MC</th>
-                <th>Mode</th>
+                <th>Buy</th>
                 <th>Status</th>
                 <th className="r">Age</th>
               </>
             )}
-            <th className="r">Trade</th>
+            {compact && <th className="r">Trade</th>}
           </tr>
         </thead>
         <tbody>
@@ -108,12 +110,12 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                 {!compact && (
                   <>
                     <td className="r num text-secondary">{ratio !== undefined ? `${ratio.toFixed(2)}×` : "—"}</td>
-                    <td><ModePill mode={t.mode} bps={t.transferFee?.bps} /></td>
+                    <td><TradeLink mint={t.mint} /></td>
                     <td><StatusPill status={t.status} progress={t.graduationProgress} /></td>
                     <td className="r text-muted num">{timeAgo(t.createdAt, now)}</td>
                   </>
                 )}
-                <td className="r"><TradeLink mint={t.mint} /></td>
+                {compact && <td className="r"><TradeLink mint={t.mint} /></td>}
               </tr>
             );
           })}
