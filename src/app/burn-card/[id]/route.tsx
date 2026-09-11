@@ -2,7 +2,7 @@ import { ImageResponse } from "next/og";
 import { NextResponse } from "next/server";
 import { C, Ring, cardFonts } from "@/lib/card";
 import { getDb } from "@/lib/db";
-import { getBurnAlert, findBigBurnWindow, type BurnAlertRow } from "@/lib/burn-alerts";
+import { BURN_ALERT_WINDOW_MIN, getBurnAlert, findBigBurnWindow, type BurnAlertRow } from "@/lib/burn-alerts";
 import { getStonkData } from "@/lib/stonk";
 import { fmtNum, fmtUsd } from "@/lib/format";
 import { SITE_NAME } from "@/lib/site";
@@ -28,10 +28,10 @@ async function previewRow(): Promise<BurnAlertRow | null> {
   const d = await getStonkData();
   const burns = d.burns?.burns ?? [];
   if (!burns.length) return null;
-  // Real burns from the last 10 min if any; otherwise the newest few, so the card always renders.
+  // Real burns from the last hour if any; otherwise the newest few, so the card always renders.
   const w =
     findBigBurnWindow(burns, { thresholdUsd: 0 }) ??
-    findBigBurnWindow(burns, { thresholdUsd: 0, now: Date.parse(burns[0].burnedAt), windowMin: 10 });
+    findBigBurnWindow(burns, { thresholdUsd: 0, now: Date.parse(burns[0].burnedAt), windowMin: BURN_ALERT_WINDOW_MIN });
   if (!w) return null;
   const v = d.indicators.find((i) => i.key === "burnrate");
   return {
@@ -111,7 +111,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
               <div style={{ width: 10, height: 10, borderRadius: 5, background: state.color }} />
               {state.label}
             </div>
-            <div style={{ color: C.ink2 }}>{`Supply burned · on-chain · ${txs} in 10 min · ${stampUtc(row.window_end)}`}</div>
+            <div style={{ color: C.ink2 }}>{`Supply burned · on-chain · ${txs} in ${BURN_ALERT_WINDOW_MIN === 60 ? "1 hr" : `${BURN_ALERT_WINDOW_MIN} min`} · ${stampUtc(row.window_end)}`}</div>
           </div>
           <div style={{ display: "flex", ...mono, fontSize: 210, fontWeight: 500, letterSpacing: -12, lineHeight: 1, marginTop: 36 }}>{fmtNum(row.amount_tokens)}</div>
           <div style={{ display: "flex", alignItems: "baseline", fontSize: 60, fontWeight: 600, letterSpacing: -2, lineHeight: 1, marginTop: 28 }}>

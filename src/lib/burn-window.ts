@@ -1,9 +1,10 @@
 import type { BurnEvent } from "./types";
 
 // Pure window detection, kept free of server-only imports so it can be unit-checked (scripts/burn-alert-check.ts).
-// Threshold is in USD (StonkFun's value-at-burn), not tokens: $10K burned inside one 10-minute window (was $50K until 2026-09-08).
-export const BURN_ALERT_THRESHOLD_USD = Number(process.env.BURN_ALERT_THRESHOLD_USD ?? 10_000);
-export const BURN_ALERT_WINDOW_MIN = Number(process.env.BURN_ALERT_WINDOW_MIN ?? 10);
+// Threshold is in USD (StonkFun's value-at-burn), not tokens: $120K burned inside one 60-minute window
+// (2026-09-11; was $10K / 10 min from 2026-09-08, $50K / 10 min before that).
+export const BURN_ALERT_THRESHOLD_USD = Number(process.env.BURN_ALERT_THRESHOLD_USD ?? 120_000);
+export const BURN_ALERT_WINDOW_MIN = Number(process.env.BURN_ALERT_WINDOW_MIN ?? 60);
 
 export type BurnWindow = {
   burns: BurnEvent[];        // newest first
@@ -17,7 +18,7 @@ export type BurnWindow = {
 
 // Pure. Slides a windowMin-wide window over every burn newer than `lookbackMin` (default: no limit —
 // the burns endpoint only returns the last ~25 events anyway) and returns the most recent window whose
-// un-announced burns are worth ≥ thresholdUsd, or null. Sliding rather than "last 10 min from now" so a
+// un-announced burns are worth ≥ thresholdUsd, or null. Sliding rather than "last hour from now" so a
 // late or lagging tick (GitHub's scheduler has run hours apart) still catches a window that already closed.
 export function findBigBurnWindow(
   burns: BurnEvent[],

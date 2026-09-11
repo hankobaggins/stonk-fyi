@@ -232,7 +232,7 @@ The owner asked for a "largest yield-paying coins, 24h vs 3d APR" table like a t
 
 ## 6a — Big-burn alerts → X (added 2026-09-08)
 
-**Rule:** if STONK burns inside the last 10 minutes (`BURN_ALERT_WINDOW_MIN`), minus burns already announced, are worth ≥ **$10,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; lowered from $50K on 2026-09-08), the worker posts a card to X. Runs as the `burn_alert` step of every tick. Detection slides a 10-min window over every burn the API returns (~25 most recent), not just the last 10 minutes, so a late tick still catches a window that already closed; announced signatures are excluded so nothing is double-counted. ~~Known problem (2026-09-08): GitHub's `*/5` schedule fired ~every 4–5 hours, which is why a $20K window went unannounced.~~ Fixed the same day by moving the tick to Supabase pg_cron (§6).
+**Rule:** if STONK burns inside the last hour (`BURN_ALERT_WINDOW_MIN`=60), minus burns already announced, are worth ≥ **$120,000** at StonkFun's value-at-burn (`BURN_ALERT_THRESHOLD_USD`; USD, not tokens; owner's call 2026-09-11 — was $10K / 10 min from 2026-09-08 and $50K / 10 min before that), the worker posts a card to X. Runs as the `burn_alert` step of every tick. Detection slides a 60-min window over every burn the API returns (~25 most recent), not just the last hour, so a late tick still catches a window that already closed; announced signatures are excluded so nothing is double-counted. ~~Known problem (2026-09-08): GitHub's `*/5` schedule fired ~every 4–5 hours, which is why a $20K window went unannounced.~~ Fixed the same day by moving the tick to Supabase pg_cron (§6).
 
 **Pipeline (`src/lib/burn-alerts.ts` → `runBurnAlert`)**
 1. `getStonkData()` (live burns window, supply %, burn-velocity indicator, price).
@@ -336,7 +336,7 @@ COINGECKO_STONK_ID=stonk-3          # optional; COINGECKO_API_KEY optional demo 
 GMGN_API_KEY                        # optional; enables the Holders & flow section + gmgn worker step
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
 SOCIALBU_TOKEN, SOCIALBU_ACCOUNT_ID=201802             # big-burn alerts to X (§6a); unset = dry run
-BURN_ALERT_THRESHOLD_USD=10000, BURN_ALERT_WINDOW_MIN=10  # optional overrides (USD at burn)
+BURN_ALERT_THRESHOLD_USD=120000, BURN_ALERT_WINDOW_MIN=60  # optional overrides (USD at burn)
 HELIUS_API_KEY, WALLET_CENSUS_EVERY_H=6                # wallet census (§6f); HELIUS_RPC_URL optional override
 ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi

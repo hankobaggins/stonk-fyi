@@ -8,9 +8,9 @@ import { fmtNum, fmtUsd } from "./format";
 import { SITE_URL } from "./site";
 
 // Big-burn announcements. Every snapshot tick (5 min) looks at STONK burns inside the last
-// BURN_ALERT_WINDOW_MIN minutes (10, so consecutive ticks overlap and nothing is missed). Burns
+// BURN_ALERT_WINDOW_MIN minutes (60, so consecutive ticks overlap and nothing is missed). Burns
 // already covered by an earlier alert are excluded; if what remains is worth ≥ BURN_ALERT_THRESHOLD_USD
-// ($10K at StonkFun's value-at-burn), a card is rendered by /burn-card/{id} and posted to X through SocialBu's REST API.
+// ($120K at StonkFun's value-at-burn), a card is rendered by /burn-card/{id} and posted to X through SocialBu's REST API.
 // Without SOCIALBU_TOKEN the alert is recorded as a dry run (row + card URL, no post).
 
 export { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN };
@@ -49,7 +49,8 @@ export function buildPostText(w: BurnWindow, ctx: BurnAlertContext, now = Date.n
   const n = w.burns.length;
   const txs = n === 1 ? "1 tx" : `${n} txs`;
   const ageMin = (now - Date.parse(w.windowEnd)) / 60_000;
-  const when = ageMin <= 15 ? `in the last ${BURN_ALERT_WINDOW_MIN} minutes` : `in ${BURN_ALERT_WINDOW_MIN} minutes ending ${w.windowEnd.slice(11, 16)} UTC`;
+  const span = BURN_ALERT_WINDOW_MIN === 60 ? "hour" : `${BURN_ALERT_WINDOW_MIN} minutes`;
+  const when = ageMin <= 15 ? `in the last ${span}` : `in the ${span} ending ${w.windowEnd.slice(11, 16)} UTC`;
   const velocity = ctx.velocityPctDay !== null ? ` Burn velocity ${ctx.velocityPctDay.toFixed(2)}%/day.` : "";
   return [
     `${fmtNum(w.amountTokens)} $STONK burned ${when} (${txs}), about ${fmtUsd(w.valueUsd)} at StonkFun pricing.`,
