@@ -2,7 +2,7 @@ import { C, Ring } from "@/lib/card";
 import { SITE_NAME } from "@/lib/site";
 import type { YieldRow, YieldTable } from "@/lib/yield";
 
-// 1600×900 "who pays holders the most" card: the top 10 coins on the /tokens?sort=yield ranking, ranked by USD paid to
+// 1600×900 "who pays holders the most" card: the top 10 coins on the /tokens?mode=reward&by=apr3 ranking, ranked by USD paid to
 // holders over one window (3d default, or 24h), with each coin's realized APR beside the payout. Same ledger palette, Geist faces, masthead and footer as the
 // square buyback card, laid out for the wide frame: headline + totals down the left, ranking on the right.
 // Pure: the /yield-card route and offline renders draw the same image from the same props.

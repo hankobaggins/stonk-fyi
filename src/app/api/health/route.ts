@@ -86,7 +86,7 @@ export async function GET() {
       return note;
     }),
     run("reward_windows", async () => {
-      // The exact call /tokens makes for its APR columns, on the coins the Yield sort shows: fails on a missing 0006 or a timeout.
+      // The exact call /tokens makes for its APR columns, on the top-100 reward coins by market cap: fails on a missing 0006 or a timeout.
       const db = getDb();
       if (!db) return "not configured (needs supabase)";
       const coins = await getRewardCoinsByMcap(100);

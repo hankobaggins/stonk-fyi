@@ -1,3 +1,5 @@
+import Link from "next/link";
+import type { ReactNode } from "react";
 import type { Token } from "@/lib/types";
 import type { AprCell, TokenApr } from "@/lib/yield";
 import { fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
@@ -30,10 +32,59 @@ export function AprCol({ c, max, cls, why }: { c: AprCell; max: number; cls: str
   );
 }
 
+// Column sorts. Every numeric column is sortable; the page sorts its loaded pool and paginates, so a header
+// click is a link (`?by=<key>&dir=asc|desc`) and the table stays a server component. Nulls sort last either way.
+export const SORT_KEYS = ["mcap", "price", "chg", "vol", "ratio", "apr1", "apr3", "age"] as const;
+export type SortKey = (typeof SORT_KEYS)[number];
+export type TableSort = { key: SortKey; dir: "asc" | "desc"; href: (key: SortKey, dir: "asc" | "desc") => string };
+export const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = { mcap: "desc", price: "desc", chg: "desc", vol: "desc", ratio: "desc", apr1: "desc", apr3: "desc", age: "asc" };
+
+export function sortValue(t: Token, apr: Record<string, TokenApr> | undefined, k: SortKey): number | null {
+  const m = t.market ?? {};
+  const n = (v: number | undefined | null) => (v === undefined || v === null || Number.isNaN(v) ? null : v);
+  switch (k) {
+    case "mcap": return n(m.marketCapUsd);
+    case "price": return n(m.priceUsd);
+    case "chg": return n(m.priceChange24h);
+    case "vol": return n(m.volume24hUsd);
+    case "ratio": return m.marketCapUsd && m.volume24hUsd ? m.volume24hUsd / m.marketCapUsd : null;
+    case "apr1": return apr?.[t.mint]?.d1?.apr ?? null;
+    case "apr3": return apr?.[t.mint]?.d3?.apr ?? null;
+    case "age": return -Date.parse(t.createdAt); // asc = newest first
+  }
+}
+
+export function sortTokens(tokens: Token[], apr: Record<string, TokenApr> | undefined, key: SortKey, dir: "asc" | "desc"): Token[] {
+  const vals = new Map(tokens.map((t) => [t.mint, sortValue(t, apr, key)]));
+  return [...tokens].sort((a, b) => {
+    const va = vals.get(a.mint) ?? null;
+    const vb = vals.get(b.mint) ?? null;
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    return dir === "desc" ? vb - va : va - vb;
+  });
+}
+
+function Th({ k, sort, right = false, children, sub }: { k: SortKey; sort?: TableSort; right?: boolean; children: ReactNode; sub?: ReactNode }) {
+  if (!sort) return <th className={right ? "r" : ""}>{children}{sub}</th>;
+  const active = sort.key === k;
+  const next = active ? (sort.dir === "desc" ? "asc" : "desc") : DEFAULT_DIR[k];
+  return (
+    <th className={right ? "r" : ""} aria-sort={active ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}>
+      <Link href={sort.href(k, next)} className={`hover:text-primary ${active ? "text-primary" : ""}`}>
+        {children}
+        <span className="inline-block w-3 text-[9px]">{active ? (sort.dir === "desc" ? " ▼" : " ▲") : ""}</span>
+      </Link>
+      {sub}
+    </th>
+  );
+}
+
 // `apr` (per mint, from getAprForTokens) adds the two realized holder-fee APR columns in the /yield style.
 // The full table puts the JTX buy link where the Mode pill used to be (owner's call 2026-09-11; the APR column
 // already tells standard from reward); the compact table keeps it as a trailing Trade column.
-export default function TokenTable({ tokens, startRank = 1, now, compact = false, apr }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean; apr?: Record<string, TokenApr> }) {
+export default function TokenTable({ tokens, startRank = 1, now, compact = false, apr, sort }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean; apr?: Record<string, TokenApr>; sort?: TableSort }) {
   const max1 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d1?.apr ?? 0)) : 0;
   const max3 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d3?.apr ?? 0)) : 0;
   return (
@@ -44,28 +95,22 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
             <th className="r">#</th>
             <th>Token</th>
             <th>Pair</th>
-            <th className="r">Price</th>
-            <th className="r">24h</th>
-            <th className="r">Market cap</th>
-            <th className="r">24h volume</th>
+            <Th k="price" sort={sort} right>Price</Th>
+            <Th k="chg" sort={sort} right>24h</Th>
+            <Th k="mcap" sort={sort} right>Market cap</Th>
+            <Th k="vol" sort={sort} right>24h volume</Th>
             {apr && (
               <>
-                <th className="r">
-                  24h-based APR<br />
-                  <span className="normal-case tracking-normal text-[10px]">from the last 24h of payouts</span>
-                </th>
-                <th className="r">
-                  3d-based APR<br />
-                  <span className="normal-case tracking-normal text-[10px]">average over the last 72h</span>
-                </th>
+                <Th k="apr1" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">from the last 24h of payouts</span></>}>24h-based APR</Th>
+                <Th k="apr3" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">average over the last 72h</span></>}>3d-based APR</Th>
               </>
             )}
             {!compact && (
               <>
-                <th className="r">Vol / MC</th>
+                <Th k="ratio" sort={sort} right>Vol / MC</Th>
                 <th>Buy</th>
                 <th>Status</th>
-                <th className="r">Age</th>
+                <Th k="age" sort={sort} right>Age</Th>
               </>
             )}
             {compact && <th className="r">Trade</th>}

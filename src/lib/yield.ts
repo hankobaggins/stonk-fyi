@@ -134,24 +134,6 @@ export async function getAprForTokens(tokens: Token[]): Promise<AprLookup> {
   return { status: "ok", byMint, generatedAt };
 }
 
-// The /tokens "Yield" sort: every tracked reward coin (≥72h old, paid inside the last 3 days), ranked by
-// 3d APR, then 24h APR where the 3d window is not ready. Computed here, not by StonkFun, so it covers only
-// the tracked set; the page applies its own search/filters and paging on top.
-export type YieldRanking = { status: YieldTable["status"]; tokens: Token[]; apr: AprLookup; historyHours: number; candidates: number };
-
-export async function getYieldRanking(): Promise<YieldRanking> {
-  const cutoff = Date.now() - YIELD_MIN_AGE_HOURS * 3.6e6;
-  const coins = (await getRewardCoinsByMcap(YIELD_TRACKED)).filter((c) => Date.parse(c.token.createdAt) <= cutoff);
-  const apr = await getAprForTokens(coins.map((c) => c.token));
-  const score = (m: string) => apr.byMint[m]?.d3?.apr ?? (apr.byMint[m]?.d1 ? apr.byMint[m].d1!.apr : -1);
-  const paid = coins.map((c) => c.token).filter((t) => apr.byMint[t.mint]?.d3?.tokens || apr.byMint[t.mint]?.d1?.tokens);
-  paid.sort((x, y) => score(y.mint) - score(x.mint));
-  let historyHours = 0;
-  for (const t of coins) historyHours = Math.max(historyHours, apr.byMint[t.token.mint]?.d3?.hours ?? apr.byMint[t.token.mint]?.d1?.hours ?? 0);
-  const status = apr.status !== "ok" ? apr.status : paid.length ? "ok" : "collecting";
-  return { status, tokens: paid, apr, historyHours, candidates: coins.length };
-}
-
 export async function getYieldTable(): Promise<YieldTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();

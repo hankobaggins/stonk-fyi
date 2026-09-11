@@ -6,7 +6,7 @@ import { getYieldTable } from "@/lib/yield";
 import { getTokenBurns, STONK_MINT } from "@/lib/api";
 import { STONK_INITIAL_SUPPLY } from "@/lib/stonk";
 
-// GET /yield-card?window=3d|24h → 1600×900 PNG: the top 5 coins on the /tokens?sort=yield ranking by realized holder-fee
+// GET /yield-card?window=3d|24h → 1600×900 PNG: the top 5 coins on the /tokens?mode=reward&by=apr3 ranking by realized holder-fee
 // APR over the window (3d default: the 72h average is the steadier figure). `?format=json` returns the board.
 // Rendered live; nothing is stored. 503 when the DB is unconfigured, still collecting, or no coin has the window.
 export const dynamic = "force-dynamic";
