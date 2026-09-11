@@ -15,7 +15,9 @@ export const categoryBit = (c: StockCategory) => 1 << STOCK_CATEGORIES.indexOf(c
 
 export type CensusResult = { ts: string; wallets: number; accounts: number; mintsOk: number; mintsFailed: number; firstError: string | null; durationMs: number };
 
-export async function runWalletCensus(db: SupabaseClient, ts: string): Promise<CensusResult> {
+// `budgetMs`: stop walking mints once this much time has passed (the rest count as failed, the run is
+// stored and flagged incomplete) so a slow Helius day yields a partial reading instead of a killed function.
+export async function runWalletCensus(db: SupabaseClient, ts: string, budgetMs = Infinity): Promise<CensusResult> {
   const t0 = Date.now();
   const quotes = await getStockQuoteAssets();
   const masks = new Map<string, number>();
@@ -26,6 +28,11 @@ export async function runWalletCensus(db: SupabaseClient, ts: string): Promise<C
   let firstError: string | null = null;
   for (const q of quotes) {
     const bit = categoryBit(q.category as StockCategory);
+    if (Date.now() - t0 > budgetMs) {
+      mintsFailed++;
+      if (!firstError) firstError = `${q.symbol}: time budget of ${Math.round(budgetMs / 1000)}s used up after ${mintsOk} quote assets`;
+      continue;
+    }
     try {
       const r = await getMintOwners(q.mint);
       for (const o of r.owners) masks.set(o, (masks.get(o) ?? 0) | bit);

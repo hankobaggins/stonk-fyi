@@ -126,7 +126,7 @@ export async function GET() {
       const key = process.env.HELIUS_API_KEY ? "HELIUS_API_KEY set" : "HELIUS_API_KEY unset — the step cannot run";
       const c = await getWalletCensus(2);
       if (c.status === "db-error") throw new Error(`wallet_runs unreadable (migration 0010 applied?) · ${key}`);
-      if (!c.latest) return `${key} · no run yet (every ${WALLET_CENSUS_EVERY_H}h on the :45 tick, or ?census=1)`;
+      if (!c.latest) return `${key} · no run yet (every ${WALLET_CENSUS_EVERY_H}h on the :45 tick, or /api/cron/census?sync=1)`;
       const ageH = (Date.now() - Date.parse(c.latest.ts)) / 3.6e6;
       const last = c.runs[c.runs.length - 1];
       const wallets = last ? last.hist.reduce((a, b) => a + b, 0) : 0;

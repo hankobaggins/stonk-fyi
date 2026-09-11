@@ -18,7 +18,7 @@ concurrency:
 jobs:
   tick:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - name: Call /api/cron/snapshot
         env:
@@ -29,9 +29,10 @@ jobs:
           full=""
           # top of the hour → wider token snapshot (top 500); the daily full walk runs from Vercel cron
           if [ "$(date -u +%M)" -lt 5 ]; then full="?hourly=1"; fi
-          # manual run with the census box ticked → on-demand wallet census (CLAUDE.md §6f)
-          if [ "${{ inputs.census }}" = "true" ]; then full="?census=1"; fi
-          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time 280 \
-            -H "Authorization: Bearer $CRON_SECRET" "$SNAPSHOT_URL/api/cron/snapshot$full")
+          # manual run with the census box ticked → the wallet census, waited for (its own route, up to ~13 min; CLAUDE.md §6f)
+          route="/api/cron/snapshot$full"; wait=280
+          if [ "${{ inputs.census }}" = "true" ]; then route="/api/cron/census?sync=1"; wait=840; fi
+          code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time $wait \
+            -H "Authorization: Bearer $CRON_SECRET" "$SNAPSHOT_URL$route")
           echo "HTTP $code"; cat /tmp/out.json | head -c 4000; echo
           [ "$code" = "200" ]

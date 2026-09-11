@@ -9,7 +9,8 @@ import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getStockCoinsByMcap, getStockQuoteAssets, HOLDERS_RETENTION_DAYS, HOLDERS_TRACKED, runHoldersSnapshot, trackedMints } from "@/lib/holders";
 import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
-import { censusDue, runWalletCensus } from "@/lib/wallets";
+import { censusDue } from "@/lib/wallets";
+import { SITE_URL } from "@/lib/site";
 import type { Token } from "@/lib/types";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
@@ -301,12 +302,19 @@ export async function GET(req: Request) {
 
   if (census || (!hourly && !full && censusDue(ts))) {
     await step("wallet_census", async () => {
-      // Distinct wallets holding any stock-quoted quote asset, by issuer mask (Helius DAS, ~80 mints,
-      // a few hundred pages at 2/s → 2-3 min). Every WALLET_CENSUS_EVERY_H hours on the :45 tick,
-      // or on demand with ?census=1. Needs HELIUS_API_KEY; see src/lib/wallets.ts and CLAUDE.md §6f.
-      const r = await runWalletCensus(db, ts);
-      notes.wallet_census = `${r.wallets} wallets across ${r.mintsOk} quote assets${r.mintsFailed ? ` (${r.mintsFailed} failed: ${r.firstError})` : ""}, ${r.accounts} accounts, ${(r.durationMs / 1000).toFixed(0)}s`;
-      return r.wallets;
+      // Distinct wallets holding any stock-quoted quote asset (Helius DAS, ~80 mints, 5-10 min). Too long
+      // to share this function's window, so it runs in its own route with an 800 s budget: we only kick it
+      // off here (it answers 202 at once and works after the response). Every WALLET_CENSUS_EVERY_H hours on
+      // the :45 tick, or on demand with ?census=1. See src/app/api/cron/census/route.ts and CLAUDE.md §6f.
+      const res = await fetch(`${SITE_URL}/api/cron/census`, {
+        headers: secret ? { authorization: `Bearer ${secret}` } : {},
+        cache: "no-store",
+        signal: AbortSignal.timeout(20_000),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; budget_s?: number };
+      if (!res.ok) throw new Error(`/api/cron/census ${res.status} ${body.error ?? ""}`.trim());
+      notes.wallet_census = `started /api/cron/census (up to ${body.budget_s ?? "?"}s; result in wallet_run_meta and /api/health)`;
+      return 1;
     });
   }
 
