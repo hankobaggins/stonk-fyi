@@ -61,35 +61,12 @@ export default function EcosystemWallets({ runs, growth, now }: { runs: CensusPo
       </div>
 
       {growth && (
-        <div className="mt-5 pt-4 border-t border-border">
-          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
-            <div className="label">Holders added to StonkFun coins</div>
-            <span className="num text-xs text-muted">HolderScan · {fmtNum(growth.coins)} largest coins · {((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots · read {timeAgo(growth.ts, now)}</span>
-          </div>
-          <div className="kpis">
-            <div className="kpi min-w-0">
-              <div className="label">Holder-slots now</div>
-              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{fmtNum(growth.holdersNow)}</div>
-              <div className="mt-1.5 text-xs text-secondary num">across the covered coins</div>
-            </div>
-            {[
-              { label: "7d", v: growth.d7 },
-              { label: "14d", v: growth.d14 },
-              { label: "30d", v: growth.d30 },
-            ].map((w) => {
-              const base = growth.holdersNow - w.v;
-              const cls = w.v > 0 ? "text-up" : w.v < 0 ? "text-down" : "text-muted";
-              return (
-                <div key={w.label} className="kpi min-w-0">
-                  <div className="label">{w.label} added</div>
-                  <div className={`mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight ${cls}`}>{signed(w.v)}</div>
-                  <div className="mt-1.5 text-xs text-secondary num">{base > 0 ? `${w.v >= 0 ? "+" : ""}${((w.v / base) * 100).toFixed(1)}%` : "—"} · vs {w.label} ago</div>
-                </div>
-              );
-            })}
-          </div>
-          <p className="mt-2 text-xs text-muted">Holder-slots: one per coin per wallet, summed over the covered coins from HolderScan&apos;s per-coin history — a wallet holding two coins counts twice, and coins HolderScan does not track are left out. The de-duplicated wallet count above only has history from its first census.</p>
-        </div>
+        <p className="mt-4 pt-3 border-t border-border text-xs text-muted num" title="HolderScan's per-coin holder history, summed over the StonkFun coins it tracks. Holder-slots: a wallet holding two coins counts twice. Direction only — the de-duplicated count above is the base.">
+          Direction, until the census has its own history: HolderScan tracks {fmtNum(growth.coins)} of these coins ({((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots) and has them at {fmtNum(growth.holdersNow)} holder-slots,{" "}
+          <span className={growth.d7 > 0 ? "text-up" : growth.d7 < 0 ? "text-down" : ""}>{signed(growth.d7)}</span> over 7d ·{" "}
+          <span className={growth.d14 > 0 ? "text-up" : growth.d14 < 0 ? "text-down" : ""}>{signed(growth.d14)}</span> 14d ·{" "}
+          <span className={growth.d30 > 0 ? "text-up" : growth.d30 < 0 ? "text-down" : ""}>{signed(growth.d30)}</span> 30d. Slots, not wallets; read {timeAgo(growth.ts, now)}.
+        </p>
       )}
 
       {series.length > 1 && (
