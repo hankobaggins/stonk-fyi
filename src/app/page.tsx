@@ -11,6 +11,7 @@ import BuybackFeed from "@/components/BuybackFeed";
 import TokenTable from "@/components/TokenTable";
 import Projection from "@/components/Projection";
 import BuyButton from "@/components/BuyButton";
+import HolderBase from "@/components/HolderBase";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,10 @@ export default async function StonkPage() {
   const buybackSeries = d.days.map((x) => ({ date: x.date, value: x.dailyRevenue * buybackShare }));
   const cumBuyback = cumulative(d.days, (x) => x.dailyRevenue * buybackShare);
 
+  const medianPerHolder = d.holders?.latest.stats?.medianPosition && m.priceUsd ? d.holders.latest.stats.medianPosition * m.priceUsd : null;
+  const perHolderMcap = m.marketCapUsd ?? d.holders?.latest.marketCapUsd ?? null;
+  const perHolder = d.holders && perHolderMcap && d.holders.latest.holders > 0 ? perHolderMcap / d.holders.latest.holders : null;
+
   const fromPeak = m.peakMarketCapUsd && m.marketCapUsd ? ((m.marketCapUsd - m.peakMarketCapUsd) / m.peakMarketCapUsd) * 100 : undefined;
 
   return (
@@ -65,7 +70,7 @@ export default async function StonkPage() {
               <a href={GMGN_TOKEN_URL} target="_blank" rel="noreferrer" className="hover:text-accent">GMGN</a> {fmtPrice(d.gmgn.priceUsd)} ·{" "}
               <span className={Math.abs((d.gmgn.priceUsd / m.priceUsd - 1) * 100) > 3 ? "text-caution" : ""}>{((d.gmgn.priceUsd / m.priceUsd - 1) * 100).toFixed(1)}% vs StonkFun</span>
               {d.gmgn.biggestPool && <> · {d.gmgn.biggestPool.exchange} STONK/{d.gmgn.biggestPool.quoteSymbol}</>}
-              {" "}· {fmtNum(d.gmgn.holderCount)} holders
+              {!d.holders && <> · {fmtNum(d.gmgn.holderCount)} holders</>}
             </div>
           )}
           <div className="mt-4 flex md:justify-end">
@@ -84,7 +89,9 @@ export default async function StonkPage() {
       <div className="kpis">
         <KpiTile label="Market cap" value={fmtUsd(m.marketCapUsd)} delta={fromPeak} sub="from peak" />
         <KpiTile label="24h volume" value={fmtUsd(m.volume24hUsd)} sub={m.marketCapUsd && m.volume24hUsd ? `${((m.volume24hUsd / m.marketCapUsd) * 100).toFixed(1)}% of market cap` : undefined} />
-        {d.gmgn
+        {d.holders
+          ? <KpiTile label="Average per holder" value={perHolder !== null ? fmtUsd(perHolder) : "—"} sub={`${medianPerHolder !== null ? `median ${fmtUsd(medianPerHolder)} · ` : ""}market cap ÷ ${fmtNum(d.holders.latest.holders)} holders`} />
+          : d.gmgn
           ? <KpiTile label="Holders" value={fmtNum(d.gmgn.holderCount)} sub={`${fmtNum(d.gmgn.wallets.smart)} smart money · ${fmtNum(d.gmgn.wallets.kol)} KOL · GMGN`} />
           : <KpiTile label="Circulating supply" value={fmtNum(d.supply.circulating)} sub={`${d.supply.burnedPct.toFixed(2)}% burned`} />}
         <KpiTile label="Peak market cap" value={fmtUsd(m.peakMarketCapUsd)} sub="all-time high" />
@@ -92,6 +99,9 @@ export default async function StonkPage() {
 
       {/* Scorecard */}
       <Scorecard indicators={d.indicators} watch={d.watch} />
+
+      {/* Holder base (HolderScan, worker readings) */}
+      {d.holders && <HolderBase h={d.holders} mint={STONK_MINT} marketCapUsd={m.marketCapUsd ?? null} priceUsd={m.priceUsd ?? null} now={now} />}
 
       {/* Price + burns */}
       <div className="grid lg:grid-cols-3 gap-4">

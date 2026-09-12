@@ -12,6 +12,8 @@ import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
 import { censusDue, coinCensusDue } from "@/lib/wallets";
 import { deltasDue, pruneUniverseHolders, runCoinDeltas, runUniverseDeltas, runUniverseHolders, universeDue } from "@/lib/universe";
 import { SITE_URL } from "@/lib/site";
+import { profileDue, PROFILE_EVERY_MIN, pruneHolderProfiles, runHolderProfile } from "@/lib/stonk-holders";
+import { HOLDERSCAN_ADVANCED } from "@/lib/holderscan";
 import type { Token } from "@/lib/types";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
@@ -24,6 +26,7 @@ import type { Token } from "@/lib/types";
 //   ...&universe=1                    -> run the daily HolderScan universe_holders step now
 //   ...&deltas=1                      -> run the HolderScan universe_deltas step (7/14/30-day changes) now
 //   ...&coindeltas=1[&top=N]          -> run the HolderScan coin_deltas step (per reward coin) now
+//   ...&profile=1                     -> read the STONK HolderScan profile now (holder_profile step, §6h)
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -87,6 +90,7 @@ export async function GET(req: Request) {
   const deltas = params.get("deltas") === "1";
   const coinDeltas = params.get("coindeltas") === "1";
   const coinDeltasTop = Number(params.get("top")) || undefined;
+  const profile = params.get("profile") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -310,9 +314,10 @@ export async function GET(req: Request) {
     });
   }
 
-  // Once a day on the 02:15 UTC tick (or ?universe=1): one HolderScan holder_count per universe quote asset
-  // (~320 calls, paced 250 ms → ~80 s; CLAUDE.md §6g). Its own slot so it never shares a run with the 500-token
-  // walk or the full run. Skipped with a note when HOLDERSCAN_API_KEY is unset. Prunes readings older than 60 days.
+  // On the :15 tick, once a day at 02:15 UTC (Standard plan) or every hour (HOLDERSCAN_PLAN=advanced), or ?universe=1:
+  // one HolderScan holder_count per universe quote asset (~320 calls, paced → ~35–80 s; CLAUDE.md §6g). Its own
+  // slot so it never shares a run with the 500-token walk or the full run. Skipped with a note when
+  // HOLDERSCAN_API_KEY is unset. Prunes readings older than 60 days.
   if (universe || (!hourly && !full && universeDue(ts))) {
     await step("universe_holders", async () => {
       const r = await runUniverseHolders(db, ts);
@@ -320,7 +325,7 @@ export async function GET(req: Request) {
         notes.universe_holders = `skipped: ${r.firstError}`;
         return 0;
       }
-      notes.universe_holders = `${r.read} quote assets read${r.failed ? `, ${r.failed} without a reading (${r.firstError})` : ""}`;
+      notes.universe_holders = `${r.read} quote assets read${r.failed ? `, ${r.failed} without a reading (${r.firstError})` : ""} (${HOLDERSCAN_ADVANCED ? "hourly" : "daily"})`;
       const dropped = await pruneUniverseHolders(db);
       if (dropped) notes.universe_holders += ` · pruned ${dropped}`;
       return r.rows;
@@ -388,6 +393,24 @@ export async function GET(req: Request) {
       notes.wallet_census = `started /api/cron/census (up to ${body.budget_s ?? "?"}s; result in wallet_run_meta and /api/health)`;
       return 1;
     });
+  }
+
+  // STONK's HolderScan holder profile (§6h): every tick on the Advanced plan, every 6 h on Standard, or ?profile=1.
+  // Seven routes, 150 units, paced inside the client (~1 s). Uses the same STONK read as the alert steps.
+  if (profile || (!hourly && !full && profileDue(ts))) {
+    await step("holder_profile", async () => {
+      const d = await getStonkData();
+      const r = await runHolderProfile(db, ts, STONK_MINT, { priceUsd: d.token.market?.priceUsd ?? null, marketCapUsd: d.token.market?.marketCapUsd ?? null, circulating: d.supply.circulating });
+      if (r.skipped) {
+        notes.holder_profile = `skipped: ${r.errors[0]}`;
+        return 0;
+      }
+      notes.holder_profile = `${r.holders} holders${r.errors.length ? ` · missing: ${r.errors.join("; ")}` : ""} (every ${PROFILE_EVERY_MIN} min)`;
+      return r.rows;
+    });
+  }
+  if (full) {
+    await step("holder_profile_prune", async () => pruneHolderProfiles(db));
   }
 
   await step("gmgn", async () => {

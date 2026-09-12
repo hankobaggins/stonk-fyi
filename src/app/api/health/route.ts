@@ -10,8 +10,9 @@ import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
 import { COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
-import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, getCoinCensus, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
-import { holderscanEnabled } from "@/lib/holderscan";
+import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
+import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/lib/holderscan";
+import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -101,11 +102,11 @@ export async function GET() {
     run("holder_snapshots", async () => {
       const db = getDb();
       if (!db) return "not configured (needs supabase)";
-      const { data: last, error } = await db.from("holder_snapshots").select("ts, kind").order("ts", { ascending: false }).limit(1);
+      const { data: last, error } = await db.from("holder_snapshots").select("ts, kind, source").eq("kind", "quote").order("ts", { ascending: false }).limit(1);
       if (error) throw new Error(`${error.message} (migration 0009 applied?)`);
       if (!last?.[0]) return "no readings yet (first hourly run after 0009 writes them)";
       const ageMin = (Date.now() - Date.parse(last[0].ts)) / 60000;
-      const note = `last reading ${ageMin.toFixed(0)} min ago (hourly)`;
+      const note = `last quote-asset reading ${ageMin.toFixed(0)} min ago via ${last[0].source} (hourly)`;
       if (ageMin > 75) throw new Error(`${note} — holders step stalled`);
       return note;
     }),
@@ -153,9 +154,22 @@ export async function GET() {
       }
       const ageH = (Date.now() - newest) / 3.6e6;
       const d = await getLatestDeltas();
-      const dNote = d === null ? "deltas unreadable (migration 0012 applied?)" : d.size ? `HolderScan deltas for ${d.size} assets (every ${DELTAS_EVERY_DAYS} days)` : "no HolderScan deltas yet (?deltas=1)";
-      const note = `${key} · ${w.size} of ${assets.length} quote assets have a reading, newest ${ageH.toFixed(1)}h ago, ${(hours / 24).toFixed(1)} days of history · ${dNote}`;
-      if (ageH > 36) throw new Error(`${note} — universe_holders step stalled`);
+      const dNote = d === null ? "deltas unreadable (migration 0012 applied?)" : d.size ? `HolderScan deltas for ${d.size} assets (every ${DELTAS_EVERY_DAYS} day${DELTAS_EVERY_DAYS === 1 ? "" : "s"})` : "no HolderScan deltas yet (?deltas=1)";
+      const note = `${key} · ${w.size} of ${assets.length} quote assets have a reading, newest ${ageH.toFixed(1)}h ago, ${(hours / 24).toFixed(1)} days of history (every ${UNIVERSE_EVERY_H}h) · ${dNote}`;
+      if (ageH > (UNIVERSE_EVERY_H >= 24 ? 36 : Math.max(3, UNIVERSE_EVERY_H * 2))) throw new Error(`${note} — universe_holders step stalled`);
+      return note;
+    }),
+    run("holder_profile", async () => {
+      // §6h: STONK's HolderScan profile from holderscan_snapshots — the home page's own read.
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const key = holderscanEnabled() ? `HOLDERSCAN_API_KEY set · plan ${HOLDERSCAN_ADVANCED ? "advanced" : "standard"}` : "HOLDERSCAN_API_KEY unset — the step is skipped";
+      const h = await getHolderHistory(STONK_MINT);
+      if (!h) return `${key} · no profile stored yet (every ${PROFILE_EVERY_MIN} min, or ?profile=1; migration 0014 applied?)${lastHolderscanError ? ` · last HolderScan error: ${lastHolderscanError}` : ""}`;
+      const p = h.latest;
+      const ageMin = (Date.now() - Date.parse(p.ts)) / 60000;
+      const note = `${key} · ${p.holders} holders, ${p.breakdowns ? `${p.breakdowns.over1k} over $1K` : "no breakdown"}, top-10 ${p.top10Share !== null ? `${(p.top10Share * 100).toFixed(1)}%` : "n/a"}, break-even ${p.pnl?.breakEvenPrice ?? "n/a"} · read ${ageMin.toFixed(0)} min ago, ${(h.hoursOfHistory / 24).toFixed(1)} days of history, ${h.series.length} hourly points${p.errors.length ? ` · missing: ${p.errors.join("; ")}` : ""}`;
+      if (ageMin > PROFILE_EVERY_MIN * 3 + 10) throw new Error(`${note} — holder_profile step stalled`);
       return note;
     }),
     run("coin_deltas", async () => {
@@ -164,7 +178,7 @@ export async function GET() {
       const t = await getCoinDeltaTotals();
       if (!t) return `no coin deltas yet (?coindeltas=1; top ${COIN_DELTAS_TOP} coins every ${DELTAS_EVERY_DAYS} days) — or migration 0013 missing`;
       const ageH = (Date.now() - Date.parse(t.ts)) / 3.6e6;
-      return `${t.coins} coins, ${t.holdersNow} holders now · 7d ${t.d7 >= 0 ? "+" : ""}${t.d7} · 14d ${t.d14 >= 0 ? "+" : ""}${t.d14} · 30d ${t.d30 >= 0 ? "+" : ""}${t.d30} (holder-slots, HolderScan) · read ${ageH.toFixed(1)}h ago`;
+      return `${t.coins} coins, ${t.holdersNow} holders now · ${t.d1 !== null ? `24h ${t.d1 >= 0 ? "+" : ""}${t.d1} · ` : ""}7d ${t.d7 >= 0 ? "+" : ""}${t.d7} · 14d ${t.d14 >= 0 ? "+" : ""}${t.d14} · 30d ${t.d30 >= 0 ? "+" : ""}${t.d30} (holder-slots, HolderScan) · read ${ageH.toFixed(1)}h ago`;
     }),
     run("coin_census", async () => {
       // §6g: distinct wallets holding any reward coin, daily (/api/cron/census?kind=coins).

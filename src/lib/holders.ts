@@ -3,13 +3,17 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards, getTokens } from "./api";
 import { getDb, getHolderWindows, type HolderWindow } from "./db";
 import { getGmgnHolderCount } from "./gmgn";
+import { getHolderscanHolderCount, holderscanEnabled } from "./holderscan";
 import type { Pair, RewardLaunch, Token } from "./types";
 
 // Unique holders of the stock-quoted side of StonkFun: the tokenized-stock quote assets themselves
 // (xStocks, Backpack, pre-stocks, Tessera) and the largest reward-mode coins launched against them,
 // with the change over 24h and 7d. Readings come from this site's own hourly holder_snapshots
 // (migration 0009, worker step `holders` in hourly mode):
-//   quote assets  GMGN token info `holder_count`, one call per mint (~80 mints an hour)
+//   quote assets  HolderScan `holder_count` when HOLDERSCAN_API_KEY is set (one 10-unit call per mint, ~80 an hour;
+//                 §6h), else GMGN token info `holder_count`. A mint HolderScan does not track falls back to GMGN;
+//                 each reading carries its `source`, and holder_window() (0014) only compares readings of the
+//                 same source, so the switch never shows as a step change.
 //   coins         StonkFun's `holderCount` in /rewards (one call), so only reward-mode coins can be
 //                 listed — standard-mode coins have no holder figure in the API and are not tracked.
 // Both counts are "wallets holding any balance" as the provider defines it; they are not the same
@@ -27,6 +31,7 @@ export type Change = { abs: number; pct: number | null; hours: number; from: str
 
 export type QuoteHolderRow = {
   mint: string;
+  source: "holderscan" | "gmgn" | null; // provider of the newest reading
   symbol: string;
   name: string;
   category: string;
@@ -54,6 +59,7 @@ export type CoinHolderRow = {
 
 export type HoldersTable = {
   status: "ok" | "collecting" | "no-db" | "db-error";
+  quoteSource: "holderscan" | "gmgn" | "mixed" | null; // which provider the quote-asset readings come from
   quotes: QuoteHolderRow[];
   coins: CoinHolderRow[];
   historyHours: number;
@@ -112,29 +118,40 @@ async function mapLimit<T, R>(items: T[], concurrency: number, gapMs: number, fn
   return out;
 }
 
-export type HoldersStepResult = { rows: number; quotesRead: number; quotesFailed: number; coins: number; firstError: string | null };
+export type HoldersStepResult = { rows: number; quotesRead: number; quotesFailed: number; coins: number; firstError: string | null; source: "holderscan" | "gmgn" | "none" };
 
 // Worker step: one reading per tracked mint. Quote assets that GMGN cannot answer for are skipped
 // (counted in quotesFailed, first message kept) rather than failing the step.
 export async function runHoldersSnapshot(db: SupabaseClient, ts: string): Promise<HoldersStepResult> {
   const [quotes, coins] = await Promise.all([getStockQuoteAssets(), getStockCoinsByMcap(HOLDERS_TRACKED)]);
   let firstError: string | null = null;
-  const quoteReads = process.env.GMGN_API_KEY
-    ? await mapLimit(quotes, 1, 1_200, async (q) => {
+  const hs = holderscanEnabled();
+  const gmgn = !!process.env.GMGN_API_KEY;
+  const quoteReads = hs || gmgn
+    ? await mapLimit(quotes, 1, hs ? 0 : 1_200, async (q) => {
+        if (hs) {
+          const r = await getHolderscanHolderCount(q.mint); // paced inside the client
+          if (r.holders !== null) return { mint: q.mint, holders: r.holders, source: "holderscan" };
+          if (!gmgn) {
+            if (!firstError) firstError = `${q.symbol}: ${r.error}`;
+            return { mint: q.mint, holders: null, source: "holderscan" };
+          }
+        }
         const r = await getGmgnHolderCount(q.mint);
         if (r.error && !firstError) firstError = `${q.symbol}: ${r.error}`;
-        return { mint: q.mint, holders: r.holders };
+        if (hs && gmgn) await new Promise((res) => setTimeout(res, 1_200)); // GMGN's own pacing on the fallback path
+        return { mint: q.mint, holders: r.holders, source: "gmgn" };
       })
     : [];
   const rows = [
-    ...quoteReads.filter((r) => r.holders !== null).map((r) => ({ mint: r.mint, ts, kind: "quote", quote_mint: null, holders: r.holders as number, source: "gmgn" })),
+    ...quoteReads.filter((r) => r.holders !== null).map((r) => ({ mint: r.mint, ts, kind: "quote", quote_mint: null, holders: r.holders as number, source: r.source })),
     ...coins.map(({ token, launch }) => ({ mint: token.mint, ts, kind: "coin", quote_mint: launch.quote.mint, holders: launch.holderCount, source: "stonkfun" })),
   ];
   if (rows.length) {
     const { error } = await db.from("holder_snapshots").upsert(rows, { onConflict: "mint,ts" });
     if (error) throw new Error(error.message);
   }
-  return { rows: rows.length, quotesRead: quoteReads.filter((r) => r.holders !== null).length, quotesFailed: quoteReads.length - quoteReads.filter((r) => r.holders !== null).length, coins: coins.length, firstError };
+  return { rows: rows.length, quotesRead: quoteReads.filter((r) => r.holders !== null).length, quotesFailed: quoteReads.length - quoteReads.filter((r) => r.holders !== null).length, coins: coins.length, firstError, source: hs ? "holderscan" : gmgn ? "gmgn" : "none" };
 }
 
 export function trackedMints(quotes: Pair[], coins: StockCoin[]): string[] {
@@ -152,8 +169,15 @@ export async function getHoldersTable(): Promise<HoldersTable> {
   const db = getDb();
   const [quotes, coins] = await Promise.all([getStockQuoteAssets(), getStockCoinsByMcap(HOLDERS_TRACKED)]);
   const mints = trackedMints(quotes, coins);
-  const [w24, w168] = await Promise.all([db ? getHolderWindows(24, mints) : null, db ? getHolderWindows(168, mints) : null]);
+  const [w24, w168, srcRows] = await Promise.all([
+    db ? getHolderWindows(24, mints) : null,
+    db ? getHolderWindows(168, mints) : null,
+    // Provider of each quote asset's newest reading (the last 3 hours cover the newest hourly run).
+    db ? db.from("holder_snapshots").select("mint, source, ts").eq("kind", "quote").gte("ts", new Date(Date.now() - 3 * 3.6e6).toISOString()).order("ts", { ascending: false }).limit(1000) : null,
+  ]);
   const dbError = !!db && (w24 === null || w168 === null);
+  const sourceOf = new Map<string, "holderscan" | "gmgn">();
+  for (const r of srcRows?.data ?? []) if (!sourceOf.has(r.mint) && (r.source === "holderscan" || r.source === "gmgn")) sourceOf.set(r.mint, r.source);
 
   let historyHours = 0;
   for (const w of w168?.values() ?? []) historyHours = Math.max(historyHours, w.hours);
@@ -162,6 +186,7 @@ export async function getHoldersTable(): Promise<HoldersTable> {
     const latest = w168?.get(q.mint) ?? w24?.get(q.mint);
     return {
       mint: q.mint,
+      source: sourceOf.get(q.mint) ?? null,
       symbol: q.symbol,
       name: q.name ?? q.symbol,
       category: q.category!,
@@ -189,8 +214,10 @@ export async function getHoldersTable(): Promise<HoldersTable> {
   }));
 
   const anyReading = quoteRows.some((r) => r.holders !== null) || coinRows.some((r) => r.d1 || r.d7);
+  const sources = new Set(quoteRows.map((r) => r.source).filter(Boolean));
   return {
     status: !db ? "no-db" : dbError ? "db-error" : anyReading ? "ok" : "collecting",
+    quoteSource: sources.size > 1 ? "mixed" : sources.size === 1 ? ([...sources][0] as "holderscan" | "gmgn") : null,
     quotes: quoteRows,
     coins: coinRows,
     historyHours,

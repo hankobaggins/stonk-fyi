@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { Token } from "@/lib/types";
 import type { AprCell, TokenApr } from "@/lib/yield";
-import { fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
+import { fmtNum, fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
 import { Delta, StatusPill, TokenLink } from "./ui";
 import TokenIcon from "./TokenIcon";
@@ -34,15 +34,26 @@ export function AprCol({ c, max, cls, why }: { c: AprCell; max: number; cls: str
 
 // Column sorts. Every numeric column is sortable; the page sorts its loaded pool and paginates, so a header
 // click is a link (`?by=<key>&dir=asc|desc`) and the table stays a server component. Nulls sort last either way.
-export const SORT_KEYS = ["mcap", "price", "chg", "vol", "ratio", "apr1", "apr3", "age"] as const;
+export const SORT_KEYS = ["mcap", "price", "chg", "vol", "ratio", "apr1", "apr3", "holders", "avg", "age"] as const;
 export type SortKey = (typeof SORT_KEYS)[number];
 export type TableSort = { key: SortKey; dir: "asc" | "desc"; href: (key: SortKey, dir: "asc" | "desc") => string };
-export const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = { mcap: "desc", price: "desc", chg: "desc", vol: "desc", ratio: "desc", apr1: "desc", apr3: "desc", age: "asc" };
+export const DEFAULT_DIR: Record<SortKey, "asc" | "desc"> = { mcap: "desc", price: "desc", chg: "desc", vol: "desc", ratio: "desc", apr1: "desc", apr3: "desc", holders: "desc", avg: "desc", age: "asc" };
 
-export function sortValue(t: Token, apr: Record<string, TokenApr> | undefined, k: SortKey): number | null {
+// `holders` = StonkFun's reward-eligible holderCount per reward coin (from /rewards); standard coins have none.
+// Average per holder = market cap ÷ that count: what the typical wallet's stake would be if every holder held the
+// same — a few large wallets pull it up, so a high figure with few holders is concentration, not conviction.
+export function avgPerHolder(t: Token, holders: Record<string, number> | undefined): number | null {
+  const h = holders?.[t.mint];
+  const mc = t.market?.marketCapUsd;
+  return h && h > 0 && mc && mc > 0 ? mc / h : null;
+}
+
+export function sortValue(t: Token, apr: Record<string, TokenApr> | undefined, k: SortKey, holders?: Record<string, number>): number | null {
   const m = t.market ?? {};
   const n = (v: number | undefined | null) => (v === undefined || v === null || Number.isNaN(v) ? null : v);
   switch (k) {
+    case "holders": return n(holders?.[t.mint]);
+    case "avg": return avgPerHolder(t, holders);
     case "mcap": return n(m.marketCapUsd);
     case "price": return n(m.priceUsd);
     case "chg": return n(m.priceChange24h);
@@ -54,8 +65,8 @@ export function sortValue(t: Token, apr: Record<string, TokenApr> | undefined, k
   }
 }
 
-export function sortTokens(tokens: Token[], apr: Record<string, TokenApr> | undefined, key: SortKey, dir: "asc" | "desc"): Token[] {
-  const vals = new Map(tokens.map((t) => [t.mint, sortValue(t, apr, key)]));
+export function sortTokens(tokens: Token[], apr: Record<string, TokenApr> | undefined, key: SortKey, dir: "asc" | "desc", holders?: Record<string, number>): Token[] {
+  const vals = new Map(tokens.map((t) => [t.mint, sortValue(t, apr, key, holders)]));
   return [...tokens].sort((a, b) => {
     const va = vals.get(a.mint) ?? null;
     const vb = vals.get(b.mint) ?? null;
@@ -84,7 +95,7 @@ function Th({ k, sort, right = false, children, sub }: { k: SortKey; sort?: Tabl
 // `apr` (per mint, from getAprForTokens) adds the two realized holder-fee APR columns in the /yield style.
 // The full table puts the JTX buy link where the Mode pill used to be (owner's call 2026-09-11; the APR column
 // already tells standard from reward); the compact table keeps it as a trailing Trade column.
-export default function TokenTable({ tokens, startRank = 1, now, compact = false, apr, sort }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean; apr?: Record<string, TokenApr>; sort?: TableSort }) {
+export default function TokenTable({ tokens, startRank = 1, now, compact = false, apr, sort, holders }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean; apr?: Record<string, TokenApr>; sort?: TableSort; holders?: Record<string, number> }) {
   const max1 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d1?.apr ?? 0)) : 0;
   const max3 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d3?.apr ?? 0)) : 0;
   return (
@@ -103,6 +114,12 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
               <>
                 <Th k="apr1" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">from the last 24h of payouts</span></>}>24h-based APR</Th>
                 <Th k="apr3" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">average over the last 72h</span></>}>3d-based APR</Th>
+              </>
+            )}
+            {!compact && holders && (
+              <>
+                <Th k="holders" sort={sort} right>Holders</Th>
+                <Th k="avg" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">market cap ÷ holders</span></>}>Avg per holder</Th>
               </>
             )}
             {!compact && (
@@ -150,6 +167,12 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                   <>
                     <td className="r"><AprCol c={a?.d1 ?? null} max={max1} cls="apr1" why={a?.why ?? null} /></td>
                     <td className="r"><AprCol c={a?.d3 ?? null} max={max3} cls="apr3" why={a?.why ?? null} /></td>
+                  </>
+                )}
+                {!compact && holders && (
+                  <>
+                    <td className="r num">{holders[t.mint] ? fmtNum(holders[t.mint]) : <span className="text-muted text-xs">{t.mode === "reward" ? "—" : "standard"}</span>}</td>
+                    <td className="r num">{avgPerHolder(t, holders) !== null ? fmtUsd(avgPerHolder(t, holders)) : <span className="text-muted text-xs">—</span>}</td>
                   </>
                 )}
                 {!compact && (

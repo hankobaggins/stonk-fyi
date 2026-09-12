@@ -1,0 +1,3555 @@
+{
+ "latest": {
+  "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+  "ts": "2026-09-12T18:00:00.000Z",
+  "holders": 65693,
+  "priceUsd": 0.2683,
+  "marketCapUsd": 267817164,
+  "deltas": {
+   "h1": 12,
+   "h4": 40,
+   "h12": 120,
+   "d1": 318,
+   "d3": 900,
+   "d7": 2100,
+   "d14": 4200,
+   "d30": 9800
+  },
+  "breakdowns": {
+   "total": 65693,
+   "over10": 39400,
+   "over100": 22800,
+   "over1k": 7110,
+   "over10k": 1560,
+   "over100k": 390,
+   "over1m": 41,
+   "shrimp": 26200,
+   "crab": 16700,
+   "fish": 15700,
+   "dolphin": 5500,
+   "whale": 1560
+  },
+  "stats": {
+   "hhi": 0.0061,
+   "gini": 0.91,
+   "medianPosition": 820,
+   "avgTimeHeldSec": 1987200,
+   "retentionRate": 0.81
+  },
+  "pnl": {
+   "breakEvenPrice": 0.1712,
+   "realizedPnlUsd": 5210000,
+   "unrealizedPnlUsd": 38400000
+  },
+  "wallets": {
+   "diamond": 612,
+   "gold": 143,
+   "silver": 121,
+   "bronze": 84,
+   "wood": 26,
+   "newHolders": 14
+  },
+  "supplyBreakdown": {
+   "diamond": 301000000,
+   "gold": 88000000,
+   "silver": 61000000,
+   "bronze": 22000000,
+   "wood": 4100000
+  },
+  "top10Share": 0.1732,
+  "top100Share": 0.4611,
+  "errors": []
+ },
+ "dayAgo": {
+  "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+  "ts": "2026-09-11T18:00:00.000Z",
+  "holders": 65375,
+  "priceUsd": 0.2683,
+  "marketCapUsd": 267817164,
+  "deltas": {
+   "h1": 12,
+   "h4": 40,
+   "h12": 120,
+   "d1": 318,
+   "d3": 900,
+   "d7": 2100,
+   "d14": 4200,
+   "d30": 9800
+  },
+  "breakdowns": {
+   "total": 65375,
+   "over10": 39400,
+   "over100": 22800,
+   "over1k": 7020,
+   "over10k": 1560,
+   "over100k": 390,
+   "over1m": 41,
+   "shrimp": 26200,
+   "crab": 16700,
+   "fish": 15700,
+   "dolphin": 5500,
+   "whale": 1560
+  },
+  "stats": {
+   "hhi": 0.0061,
+   "gini": 0.91,
+   "medianPosition": 820,
+   "avgTimeHeldSec": 1987200,
+   "retentionRate": 0.81
+  },
+  "pnl": {
+   "breakEvenPrice": 0.1712,
+   "realizedPnlUsd": 5210000,
+   "unrealizedPnlUsd": 38400000
+  },
+  "wallets": {
+   "diamond": 612,
+   "gold": 143,
+   "silver": 121,
+   "bronze": 84,
+   "wood": 26,
+   "newHolders": 14
+  },
+  "supplyBreakdown": {
+   "diamond": 301000000,
+   "gold": 88000000,
+   "silver": 61000000,
+   "bronze": 22000000,
+   "wood": 4100000
+  },
+  "top10Share": 0.1732,
+  "top100Share": 0.4611,
+  "errors": []
+ },
+ "weekAgo": {
+  "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+  "ts": "2026-09-05T18:00:00.000Z",
+  "holders": 63593,
+  "priceUsd": 0.2683,
+  "marketCapUsd": 267817164,
+  "deltas": {
+   "h1": 12,
+   "h4": 40,
+   "h12": 120,
+   "d1": 318,
+   "d3": 900,
+   "d7": 2100,
+   "d14": 4200,
+   "d30": 9800
+  },
+  "breakdowns": {
+   "total": 63593,
+   "over10": 39400,
+   "over100": 22800,
+   "over1k": 6700,
+   "over10k": 1560,
+   "over100k": 390,
+   "over1m": 41,
+   "shrimp": 26200,
+   "crab": 16700,
+   "fish": 15700,
+   "dolphin": 5500,
+   "whale": 1560
+  },
+  "stats": {
+   "hhi": 0.0061,
+   "gini": 0.91,
+   "medianPosition": 820,
+   "avgTimeHeldSec": 1987200,
+   "retentionRate": 0.81
+  },
+  "pnl": {
+   "breakEvenPrice": 0.1712,
+   "realizedPnlUsd": 5210000,
+   "unrealizedPnlUsd": 38400000
+  },
+  "wallets": {
+   "diamond": 612,
+   "gold": 143,
+   "silver": 121,
+   "bronze": 84,
+   "wood": 26,
+   "newHolders": 14
+  },
+  "supplyBreakdown": {
+   "diamond": 301000000,
+   "gold": 88000000,
+   "silver": 61000000,
+   "bronze": 22000000,
+   "wood": 4100000
+  },
+  "top10Share": 0.1732,
+  "top100Share": 0.4611,
+  "errors": []
+ },
+ "series": [
+  {
+   "ts": 1787508000000,
+   "holders": 59469,
+   "over1k": 6422,
+   "over10k": 1427,
+   "marketCapUsd": 224617164
+  },
+  {
+   "ts": 1787511600000,
+   "holders": 59478,
+   "over1k": 6423,
+   "over10k": 1427,
+   "marketCapUsd": 224707164
+  },
+  {
+   "ts": 1787515200000,
+   "holders": 59487,
+   "over1k": 6424,
+   "over10k": 1427,
+   "marketCapUsd": 224797164
+  },
+  {
+   "ts": 1787518800000,
+   "holders": 59496,
+   "over1k": 6425,
+   "over10k": 1427,
+   "marketCapUsd": 224887164
+  },
+  {
+   "ts": 1787522400000,
+   "holders": 59505,
+   "over1k": 6426,
+   "over10k": 1428,
+   "marketCapUsd": 224977164
+  },
+  {
+   "ts": 1787526000000,
+   "holders": 59542,
+   "over1k": 6430,
+   "over10k": 1429,
+   "marketCapUsd": 225067164
+  },
+  {
+   "ts": 1787529600000,
+   "holders": 59551,
+   "over1k": 6431,
+   "over10k": 1429,
+   "marketCapUsd": 225157164
+  },
+  {
+   "ts": 1787533200000,
+   "holders": 59560,
+   "over1k": 6432,
+   "over10k": 1429,
+   "marketCapUsd": 225247164
+  },
+  {
+   "ts": 1787536800000,
+   "holders": 59569,
+   "over1k": 6433,
+   "over10k": 1429,
+   "marketCapUsd": 225337164
+  },
+  {
+   "ts": 1787540400000,
+   "holders": 59578,
+   "over1k": 6434,
+   "over10k": 1429,
+   "marketCapUsd": 225427164
+  },
+  {
+   "ts": 1787544000000,
+   "holders": 59587,
+   "over1k": 6435,
+   "over10k": 1430,
+   "marketCapUsd": 225517164
+  },
+  {
+   "ts": 1787547600000,
+   "holders": 59596,
+   "over1k": 6436,
+   "over10k": 1430,
+   "marketCapUsd": 225607164
+  },
+  {
+   "ts": 1787551200000,
+   "holders": 59633,
+   "over1k": 6440,
+   "over10k": 1431,
+   "marketCapUsd": 225697164
+  },
+  {
+   "ts": 1787554800000,
+   "holders": 59642,
+   "over1k": 6441,
+   "over10k": 1431,
+   "marketCapUsd": 225787164
+  },
+  {
+   "ts": 1787558400000,
+   "holders": 59651,
+   "over1k": 6442,
+   "over10k": 1431,
+   "marketCapUsd": 225877164
+  },
+  {
+   "ts": 1787562000000,
+   "holders": 59660,
+   "over1k": 6443,
+   "over10k": 1431,
+   "marketCapUsd": 225967164
+  },
+  {
+   "ts": 1787565600000,
+   "holders": 59669,
+   "over1k": 6444,
+   "over10k": 1432,
+   "marketCapUsd": 226057164
+  },
+  {
+   "ts": 1787569200000,
+   "holders": 59678,
+   "over1k": 6445,
+   "over10k": 1432,
+   "marketCapUsd": 226147164
+  },
+  {
+   "ts": 1787572800000,
+   "holders": 59687,
+   "over1k": 6446,
+   "over10k": 1432,
+   "marketCapUsd": 226237164
+  },
+  {
+   "ts": 1787576400000,
+   "holders": 59724,
+   "over1k": 6450,
+   "over10k": 1433,
+   "marketCapUsd": 226327164
+  },
+  {
+   "ts": 1787580000000,
+   "holders": 59733,
+   "over1k": 6451,
+   "over10k": 1433,
+   "marketCapUsd": 226417164
+  },
+  {
+   "ts": 1787583600000,
+   "holders": 59742,
+   "over1k": 6452,
+   "over10k": 1433,
+   "marketCapUsd": 226507164
+  },
+  {
+   "ts": 1787587200000,
+   "holders": 59751,
+   "over1k": 6453,
+   "over10k": 1434,
+   "marketCapUsd": 226597164
+  },
+  {
+   "ts": 1787590800000,
+   "holders": 59760,
+   "over1k": 6454,
+   "over10k": 1434,
+   "marketCapUsd": 226687164
+  },
+  {
+   "ts": 1787594400000,
+   "holders": 59769,
+   "over1k": 6455,
+   "over10k": 1434,
+   "marketCapUsd": 226777164
+  },
+  {
+   "ts": 1787598000000,
+   "holders": 59778,
+   "over1k": 6456,
+   "over10k": 1434,
+   "marketCapUsd": 226867164
+  },
+  {
+   "ts": 1787601600000,
+   "holders": 59815,
+   "over1k": 6460,
+   "over10k": 1435,
+   "marketCapUsd": 226957164
+  },
+  {
+   "ts": 1787605200000,
+   "holders": 59824,
+   "over1k": 6460,
+   "over10k": 1435,
+   "marketCapUsd": 227047164
+  },
+  {
+   "ts": 1787608800000,
+   "holders": 59833,
+   "over1k": 6461,
+   "over10k": 1435,
+   "marketCapUsd": 227137164
+  },
+  {
+   "ts": 1787612400000,
+   "holders": 59842,
+   "over1k": 6462,
+   "over10k": 1436,
+   "marketCapUsd": 227227164
+  },
+  {
+   "ts": 1787616000000,
+   "holders": 59851,
+   "over1k": 6463,
+   "over10k": 1436,
+   "marketCapUsd": 227317164
+  },
+  {
+   "ts": 1787619600000,
+   "holders": 59860,
+   "over1k": 6464,
+   "over10k": 1436,
+   "marketCapUsd": 227407164
+  },
+  {
+   "ts": 1787623200000,
+   "holders": 59869,
+   "over1k": 6465,
+   "over10k": 1436,
+   "marketCapUsd": 227497164
+  },
+  {
+   "ts": 1787626800000,
+   "holders": 59906,
+   "over1k": 6469,
+   "over10k": 1437,
+   "marketCapUsd": 227587164
+  },
+  {
+   "ts": 1787630400000,
+   "holders": 59915,
+   "over1k": 6470,
+   "over10k": 1437,
+   "marketCapUsd": 227677164
+  },
+  {
+   "ts": 1787634000000,
+   "holders": 59924,
+   "over1k": 6471,
+   "over10k": 1438,
+   "marketCapUsd": 227767164
+  },
+  {
+   "ts": 1787637600000,
+   "holders": 59933,
+   "over1k": 6472,
+   "over10k": 1438,
+   "marketCapUsd": 227857164
+  },
+  {
+   "ts": 1787641200000,
+   "holders": 59942,
+   "over1k": 6473,
+   "over10k": 1438,
+   "marketCapUsd": 227947164
+  },
+  {
+   "ts": 1787644800000,
+   "holders": 59951,
+   "over1k": 6474,
+   "over10k": 1438,
+   "marketCapUsd": 228037164
+  },
+  {
+   "ts": 1787648400000,
+   "holders": 59960,
+   "over1k": 6475,
+   "over10k": 1439,
+   "marketCapUsd": 228127164
+  },
+  {
+   "ts": 1787652000000,
+   "holders": 59997,
+   "over1k": 6479,
+   "over10k": 1439,
+   "marketCapUsd": 228217164
+  },
+  {
+   "ts": 1787655600000,
+   "holders": 60006,
+   "over1k": 6480,
+   "over10k": 1440,
+   "marketCapUsd": 228307164
+  },
+  {
+   "ts": 1787659200000,
+   "holders": 60015,
+   "over1k": 6481,
+   "over10k": 1440,
+   "marketCapUsd": 228397164
+  },
+  {
+   "ts": 1787662800000,
+   "holders": 60024,
+   "over1k": 6482,
+   "over10k": 1440,
+   "marketCapUsd": 228487164
+  },
+  {
+   "ts": 1787666400000,
+   "holders": 60033,
+   "over1k": 6483,
+   "over10k": 1440,
+   "marketCapUsd": 228577164
+  },
+  {
+   "ts": 1787670000000,
+   "holders": 60042,
+   "over1k": 6484,
+   "over10k": 1441,
+   "marketCapUsd": 228667164
+  },
+  {
+   "ts": 1787673600000,
+   "holders": 60051,
+   "over1k": 6485,
+   "over10k": 1441,
+   "marketCapUsd": 228757164
+  },
+  {
+   "ts": 1787677200000,
+   "holders": 60088,
+   "over1k": 6489,
+   "over10k": 1442,
+   "marketCapUsd": 228847164
+  },
+  {
+   "ts": 1787680800000,
+   "holders": 60097,
+   "over1k": 6490,
+   "over10k": 1442,
+   "marketCapUsd": 228937164
+  },
+  {
+   "ts": 1787684400000,
+   "holders": 60106,
+   "over1k": 6491,
+   "over10k": 1442,
+   "marketCapUsd": 229027164
+  },
+  {
+   "ts": 1787688000000,
+   "holders": 60115,
+   "over1k": 6492,
+   "over10k": 1442,
+   "marketCapUsd": 229117164
+  },
+  {
+   "ts": 1787691600000,
+   "holders": 60124,
+   "over1k": 6493,
+   "over10k": 1442,
+   "marketCapUsd": 229207164
+  },
+  {
+   "ts": 1787695200000,
+   "holders": 60133,
+   "over1k": 6494,
+   "over10k": 1443,
+   "marketCapUsd": 229297164
+  },
+  {
+   "ts": 1787698800000,
+   "holders": 60142,
+   "over1k": 6495,
+   "over10k": 1443,
+   "marketCapUsd": 229387164
+  },
+  {
+   "ts": 1787702400000,
+   "holders": 60179,
+   "over1k": 6499,
+   "over10k": 1444,
+   "marketCapUsd": 229477164
+  },
+  {
+   "ts": 1787706000000,
+   "holders": 60188,
+   "over1k": 6500,
+   "over10k": 1444,
+   "marketCapUsd": 229567164
+  },
+  {
+   "ts": 1787709600000,
+   "holders": 60197,
+   "over1k": 6501,
+   "over10k": 1444,
+   "marketCapUsd": 229657164
+  },
+  {
+   "ts": 1787713200000,
+   "holders": 60206,
+   "over1k": 6502,
+   "over10k": 1444,
+   "marketCapUsd": 229747164
+  },
+  {
+   "ts": 1787716800000,
+   "holders": 60215,
+   "over1k": 6503,
+   "over10k": 1445,
+   "marketCapUsd": 229837164
+  },
+  {
+   "ts": 1787720400000,
+   "holders": 60224,
+   "over1k": 6504,
+   "over10k": 1445,
+   "marketCapUsd": 229927164
+  },
+  {
+   "ts": 1787724000000,
+   "holders": 60233,
+   "over1k": 6505,
+   "over10k": 1445,
+   "marketCapUsd": 230017164
+  },
+  {
+   "ts": 1787727600000,
+   "holders": 60270,
+   "over1k": 6509,
+   "over10k": 1446,
+   "marketCapUsd": 230107164
+  },
+  {
+   "ts": 1787731200000,
+   "holders": 60279,
+   "over1k": 6510,
+   "over10k": 1446,
+   "marketCapUsd": 230197164
+  },
+  {
+   "ts": 1787734800000,
+   "holders": 60288,
+   "over1k": 6511,
+   "over10k": 1446,
+   "marketCapUsd": 230287164
+  },
+  {
+   "ts": 1787738400000,
+   "holders": 60297,
+   "over1k": 6512,
+   "over10k": 1447,
+   "marketCapUsd": 230377164
+  },
+  {
+   "ts": 1787742000000,
+   "holders": 60306,
+   "over1k": 6513,
+   "over10k": 1447,
+   "marketCapUsd": 230467164
+  },
+  {
+   "ts": 1787745600000,
+   "holders": 60315,
+   "over1k": 6514,
+   "over10k": 1447,
+   "marketCapUsd": 230557164
+  },
+  {
+   "ts": 1787749200000,
+   "holders": 60324,
+   "over1k": 6514,
+   "over10k": 1447,
+   "marketCapUsd": 230647164
+  },
+  {
+   "ts": 1787752800000,
+   "holders": 60361,
+   "over1k": 6518,
+   "over10k": 1448,
+   "marketCapUsd": 230737164
+  },
+  {
+   "ts": 1787756400000,
+   "holders": 60370,
+   "over1k": 6519,
+   "over10k": 1448,
+   "marketCapUsd": 230827164
+  },
+  {
+   "ts": 1787760000000,
+   "holders": 60379,
+   "over1k": 6520,
+   "over10k": 1449,
+   "marketCapUsd": 230917164
+  },
+  {
+   "ts": 1787763600000,
+   "holders": 60388,
+   "over1k": 6521,
+   "over10k": 1449,
+   "marketCapUsd": 231007164
+  },
+  {
+   "ts": 1787767200000,
+   "holders": 60397,
+   "over1k": 6522,
+   "over10k": 1449,
+   "marketCapUsd": 231097164
+  },
+  {
+   "ts": 1787770800000,
+   "holders": 60406,
+   "over1k": 6523,
+   "over10k": 1449,
+   "marketCapUsd": 231187164
+  },
+  {
+   "ts": 1787774400000,
+   "holders": 60415,
+   "over1k": 6524,
+   "over10k": 1449,
+   "marketCapUsd": 231277164
+  },
+  {
+   "ts": 1787778000000,
+   "holders": 60452,
+   "over1k": 6528,
+   "over10k": 1450,
+   "marketCapUsd": 231367164
+  },
+  {
+   "ts": 1787781600000,
+   "holders": 60461,
+   "over1k": 6529,
+   "over10k": 1451,
+   "marketCapUsd": 231457164
+  },
+  {
+   "ts": 1787785200000,
+   "holders": 60470,
+   "over1k": 6530,
+   "over10k": 1451,
+   "marketCapUsd": 231547164
+  },
+  {
+   "ts": 1787788800000,
+   "holders": 60479,
+   "over1k": 6531,
+   "over10k": 1451,
+   "marketCapUsd": 231637164
+  },
+  {
+   "ts": 1787792400000,
+   "holders": 60488,
+   "over1k": 6532,
+   "over10k": 1451,
+   "marketCapUsd": 231727164
+  },
+  {
+   "ts": 1787796000000,
+   "holders": 60497,
+   "over1k": 6533,
+   "over10k": 1451,
+   "marketCapUsd": 231817164
+  },
+  {
+   "ts": 1787799600000,
+   "holders": 60506,
+   "over1k": 6534,
+   "over10k": 1452,
+   "marketCapUsd": 231907164
+  },
+  {
+   "ts": 1787803200000,
+   "holders": 60543,
+   "over1k": 6538,
+   "over10k": 1453,
+   "marketCapUsd": 231997164
+  },
+  {
+   "ts": 1787806800000,
+   "holders": 60552,
+   "over1k": 6539,
+   "over10k": 1453,
+   "marketCapUsd": 232087164
+  },
+  {
+   "ts": 1787810400000,
+   "holders": 60561,
+   "over1k": 6540,
+   "over10k": 1453,
+   "marketCapUsd": 232177164
+  },
+  {
+   "ts": 1787814000000,
+   "holders": 60570,
+   "over1k": 6541,
+   "over10k": 1453,
+   "marketCapUsd": 232267164
+  },
+  {
+   "ts": 1787817600000,
+   "holders": 60579,
+   "over1k": 6542,
+   "over10k": 1453,
+   "marketCapUsd": 232357164
+  },
+  {
+   "ts": 1787821200000,
+   "holders": 60588,
+   "over1k": 6543,
+   "over10k": 1454,
+   "marketCapUsd": 232447164
+  },
+  {
+   "ts": 1787824800000,
+   "holders": 60597,
+   "over1k": 6544,
+   "over10k": 1454,
+   "marketCapUsd": 232537164
+  },
+  {
+   "ts": 1787828400000,
+   "holders": 60634,
+   "over1k": 6548,
+   "over10k": 1455,
+   "marketCapUsd": 232627164
+  },
+  {
+   "ts": 1787832000000,
+   "holders": 60643,
+   "over1k": 6549,
+   "over10k": 1455,
+   "marketCapUsd": 232717164
+  },
+  {
+   "ts": 1787835600000,
+   "holders": 60652,
+   "over1k": 6550,
+   "over10k": 1455,
+   "marketCapUsd": 232807164
+  },
+  {
+   "ts": 1787839200000,
+   "holders": 60661,
+   "over1k": 6551,
+   "over10k": 1455,
+   "marketCapUsd": 232897164
+  },
+  {
+   "ts": 1787842800000,
+   "holders": 60670,
+   "over1k": 6552,
+   "over10k": 1456,
+   "marketCapUsd": 232987164
+  },
+  {
+   "ts": 1787846400000,
+   "holders": 60679,
+   "over1k": 6553,
+   "over10k": 1456,
+   "marketCapUsd": 233077164
+  },
+  {
+   "ts": 1787850000000,
+   "holders": 60688,
+   "over1k": 6554,
+   "over10k": 1456,
+   "marketCapUsd": 233167164
+  },
+  {
+   "ts": 1787853600000,
+   "holders": 60725,
+   "over1k": 6558,
+   "over10k": 1457,
+   "marketCapUsd": 233257164
+  },
+  {
+   "ts": 1787857200000,
+   "holders": 60734,
+   "over1k": 6559,
+   "over10k": 1457,
+   "marketCapUsd": 233347164
+  },
+  {
+   "ts": 1787860800000,
+   "holders": 60743,
+   "over1k": 6560,
+   "over10k": 1457,
+   "marketCapUsd": 233437164
+  },
+  {
+   "ts": 1787864400000,
+   "holders": 60752,
+   "over1k": 6561,
+   "over10k": 1458,
+   "marketCapUsd": 233527164
+  },
+  {
+   "ts": 1787868000000,
+   "holders": 60761,
+   "over1k": 6562,
+   "over10k": 1458,
+   "marketCapUsd": 233617164
+  },
+  {
+   "ts": 1787871600000,
+   "holders": 60770,
+   "over1k": 6563,
+   "over10k": 1458,
+   "marketCapUsd": 233707164
+  },
+  {
+   "ts": 1787875200000,
+   "holders": 60779,
+   "over1k": 6564,
+   "over10k": 1458,
+   "marketCapUsd": 233797164
+  },
+  {
+   "ts": 1787878800000,
+   "holders": 60816,
+   "over1k": 6568,
+   "over10k": 1459,
+   "marketCapUsd": 233887164
+  },
+  {
+   "ts": 1787882400000,
+   "holders": 60825,
+   "over1k": 6569,
+   "over10k": 1459,
+   "marketCapUsd": 233977164
+  },
+  {
+   "ts": 1787886000000,
+   "holders": 60834,
+   "over1k": 6570,
+   "over10k": 1460,
+   "marketCapUsd": 234067164
+  },
+  {
+   "ts": 1787889600000,
+   "holders": 60843,
+   "over1k": 6571,
+   "over10k": 1460,
+   "marketCapUsd": 234157164
+  },
+  {
+   "ts": 1787893200000,
+   "holders": 60852,
+   "over1k": 6572,
+   "over10k": 1460,
+   "marketCapUsd": 234247164
+  },
+  {
+   "ts": 1787896800000,
+   "holders": 60861,
+   "over1k": 6572,
+   "over10k": 1460,
+   "marketCapUsd": 234337164
+  },
+  {
+   "ts": 1787900400000,
+   "holders": 60870,
+   "over1k": 6573,
+   "over10k": 1460,
+   "marketCapUsd": 234427164
+  },
+  {
+   "ts": 1787904000000,
+   "holders": 60907,
+   "over1k": 6577,
+   "over10k": 1461,
+   "marketCapUsd": 234517164
+  },
+  {
+   "ts": 1787907600000,
+   "holders": 60916,
+   "over1k": 6578,
+   "over10k": 1461,
+   "marketCapUsd": 234607164
+  },
+  {
+   "ts": 1787911200000,
+   "holders": 60925,
+   "over1k": 6579,
+   "over10k": 1462,
+   "marketCapUsd": 234697164
+  },
+  {
+   "ts": 1787914800000,
+   "holders": 60934,
+   "over1k": 6580,
+   "over10k": 1462,
+   "marketCapUsd": 234787164
+  },
+  {
+   "ts": 1787918400000,
+   "holders": 60943,
+   "over1k": 6581,
+   "over10k": 1462,
+   "marketCapUsd": 234877164
+  },
+  {
+   "ts": 1787922000000,
+   "holders": 60952,
+   "over1k": 6582,
+   "over10k": 1462,
+   "marketCapUsd": 234967164
+  },
+  {
+   "ts": 1787925600000,
+   "holders": 60961,
+   "over1k": 6583,
+   "over10k": 1463,
+   "marketCapUsd": 235057164
+  },
+  {
+   "ts": 1787929200000,
+   "holders": 60998,
+   "over1k": 6587,
+   "over10k": 1463,
+   "marketCapUsd": 235147164
+  },
+  {
+   "ts": 1787932800000,
+   "holders": 61007,
+   "over1k": 6588,
+   "over10k": 1464,
+   "marketCapUsd": 235237164
+  },
+  {
+   "ts": 1787936400000,
+   "holders": 61016,
+   "over1k": 6589,
+   "over10k": 1464,
+   "marketCapUsd": 235327164
+  },
+  {
+   "ts": 1787940000000,
+   "holders": 61025,
+   "over1k": 6590,
+   "over10k": 1464,
+   "marketCapUsd": 235417164
+  },
+  {
+   "ts": 1787943600000,
+   "holders": 61034,
+   "over1k": 6591,
+   "over10k": 1464,
+   "marketCapUsd": 235507164
+  },
+  {
+   "ts": 1787947200000,
+   "holders": 61043,
+   "over1k": 6592,
+   "over10k": 1465,
+   "marketCapUsd": 235597164
+  },
+  {
+   "ts": 1787950800000,
+   "holders": 61052,
+   "over1k": 6593,
+   "over10k": 1465,
+   "marketCapUsd": 235687164
+  },
+  {
+   "ts": 1787954400000,
+   "holders": 61089,
+   "over1k": 6597,
+   "over10k": 1466,
+   "marketCapUsd": 235777164
+  },
+  {
+   "ts": 1787958000000,
+   "holders": 61098,
+   "over1k": 6598,
+   "over10k": 1466,
+   "marketCapUsd": 235867164
+  },
+  {
+   "ts": 1787961600000,
+   "holders": 61107,
+   "over1k": 6599,
+   "over10k": 1466,
+   "marketCapUsd": 235957164
+  },
+  {
+   "ts": 1787965200000,
+   "holders": 61116,
+   "over1k": 6600,
+   "over10k": 1466,
+   "marketCapUsd": 236047164
+  },
+  {
+   "ts": 1787968800000,
+   "holders": 61125,
+   "over1k": 6601,
+   "over10k": 1467,
+   "marketCapUsd": 236137164
+  },
+  {
+   "ts": 1787972400000,
+   "holders": 61134,
+   "over1k": 6602,
+   "over10k": 1467,
+   "marketCapUsd": 236227164
+  },
+  {
+   "ts": 1787976000000,
+   "holders": 61143,
+   "over1k": 6603,
+   "over10k": 1467,
+   "marketCapUsd": 236317164
+  },
+  {
+   "ts": 1787979600000,
+   "holders": 61180,
+   "over1k": 6607,
+   "over10k": 1468,
+   "marketCapUsd": 236407164
+  },
+  {
+   "ts": 1787983200000,
+   "holders": 61189,
+   "over1k": 6608,
+   "over10k": 1468,
+   "marketCapUsd": 236497164
+  },
+  {
+   "ts": 1787986800000,
+   "holders": 61198,
+   "over1k": 6609,
+   "over10k": 1468,
+   "marketCapUsd": 236587164
+  },
+  {
+   "ts": 1787990400000,
+   "holders": 61207,
+   "over1k": 6610,
+   "over10k": 1468,
+   "marketCapUsd": 236677164
+  },
+  {
+   "ts": 1787994000000,
+   "holders": 61216,
+   "over1k": 6611,
+   "over10k": 1469,
+   "marketCapUsd": 236767164
+  },
+  {
+   "ts": 1787997600000,
+   "holders": 61225,
+   "over1k": 6612,
+   "over10k": 1469,
+   "marketCapUsd": 236857164
+  },
+  {
+   "ts": 1788001200000,
+   "holders": 61234,
+   "over1k": 6613,
+   "over10k": 1469,
+   "marketCapUsd": 236947164
+  },
+  {
+   "ts": 1788004800000,
+   "holders": 61271,
+   "over1k": 6617,
+   "over10k": 1470,
+   "marketCapUsd": 237037164
+  },
+  {
+   "ts": 1788008400000,
+   "holders": 61280,
+   "over1k": 6618,
+   "over10k": 1470,
+   "marketCapUsd": 237127164
+  },
+  {
+   "ts": 1788012000000,
+   "holders": 61289,
+   "over1k": 6619,
+   "over10k": 1470,
+   "marketCapUsd": 237217164
+  },
+  {
+   "ts": 1788015600000,
+   "holders": 61298,
+   "over1k": 6620,
+   "over10k": 1471,
+   "marketCapUsd": 237307164
+  },
+  {
+   "ts": 1788019200000,
+   "holders": 61307,
+   "over1k": 6621,
+   "over10k": 1471,
+   "marketCapUsd": 237397164
+  },
+  {
+   "ts": 1788022800000,
+   "holders": 61316,
+   "over1k": 6622,
+   "over10k": 1471,
+   "marketCapUsd": 237487164
+  },
+  {
+   "ts": 1788026400000,
+   "holders": 61325,
+   "over1k": 6623,
+   "over10k": 1471,
+   "marketCapUsd": 237577164
+  },
+  {
+   "ts": 1788030000000,
+   "holders": 61362,
+   "over1k": 6627,
+   "over10k": 1472,
+   "marketCapUsd": 237667164
+  },
+  {
+   "ts": 1788033600000,
+   "holders": 61371,
+   "over1k": 6628,
+   "over10k": 1472,
+   "marketCapUsd": 237757164
+  },
+  {
+   "ts": 1788037200000,
+   "holders": 61380,
+   "over1k": 6629,
+   "over10k": 1473,
+   "marketCapUsd": 237847164
+  },
+  {
+   "ts": 1788040800000,
+   "holders": 61389,
+   "over1k": 6630,
+   "over10k": 1473,
+   "marketCapUsd": 237937164
+  },
+  {
+   "ts": 1788044400000,
+   "holders": 61398,
+   "over1k": 6630,
+   "over10k": 1473,
+   "marketCapUsd": 238027164
+  },
+  {
+   "ts": 1788048000000,
+   "holders": 61407,
+   "over1k": 6631,
+   "over10k": 1473,
+   "marketCapUsd": 238117164
+  },
+  {
+   "ts": 1788051600000,
+   "holders": 61416,
+   "over1k": 6632,
+   "over10k": 1473,
+   "marketCapUsd": 238207164
+  },
+  {
+   "ts": 1788055200000,
+   "holders": 61453,
+   "over1k": 6636,
+   "over10k": 1474,
+   "marketCapUsd": 238297164
+  },
+  {
+   "ts": 1788058800000,
+   "holders": 61462,
+   "over1k": 6637,
+   "over10k": 1475,
+   "marketCapUsd": 238387164
+  },
+  {
+   "ts": 1788062400000,
+   "holders": 61471,
+   "over1k": 6638,
+   "over10k": 1475,
+   "marketCapUsd": 238477164
+  },
+  {
+   "ts": 1788066000000,
+   "holders": 61480,
+   "over1k": 6639,
+   "over10k": 1475,
+   "marketCapUsd": 238567164
+  },
+  {
+   "ts": 1788069600000,
+   "holders": 61489,
+   "over1k": 6640,
+   "over10k": 1475,
+   "marketCapUsd": 238657164
+  },
+  {
+   "ts": 1788073200000,
+   "holders": 61498,
+   "over1k": 6641,
+   "over10k": 1475,
+   "marketCapUsd": 238747164
+  },
+  {
+   "ts": 1788076800000,
+   "holders": 61507,
+   "over1k": 6642,
+   "over10k": 1476,
+   "marketCapUsd": 238837164
+  },
+  {
+   "ts": 1788080400000,
+   "holders": 61544,
+   "over1k": 6646,
+   "over10k": 1477,
+   "marketCapUsd": 238927164
+  },
+  {
+   "ts": 1788084000000,
+   "holders": 61553,
+   "over1k": 6647,
+   "over10k": 1477,
+   "marketCapUsd": 239017164
+  },
+  {
+   "ts": 1788087600000,
+   "holders": 61562,
+   "over1k": 6648,
+   "over10k": 1477,
+   "marketCapUsd": 239107164
+  },
+  {
+   "ts": 1788091200000,
+   "holders": 61571,
+   "over1k": 6649,
+   "over10k": 1477,
+   "marketCapUsd": 239197164
+  },
+  {
+   "ts": 1788094800000,
+   "holders": 61580,
+   "over1k": 6650,
+   "over10k": 1477,
+   "marketCapUsd": 239287164
+  },
+  {
+   "ts": 1788098400000,
+   "holders": 61589,
+   "over1k": 6651,
+   "over10k": 1478,
+   "marketCapUsd": 239377164
+  },
+  {
+   "ts": 1788102000000,
+   "holders": 61598,
+   "over1k": 6652,
+   "over10k": 1478,
+   "marketCapUsd": 239467164
+  },
+  {
+   "ts": 1788105600000,
+   "holders": 61635,
+   "over1k": 6656,
+   "over10k": 1479,
+   "marketCapUsd": 239557164
+  },
+  {
+   "ts": 1788109200000,
+   "holders": 61644,
+   "over1k": 6657,
+   "over10k": 1479,
+   "marketCapUsd": 239647164
+  },
+  {
+   "ts": 1788112800000,
+   "holders": 61653,
+   "over1k": 6658,
+   "over10k": 1479,
+   "marketCapUsd": 239737164
+  },
+  {
+   "ts": 1788116400000,
+   "holders": 61662,
+   "over1k": 6659,
+   "over10k": 1479,
+   "marketCapUsd": 239827164
+  },
+  {
+   "ts": 1788120000000,
+   "holders": 61671,
+   "over1k": 6660,
+   "over10k": 1480,
+   "marketCapUsd": 239917164
+  },
+  {
+   "ts": 1788123600000,
+   "holders": 61680,
+   "over1k": 6661,
+   "over10k": 1480,
+   "marketCapUsd": 240007164
+  },
+  {
+   "ts": 1788127200000,
+   "holders": 61689,
+   "over1k": 6662,
+   "over10k": 1480,
+   "marketCapUsd": 240097164
+  },
+  {
+   "ts": 1788130800000,
+   "holders": 61726,
+   "over1k": 6666,
+   "over10k": 1481,
+   "marketCapUsd": 240187164
+  },
+  {
+   "ts": 1788134400000,
+   "holders": 61735,
+   "over1k": 6667,
+   "over10k": 1481,
+   "marketCapUsd": 240277164
+  },
+  {
+   "ts": 1788138000000,
+   "holders": 61744,
+   "over1k": 6668,
+   "over10k": 1481,
+   "marketCapUsd": 240367164
+  },
+  {
+   "ts": 1788141600000,
+   "holders": 61753,
+   "over1k": 6669,
+   "over10k": 1482,
+   "marketCapUsd": 240457164
+  },
+  {
+   "ts": 1788145200000,
+   "holders": 61762,
+   "over1k": 6670,
+   "over10k": 1482,
+   "marketCapUsd": 240547164
+  },
+  {
+   "ts": 1788148800000,
+   "holders": 61771,
+   "over1k": 6671,
+   "over10k": 1482,
+   "marketCapUsd": 240637164
+  },
+  {
+   "ts": 1788152400000,
+   "holders": 61780,
+   "over1k": 6672,
+   "over10k": 1482,
+   "marketCapUsd": 240727164
+  },
+  {
+   "ts": 1788156000000,
+   "holders": 61817,
+   "over1k": 6676,
+   "over10k": 1483,
+   "marketCapUsd": 240817164
+  },
+  {
+   "ts": 1788159600000,
+   "holders": 61826,
+   "over1k": 6677,
+   "over10k": 1483,
+   "marketCapUsd": 240907164
+  },
+  {
+   "ts": 1788163200000,
+   "holders": 61835,
+   "over1k": 6678,
+   "over10k": 1484,
+   "marketCapUsd": 240997164
+  },
+  {
+   "ts": 1788166800000,
+   "holders": 61844,
+   "over1k": 6679,
+   "over10k": 1484,
+   "marketCapUsd": 241087164
+  },
+  {
+   "ts": 1788170400000,
+   "holders": 61853,
+   "over1k": 6680,
+   "over10k": 1484,
+   "marketCapUsd": 241177164
+  },
+  {
+   "ts": 1788174000000,
+   "holders": 61862,
+   "over1k": 6681,
+   "over10k": 1484,
+   "marketCapUsd": 241267164
+  },
+  {
+   "ts": 1788177600000,
+   "holders": 61871,
+   "over1k": 6682,
+   "over10k": 1484,
+   "marketCapUsd": 241357164
+  },
+  {
+   "ts": 1788181200000,
+   "holders": 61908,
+   "over1k": 6686,
+   "over10k": 1485,
+   "marketCapUsd": 241447164
+  },
+  {
+   "ts": 1788184800000,
+   "holders": 61917,
+   "over1k": 6687,
+   "over10k": 1486,
+   "marketCapUsd": 241537164
+  },
+  {
+   "ts": 1788188400000,
+   "holders": 61926,
+   "over1k": 6688,
+   "over10k": 1486,
+   "marketCapUsd": 241627164
+  },
+  {
+   "ts": 1788192000000,
+   "holders": 61935,
+   "over1k": 6688,
+   "over10k": 1486,
+   "marketCapUsd": 241717164
+  },
+  {
+   "ts": 1788195600000,
+   "holders": 61944,
+   "over1k": 6689,
+   "over10k": 1486,
+   "marketCapUsd": 241807164
+  },
+  {
+   "ts": 1788199200000,
+   "holders": 61953,
+   "over1k": 6690,
+   "over10k": 1486,
+   "marketCapUsd": 241897164
+  },
+  {
+   "ts": 1788202800000,
+   "holders": 61962,
+   "over1k": 6691,
+   "over10k": 1487,
+   "marketCapUsd": 241987164
+  },
+  {
+   "ts": 1788206400000,
+   "holders": 61999,
+   "over1k": 6695,
+   "over10k": 1487,
+   "marketCapUsd": 242077164
+  },
+  {
+   "ts": 1788210000000,
+   "holders": 62008,
+   "over1k": 6696,
+   "over10k": 1488,
+   "marketCapUsd": 242167164
+  },
+  {
+   "ts": 1788213600000,
+   "holders": 62017,
+   "over1k": 6697,
+   "over10k": 1488,
+   "marketCapUsd": 242257164
+  },
+  {
+   "ts": 1788217200000,
+   "holders": 62026,
+   "over1k": 6698,
+   "over10k": 1488,
+   "marketCapUsd": 242347164
+  },
+  {
+   "ts": 1788220800000,
+   "holders": 62035,
+   "over1k": 6699,
+   "over10k": 1488,
+   "marketCapUsd": 242437164
+  },
+  {
+   "ts": 1788224400000,
+   "holders": 62044,
+   "over1k": 6700,
+   "over10k": 1489,
+   "marketCapUsd": 242527164
+  },
+  {
+   "ts": 1788228000000,
+   "holders": 62053,
+   "over1k": 6701,
+   "over10k": 1489,
+   "marketCapUsd": 242617164
+  },
+  {
+   "ts": 1788231600000,
+   "holders": 62090,
+   "over1k": 6705,
+   "over10k": 1490,
+   "marketCapUsd": 242707164
+  },
+  {
+   "ts": 1788235200000,
+   "holders": 62099,
+   "over1k": 6706,
+   "over10k": 1490,
+   "marketCapUsd": 242797164
+  },
+  {
+   "ts": 1788238800000,
+   "holders": 62108,
+   "over1k": 6707,
+   "over10k": 1490,
+   "marketCapUsd": 242887164
+  },
+  {
+   "ts": 1788242400000,
+   "holders": 62117,
+   "over1k": 6708,
+   "over10k": 1490,
+   "marketCapUsd": 242977164
+  },
+  {
+   "ts": 1788246000000,
+   "holders": 62126,
+   "over1k": 6709,
+   "over10k": 1491,
+   "marketCapUsd": 243067164
+  },
+  {
+   "ts": 1788249600000,
+   "holders": 62135,
+   "over1k": 6710,
+   "over10k": 1491,
+   "marketCapUsd": 243157164
+  },
+  {
+   "ts": 1788253200000,
+   "holders": 62144,
+   "over1k": 6711,
+   "over10k": 1491,
+   "marketCapUsd": 243247164
+  },
+  {
+   "ts": 1788256800000,
+   "holders": 62181,
+   "over1k": 6715,
+   "over10k": 1492,
+   "marketCapUsd": 243337164
+  },
+  {
+   "ts": 1788260400000,
+   "holders": 62190,
+   "over1k": 6716,
+   "over10k": 1492,
+   "marketCapUsd": 243427164
+  },
+  {
+   "ts": 1788264000000,
+   "holders": 62199,
+   "over1k": 6717,
+   "over10k": 1492,
+   "marketCapUsd": 243517164
+  },
+  {
+   "ts": 1788267600000,
+   "holders": 62208,
+   "over1k": 6718,
+   "over10k": 1492,
+   "marketCapUsd": 243607164
+  },
+  {
+   "ts": 1788271200000,
+   "holders": 62217,
+   "over1k": 6719,
+   "over10k": 1493,
+   "marketCapUsd": 243697164
+  },
+  {
+   "ts": 1788274800000,
+   "holders": 62226,
+   "over1k": 6720,
+   "over10k": 1493,
+   "marketCapUsd": 243787164
+  },
+  {
+   "ts": 1788278400000,
+   "holders": 62235,
+   "over1k": 6721,
+   "over10k": 1493,
+   "marketCapUsd": 243877164
+  },
+  {
+   "ts": 1788282000000,
+   "holders": 62272,
+   "over1k": 6725,
+   "over10k": 1494,
+   "marketCapUsd": 243967164
+  },
+  {
+   "ts": 1788285600000,
+   "holders": 62281,
+   "over1k": 6726,
+   "over10k": 1494,
+   "marketCapUsd": 244057164
+  },
+  {
+   "ts": 1788289200000,
+   "holders": 62290,
+   "over1k": 6727,
+   "over10k": 1494,
+   "marketCapUsd": 244147164
+  },
+  {
+   "ts": 1788292800000,
+   "holders": 62299,
+   "over1k": 6728,
+   "over10k": 1495,
+   "marketCapUsd": 244237164
+  },
+  {
+   "ts": 1788296400000,
+   "holders": 62308,
+   "over1k": 6729,
+   "over10k": 1495,
+   "marketCapUsd": 244327164
+  },
+  {
+   "ts": 1788300000000,
+   "holders": 62317,
+   "over1k": 6730,
+   "over10k": 1495,
+   "marketCapUsd": 244417164
+  },
+  {
+   "ts": 1788303600000,
+   "holders": 62326,
+   "over1k": 6731,
+   "over10k": 1495,
+   "marketCapUsd": 244507164
+  },
+  {
+   "ts": 1788307200000,
+   "holders": 62363,
+   "over1k": 6735,
+   "over10k": 1496,
+   "marketCapUsd": 244597164
+  },
+  {
+   "ts": 1788310800000,
+   "holders": 62372,
+   "over1k": 6736,
+   "over10k": 1496,
+   "marketCapUsd": 244687164
+  },
+  {
+   "ts": 1788314400000,
+   "holders": 62381,
+   "over1k": 6737,
+   "over10k": 1497,
+   "marketCapUsd": 244777164
+  },
+  {
+   "ts": 1788318000000,
+   "holders": 62390,
+   "over1k": 6738,
+   "over10k": 1497,
+   "marketCapUsd": 244867164
+  },
+  {
+   "ts": 1788321600000,
+   "holders": 62399,
+   "over1k": 6739,
+   "over10k": 1497,
+   "marketCapUsd": 244957164
+  },
+  {
+   "ts": 1788325200000,
+   "holders": 62408,
+   "over1k": 6740,
+   "over10k": 1497,
+   "marketCapUsd": 245047164
+  },
+  {
+   "ts": 1788328800000,
+   "holders": 62417,
+   "over1k": 6741,
+   "over10k": 1498,
+   "marketCapUsd": 245137164
+  },
+  {
+   "ts": 1788332400000,
+   "holders": 62454,
+   "over1k": 6745,
+   "over10k": 1498,
+   "marketCapUsd": 245227164
+  },
+  {
+   "ts": 1788336000000,
+   "holders": 62463,
+   "over1k": 6746,
+   "over10k": 1499,
+   "marketCapUsd": 245317164
+  },
+  {
+   "ts": 1788339600000,
+   "holders": 62472,
+   "over1k": 6746,
+   "over10k": 1499,
+   "marketCapUsd": 245407164
+  },
+  {
+   "ts": 1788343200000,
+   "holders": 62481,
+   "over1k": 6747,
+   "over10k": 1499,
+   "marketCapUsd": 245497164
+  },
+  {
+   "ts": 1788346800000,
+   "holders": 62490,
+   "over1k": 6748,
+   "over10k": 1499,
+   "marketCapUsd": 245587164
+  },
+  {
+   "ts": 1788350400000,
+   "holders": 62499,
+   "over1k": 6749,
+   "over10k": 1499,
+   "marketCapUsd": 245677164
+  },
+  {
+   "ts": 1788354000000,
+   "holders": 62508,
+   "over1k": 6750,
+   "over10k": 1500,
+   "marketCapUsd": 245767164
+  },
+  {
+   "ts": 1788357600000,
+   "holders": 62545,
+   "over1k": 6754,
+   "over10k": 1501,
+   "marketCapUsd": 245857164
+  },
+  {
+   "ts": 1788361200000,
+   "holders": 62554,
+   "over1k": 6755,
+   "over10k": 1501,
+   "marketCapUsd": 245947164
+  },
+  {
+   "ts": 1788364800000,
+   "holders": 62563,
+   "over1k": 6756,
+   "over10k": 1501,
+   "marketCapUsd": 246037164
+  },
+  {
+   "ts": 1788368400000,
+   "holders": 62572,
+   "over1k": 6757,
+   "over10k": 1501,
+   "marketCapUsd": 246127164
+  },
+  {
+   "ts": 1788372000000,
+   "holders": 62581,
+   "over1k": 6758,
+   "over10k": 1501,
+   "marketCapUsd": 246217164
+  },
+  {
+   "ts": 1788375600000,
+   "holders": 62590,
+   "over1k": 6759,
+   "over10k": 1502,
+   "marketCapUsd": 246307164
+  },
+  {
+   "ts": 1788379200000,
+   "holders": 62599,
+   "over1k": 6760,
+   "over10k": 1502,
+   "marketCapUsd": 246397164
+  },
+  {
+   "ts": 1788382800000,
+   "holders": 62636,
+   "over1k": 6764,
+   "over10k": 1503,
+   "marketCapUsd": 246487164
+  },
+  {
+   "ts": 1788386400000,
+   "holders": 62645,
+   "over1k": 6765,
+   "over10k": 1503,
+   "marketCapUsd": 246577164
+  },
+  {
+   "ts": 1788390000000,
+   "holders": 62654,
+   "over1k": 6766,
+   "over10k": 1503,
+   "marketCapUsd": 246667164
+  },
+  {
+   "ts": 1788393600000,
+   "holders": 62663,
+   "over1k": 6767,
+   "over10k": 1503,
+   "marketCapUsd": 246757164
+  },
+  {
+   "ts": 1788397200000,
+   "holders": 62672,
+   "over1k": 6768,
+   "over10k": 1504,
+   "marketCapUsd": 246847164
+  },
+  {
+   "ts": 1788400800000,
+   "holders": 62681,
+   "over1k": 6769,
+   "over10k": 1504,
+   "marketCapUsd": 246937164
+  },
+  {
+   "ts": 1788404400000,
+   "holders": 62690,
+   "over1k": 6770,
+   "over10k": 1504,
+   "marketCapUsd": 247027164
+  },
+  {
+   "ts": 1788408000000,
+   "holders": 62727,
+   "over1k": 6774,
+   "over10k": 1505,
+   "marketCapUsd": 247117164
+  },
+  {
+   "ts": 1788411600000,
+   "holders": 62736,
+   "over1k": 6775,
+   "over10k": 1505,
+   "marketCapUsd": 247207164
+  },
+  {
+   "ts": 1788415200000,
+   "holders": 62745,
+   "over1k": 6776,
+   "over10k": 1505,
+   "marketCapUsd": 247297164
+  },
+  {
+   "ts": 1788418800000,
+   "holders": 62754,
+   "over1k": 6777,
+   "over10k": 1506,
+   "marketCapUsd": 247387164
+  },
+  {
+   "ts": 1788422400000,
+   "holders": 62763,
+   "over1k": 6778,
+   "over10k": 1506,
+   "marketCapUsd": 247477164
+  },
+  {
+   "ts": 1788426000000,
+   "holders": 62772,
+   "over1k": 6779,
+   "over10k": 1506,
+   "marketCapUsd": 247567164
+  },
+  {
+   "ts": 1788429600000,
+   "holders": 62781,
+   "over1k": 6780,
+   "over10k": 1506,
+   "marketCapUsd": 247657164
+  },
+  {
+   "ts": 1788433200000,
+   "holders": 62818,
+   "over1k": 6784,
+   "over10k": 1507,
+   "marketCapUsd": 247747164
+  },
+  {
+   "ts": 1788436800000,
+   "holders": 62827,
+   "over1k": 6785,
+   "over10k": 1507,
+   "marketCapUsd": 247837164
+  },
+  {
+   "ts": 1788440400000,
+   "holders": 62836,
+   "over1k": 6786,
+   "over10k": 1508,
+   "marketCapUsd": 247927164
+  },
+  {
+   "ts": 1788444000000,
+   "holders": 62845,
+   "over1k": 6787,
+   "over10k": 1508,
+   "marketCapUsd": 248017164
+  },
+  {
+   "ts": 1788447600000,
+   "holders": 62854,
+   "over1k": 6788,
+   "over10k": 1508,
+   "marketCapUsd": 248107164
+  },
+  {
+   "ts": 1788451200000,
+   "holders": 62863,
+   "over1k": 6789,
+   "over10k": 1508,
+   "marketCapUsd": 248197164
+  },
+  {
+   "ts": 1788454800000,
+   "holders": 62872,
+   "over1k": 6790,
+   "over10k": 1508,
+   "marketCapUsd": 248287164
+  },
+  {
+   "ts": 1788458400000,
+   "holders": 62909,
+   "over1k": 6794,
+   "over10k": 1509,
+   "marketCapUsd": 248377164
+  },
+  {
+   "ts": 1788462000000,
+   "holders": 62918,
+   "over1k": 6795,
+   "over10k": 1510,
+   "marketCapUsd": 248467164
+  },
+  {
+   "ts": 1788465600000,
+   "holders": 62927,
+   "over1k": 6796,
+   "over10k": 1510,
+   "marketCapUsd": 248557164
+  },
+  {
+   "ts": 1788469200000,
+   "holders": 62936,
+   "over1k": 6797,
+   "over10k": 1510,
+   "marketCapUsd": 248647164
+  },
+  {
+   "ts": 1788472800000,
+   "holders": 62945,
+   "over1k": 6798,
+   "over10k": 1510,
+   "marketCapUsd": 248737164
+  },
+  {
+   "ts": 1788476400000,
+   "holders": 62954,
+   "over1k": 6799,
+   "over10k": 1510,
+   "marketCapUsd": 248827164
+  },
+  {
+   "ts": 1788480000000,
+   "holders": 62963,
+   "over1k": 6800,
+   "over10k": 1511,
+   "marketCapUsd": 248917164
+  },
+  {
+   "ts": 1788483600000,
+   "holders": 63000,
+   "over1k": 6804,
+   "over10k": 1512,
+   "marketCapUsd": 249007164
+  },
+  {
+   "ts": 1788487200000,
+   "holders": 63009,
+   "over1k": 6804,
+   "over10k": 1512,
+   "marketCapUsd": 249097164
+  },
+  {
+   "ts": 1788490800000,
+   "holders": 63018,
+   "over1k": 6805,
+   "over10k": 1512,
+   "marketCapUsd": 249187164
+  },
+  {
+   "ts": 1788494400000,
+   "holders": 63027,
+   "over1k": 6806,
+   "over10k": 1512,
+   "marketCapUsd": 249277164
+  },
+  {
+   "ts": 1788498000000,
+   "holders": 63036,
+   "over1k": 6807,
+   "over10k": 1512,
+   "marketCapUsd": 249367164
+  },
+  {
+   "ts": 1788501600000,
+   "holders": 63045,
+   "over1k": 6808,
+   "over10k": 1513,
+   "marketCapUsd": 249457164
+  },
+  {
+   "ts": 1788505200000,
+   "holders": 63054,
+   "over1k": 6809,
+   "over10k": 1513,
+   "marketCapUsd": 249547164
+  },
+  {
+   "ts": 1788508800000,
+   "holders": 63091,
+   "over1k": 6813,
+   "over10k": 1514,
+   "marketCapUsd": 249637164
+  },
+  {
+   "ts": 1788512400000,
+   "holders": 63100,
+   "over1k": 6814,
+   "over10k": 1514,
+   "marketCapUsd": 249727164
+  },
+  {
+   "ts": 1788516000000,
+   "holders": 63109,
+   "over1k": 6815,
+   "over10k": 1514,
+   "marketCapUsd": 249817164
+  },
+  {
+   "ts": 1788519600000,
+   "holders": 63118,
+   "over1k": 6816,
+   "over10k": 1514,
+   "marketCapUsd": 249907164
+  },
+  {
+   "ts": 1788523200000,
+   "holders": 63127,
+   "over1k": 6817,
+   "over10k": 1515,
+   "marketCapUsd": 249997164
+  },
+  {
+   "ts": 1788526800000,
+   "holders": 63136,
+   "over1k": 6818,
+   "over10k": 1515,
+   "marketCapUsd": 250087164
+  },
+  {
+   "ts": 1788530400000,
+   "holders": 63145,
+   "over1k": 6819,
+   "over10k": 1515,
+   "marketCapUsd": 250177164
+  },
+  {
+   "ts": 1788534000000,
+   "holders": 63182,
+   "over1k": 6823,
+   "over10k": 1516,
+   "marketCapUsd": 250267164
+  },
+  {
+   "ts": 1788537600000,
+   "holders": 63191,
+   "over1k": 6824,
+   "over10k": 1516,
+   "marketCapUsd": 250357164
+  },
+  {
+   "ts": 1788541200000,
+   "holders": 63200,
+   "over1k": 6825,
+   "over10k": 1516,
+   "marketCapUsd": 250447164
+  },
+  {
+   "ts": 1788544800000,
+   "holders": 63209,
+   "over1k": 6826,
+   "over10k": 1517,
+   "marketCapUsd": 250537164
+  },
+  {
+   "ts": 1788548400000,
+   "holders": 63218,
+   "over1k": 6827,
+   "over10k": 1517,
+   "marketCapUsd": 250627164
+  },
+  {
+   "ts": 1788552000000,
+   "holders": 63227,
+   "over1k": 6828,
+   "over10k": 1517,
+   "marketCapUsd": 250717164
+  },
+  {
+   "ts": 1788555600000,
+   "holders": 63236,
+   "over1k": 6829,
+   "over10k": 1517,
+   "marketCapUsd": 250807164
+  },
+  {
+   "ts": 1788559200000,
+   "holders": 63273,
+   "over1k": 6833,
+   "over10k": 1518,
+   "marketCapUsd": 250897164
+  },
+  {
+   "ts": 1788562800000,
+   "holders": 63282,
+   "over1k": 6834,
+   "over10k": 1518,
+   "marketCapUsd": 250987164
+  },
+  {
+   "ts": 1788566400000,
+   "holders": 63291,
+   "over1k": 6835,
+   "over10k": 1518,
+   "marketCapUsd": 251077164
+  },
+  {
+   "ts": 1788570000000,
+   "holders": 63300,
+   "over1k": 6836,
+   "over10k": 1519,
+   "marketCapUsd": 251167164
+  },
+  {
+   "ts": 1788573600000,
+   "holders": 63309,
+   "over1k": 6837,
+   "over10k": 1519,
+   "marketCapUsd": 251257164
+  },
+  {
+   "ts": 1788577200000,
+   "holders": 63318,
+   "over1k": 6838,
+   "over10k": 1519,
+   "marketCapUsd": 251347164
+  },
+  {
+   "ts": 1788580800000,
+   "holders": 63327,
+   "over1k": 6839,
+   "over10k": 1519,
+   "marketCapUsd": 251437164
+  },
+  {
+   "ts": 1788584400000,
+   "holders": 63364,
+   "over1k": 6843,
+   "over10k": 1520,
+   "marketCapUsd": 251527164
+  },
+  {
+   "ts": 1788588000000,
+   "holders": 63373,
+   "over1k": 6844,
+   "over10k": 1520,
+   "marketCapUsd": 251617164
+  },
+  {
+   "ts": 1788591600000,
+   "holders": 63382,
+   "over1k": 6845,
+   "over10k": 1521,
+   "marketCapUsd": 251707164
+  },
+  {
+   "ts": 1788595200000,
+   "holders": 63391,
+   "over1k": 6846,
+   "over10k": 1521,
+   "marketCapUsd": 251797164
+  },
+  {
+   "ts": 1788598800000,
+   "holders": 63400,
+   "over1k": 6847,
+   "over10k": 1521,
+   "marketCapUsd": 251887164
+  },
+  {
+   "ts": 1788602400000,
+   "holders": 63409,
+   "over1k": 6848,
+   "over10k": 1521,
+   "marketCapUsd": 251977164
+  },
+  {
+   "ts": 1788606000000,
+   "holders": 63418,
+   "over1k": 6849,
+   "over10k": 1522,
+   "marketCapUsd": 252067164
+  },
+  {
+   "ts": 1788609600000,
+   "holders": 63455,
+   "over1k": 6853,
+   "over10k": 1522,
+   "marketCapUsd": 252157164
+  },
+  {
+   "ts": 1788613200000,
+   "holders": 63464,
+   "over1k": 6854,
+   "over10k": 1523,
+   "marketCapUsd": 252247164
+  },
+  {
+   "ts": 1788616800000,
+   "holders": 63473,
+   "over1k": 6855,
+   "over10k": 1523,
+   "marketCapUsd": 252337164
+  },
+  {
+   "ts": 1788620400000,
+   "holders": 63482,
+   "over1k": 6856,
+   "over10k": 1523,
+   "marketCapUsd": 252427164
+  },
+  {
+   "ts": 1788624000000,
+   "holders": 63491,
+   "over1k": 6857,
+   "over10k": 1523,
+   "marketCapUsd": 252517164
+  },
+  {
+   "ts": 1788627600000,
+   "holders": 63500,
+   "over1k": 6858,
+   "over10k": 1524,
+   "marketCapUsd": 252607164
+  },
+  {
+   "ts": 1788631200000,
+   "holders": 63509,
+   "over1k": 6858,
+   "over10k": 1524,
+   "marketCapUsd": 252697164
+  },
+  {
+   "ts": 1788634800000,
+   "holders": 63546,
+   "over1k": 6862,
+   "over10k": 1525,
+   "marketCapUsd": 252787164
+  },
+  {
+   "ts": 1788638400000,
+   "holders": 63555,
+   "over1k": 6863,
+   "over10k": 1525,
+   "marketCapUsd": 252877164
+  },
+  {
+   "ts": 1788642000000,
+   "holders": 63564,
+   "over1k": 6864,
+   "over10k": 1525,
+   "marketCapUsd": 252967164
+  },
+  {
+   "ts": 1788645600000,
+   "holders": 63573,
+   "over1k": 6865,
+   "over10k": 1525,
+   "marketCapUsd": 253057164
+  },
+  {
+   "ts": 1788649200000,
+   "holders": 63582,
+   "over1k": 6866,
+   "over10k": 1525,
+   "marketCapUsd": 253147164
+  },
+  {
+   "ts": 1788652800000,
+   "holders": 63591,
+   "over1k": 6867,
+   "over10k": 1526,
+   "marketCapUsd": 253237164
+  },
+  {
+   "ts": 1788656400000,
+   "holders": 63600,
+   "over1k": 6868,
+   "over10k": 1526,
+   "marketCapUsd": 253327164
+  },
+  {
+   "ts": 1788660000000,
+   "holders": 63637,
+   "over1k": 6872,
+   "over10k": 1527,
+   "marketCapUsd": 253417164
+  },
+  {
+   "ts": 1788663600000,
+   "holders": 63646,
+   "over1k": 6873,
+   "over10k": 1527,
+   "marketCapUsd": 253507164
+  },
+  {
+   "ts": 1788667200000,
+   "holders": 63655,
+   "over1k": 6874,
+   "over10k": 1527,
+   "marketCapUsd": 253597164
+  },
+  {
+   "ts": 1788670800000,
+   "holders": 63664,
+   "over1k": 6875,
+   "over10k": 1527,
+   "marketCapUsd": 253687164
+  },
+  {
+   "ts": 1788674400000,
+   "holders": 63673,
+   "over1k": 6876,
+   "over10k": 1528,
+   "marketCapUsd": 253777164
+  },
+  {
+   "ts": 1788678000000,
+   "holders": 63682,
+   "over1k": 6877,
+   "over10k": 1528,
+   "marketCapUsd": 253867164
+  },
+  {
+   "ts": 1788681600000,
+   "holders": 63691,
+   "over1k": 6878,
+   "over10k": 1528,
+   "marketCapUsd": 253957164
+  },
+  {
+   "ts": 1788685200000,
+   "holders": 63728,
+   "over1k": 6882,
+   "over10k": 1529,
+   "marketCapUsd": 254047164
+  },
+  {
+   "ts": 1788688800000,
+   "holders": 63737,
+   "over1k": 6883,
+   "over10k": 1529,
+   "marketCapUsd": 254137164
+  },
+  {
+   "ts": 1788692400000,
+   "holders": 63746,
+   "over1k": 6884,
+   "over10k": 1529,
+   "marketCapUsd": 254227164
+  },
+  {
+   "ts": 1788696000000,
+   "holders": 63755,
+   "over1k": 6885,
+   "over10k": 1530,
+   "marketCapUsd": 254317164
+  },
+  {
+   "ts": 1788699600000,
+   "holders": 63764,
+   "over1k": 6886,
+   "over10k": 1530,
+   "marketCapUsd": 254407164
+  },
+  {
+   "ts": 1788703200000,
+   "holders": 63773,
+   "over1k": 6887,
+   "over10k": 1530,
+   "marketCapUsd": 254497164
+  },
+  {
+   "ts": 1788706800000,
+   "holders": 63782,
+   "over1k": 6888,
+   "over10k": 1530,
+   "marketCapUsd": 254587164
+  },
+  {
+   "ts": 1788710400000,
+   "holders": 63819,
+   "over1k": 6892,
+   "over10k": 1531,
+   "marketCapUsd": 254677164
+  },
+  {
+   "ts": 1788714000000,
+   "holders": 63828,
+   "over1k": 6893,
+   "over10k": 1531,
+   "marketCapUsd": 254767164
+  },
+  {
+   "ts": 1788717600000,
+   "holders": 63837,
+   "over1k": 6894,
+   "over10k": 1532,
+   "marketCapUsd": 254857164
+  },
+  {
+   "ts": 1788721200000,
+   "holders": 63846,
+   "over1k": 6895,
+   "over10k": 1532,
+   "marketCapUsd": 254947164
+  },
+  {
+   "ts": 1788724800000,
+   "holders": 63855,
+   "over1k": 6896,
+   "over10k": 1532,
+   "marketCapUsd": 255037164
+  },
+  {
+   "ts": 1788728400000,
+   "holders": 63864,
+   "over1k": 6897,
+   "over10k": 1532,
+   "marketCapUsd": 255127164
+  },
+  {
+   "ts": 1788732000000,
+   "holders": 63873,
+   "over1k": 6898,
+   "over10k": 1532,
+   "marketCapUsd": 255217164
+  },
+  {
+   "ts": 1788735600000,
+   "holders": 63910,
+   "over1k": 6902,
+   "over10k": 1533,
+   "marketCapUsd": 255307164
+  },
+  {
+   "ts": 1788739200000,
+   "holders": 63919,
+   "over1k": 6903,
+   "over10k": 1534,
+   "marketCapUsd": 255397164
+  },
+  {
+   "ts": 1788742800000,
+   "holders": 63928,
+   "over1k": 6904,
+   "over10k": 1534,
+   "marketCapUsd": 255487164
+  },
+  {
+   "ts": 1788746400000,
+   "holders": 63937,
+   "over1k": 6905,
+   "over10k": 1534,
+   "marketCapUsd": 255577164
+  },
+  {
+   "ts": 1788750000000,
+   "holders": 63946,
+   "over1k": 6906,
+   "over10k": 1534,
+   "marketCapUsd": 255667164
+  },
+  {
+   "ts": 1788753600000,
+   "holders": 63955,
+   "over1k": 6907,
+   "over10k": 1534,
+   "marketCapUsd": 255757164
+  },
+  {
+   "ts": 1788757200000,
+   "holders": 63964,
+   "over1k": 6908,
+   "over10k": 1535,
+   "marketCapUsd": 255847164
+  },
+  {
+   "ts": 1788760800000,
+   "holders": 64001,
+   "over1k": 6912,
+   "over10k": 1536,
+   "marketCapUsd": 255937164
+  },
+  {
+   "ts": 1788764400000,
+   "holders": 64010,
+   "over1k": 6913,
+   "over10k": 1536,
+   "marketCapUsd": 256027164
+  },
+  {
+   "ts": 1788768000000,
+   "holders": 64019,
+   "over1k": 6914,
+   "over10k": 1536,
+   "marketCapUsd": 256117164
+  },
+  {
+   "ts": 1788771600000,
+   "holders": 64028,
+   "over1k": 6915,
+   "over10k": 1536,
+   "marketCapUsd": 256207164
+  },
+  {
+   "ts": 1788775200000,
+   "holders": 64037,
+   "over1k": 6915,
+   "over10k": 1536,
+   "marketCapUsd": 256297164
+  },
+  {
+   "ts": 1788778800000,
+   "holders": 64046,
+   "over1k": 6916,
+   "over10k": 1537,
+   "marketCapUsd": 256387164
+  },
+  {
+   "ts": 1788782400000,
+   "holders": 64055,
+   "over1k": 6917,
+   "over10k": 1537,
+   "marketCapUsd": 256477164
+  },
+  {
+   "ts": 1788786000000,
+   "holders": 64092,
+   "over1k": 6921,
+   "over10k": 1538,
+   "marketCapUsd": 256567164
+  },
+  {
+   "ts": 1788789600000,
+   "holders": 64101,
+   "over1k": 6922,
+   "over10k": 1538,
+   "marketCapUsd": 256657164
+  },
+  {
+   "ts": 1788793200000,
+   "holders": 64110,
+   "over1k": 6923,
+   "over10k": 1538,
+   "marketCapUsd": 256747164
+  },
+  {
+   "ts": 1788796800000,
+   "holders": 64119,
+   "over1k": 6924,
+   "over10k": 1538,
+   "marketCapUsd": 256837164
+  },
+  {
+   "ts": 1788800400000,
+   "holders": 64128,
+   "over1k": 6925,
+   "over10k": 1539,
+   "marketCapUsd": 256927164
+  },
+  {
+   "ts": 1788804000000,
+   "holders": 64137,
+   "over1k": 6926,
+   "over10k": 1539,
+   "marketCapUsd": 257017164
+  },
+  {
+   "ts": 1788807600000,
+   "holders": 64146,
+   "over1k": 6927,
+   "over10k": 1539,
+   "marketCapUsd": 257107164
+  },
+  {
+   "ts": 1788811200000,
+   "holders": 64183,
+   "over1k": 6931,
+   "over10k": 1540,
+   "marketCapUsd": 257197164
+  },
+  {
+   "ts": 1788814800000,
+   "holders": 64192,
+   "over1k": 6932,
+   "over10k": 1540,
+   "marketCapUsd": 257287164
+  },
+  {
+   "ts": 1788818400000,
+   "holders": 64201,
+   "over1k": 6933,
+   "over10k": 1540,
+   "marketCapUsd": 257377164
+  },
+  {
+   "ts": 1788822000000,
+   "holders": 64210,
+   "over1k": 6934,
+   "over10k": 1541,
+   "marketCapUsd": 257467164
+  },
+  {
+   "ts": 1788825600000,
+   "holders": 64219,
+   "over1k": 6935,
+   "over10k": 1541,
+   "marketCapUsd": 257557164
+  },
+  {
+   "ts": 1788829200000,
+   "holders": 64228,
+   "over1k": 6936,
+   "over10k": 1541,
+   "marketCapUsd": 257647164
+  },
+  {
+   "ts": 1788832800000,
+   "holders": 64237,
+   "over1k": 6937,
+   "over10k": 1541,
+   "marketCapUsd": 257737164
+  },
+  {
+   "ts": 1788836400000,
+   "holders": 64274,
+   "over1k": 6941,
+   "over10k": 1542,
+   "marketCapUsd": 257827164
+  },
+  {
+   "ts": 1788840000000,
+   "holders": 64283,
+   "over1k": 6942,
+   "over10k": 1542,
+   "marketCapUsd": 257917164
+  },
+  {
+   "ts": 1788843600000,
+   "holders": 64292,
+   "over1k": 6943,
+   "over10k": 1543,
+   "marketCapUsd": 258007164
+  },
+  {
+   "ts": 1788847200000,
+   "holders": 64301,
+   "over1k": 6944,
+   "over10k": 1543,
+   "marketCapUsd": 258097164
+  },
+  {
+   "ts": 1788850800000,
+   "holders": 64310,
+   "over1k": 6945,
+   "over10k": 1543,
+   "marketCapUsd": 258187164
+  },
+  {
+   "ts": 1788854400000,
+   "holders": 64319,
+   "over1k": 6946,
+   "over10k": 1543,
+   "marketCapUsd": 258277164
+  },
+  {
+   "ts": 1788858000000,
+   "holders": 64328,
+   "over1k": 6947,
+   "over10k": 1543,
+   "marketCapUsd": 258367164
+  },
+  {
+   "ts": 1788861600000,
+   "holders": 64365,
+   "over1k": 6951,
+   "over10k": 1544,
+   "marketCapUsd": 258457164
+  },
+  {
+   "ts": 1788865200000,
+   "holders": 64374,
+   "over1k": 6952,
+   "over10k": 1544,
+   "marketCapUsd": 258547164
+  },
+  {
+   "ts": 1788868800000,
+   "holders": 64383,
+   "over1k": 6953,
+   "over10k": 1545,
+   "marketCapUsd": 258637164
+  },
+  {
+   "ts": 1788872400000,
+   "holders": 64392,
+   "over1k": 6954,
+   "over10k": 1545,
+   "marketCapUsd": 258727164
+  },
+  {
+   "ts": 1788876000000,
+   "holders": 64401,
+   "over1k": 6955,
+   "over10k": 1545,
+   "marketCapUsd": 258817164
+  },
+  {
+   "ts": 1788879600000,
+   "holders": 64410,
+   "over1k": 6956,
+   "over10k": 1545,
+   "marketCapUsd": 258907164
+  },
+  {
+   "ts": 1788883200000,
+   "holders": 64419,
+   "over1k": 6957,
+   "over10k": 1546,
+   "marketCapUsd": 258997164
+  },
+  {
+   "ts": 1788886800000,
+   "holders": 64456,
+   "over1k": 6961,
+   "over10k": 1546,
+   "marketCapUsd": 259087164
+  },
+  {
+   "ts": 1788890400000,
+   "holders": 64465,
+   "over1k": 6962,
+   "over10k": 1547,
+   "marketCapUsd": 259177164
+  },
+  {
+   "ts": 1788894000000,
+   "holders": 64474,
+   "over1k": 6963,
+   "over10k": 1547,
+   "marketCapUsd": 259267164
+  },
+  {
+   "ts": 1788897600000,
+   "holders": 64483,
+   "over1k": 6964,
+   "over10k": 1547,
+   "marketCapUsd": 259357164
+  },
+  {
+   "ts": 1788901200000,
+   "holders": 64492,
+   "over1k": 6965,
+   "over10k": 1547,
+   "marketCapUsd": 259447164
+  },
+  {
+   "ts": 1788904800000,
+   "holders": 64501,
+   "over1k": 6966,
+   "over10k": 1548,
+   "marketCapUsd": 259537164
+  },
+  {
+   "ts": 1788908400000,
+   "holders": 64510,
+   "over1k": 6967,
+   "over10k": 1548,
+   "marketCapUsd": 259627164
+  },
+  {
+   "ts": 1788912000000,
+   "holders": 64547,
+   "over1k": 6971,
+   "over10k": 1549,
+   "marketCapUsd": 259717164
+  },
+  {
+   "ts": 1788915600000,
+   "holders": 64556,
+   "over1k": 6972,
+   "over10k": 1549,
+   "marketCapUsd": 259807164
+  },
+  {
+   "ts": 1788919200000,
+   "holders": 64565,
+   "over1k": 6973,
+   "over10k": 1549,
+   "marketCapUsd": 259897164
+  },
+  {
+   "ts": 1788922800000,
+   "holders": 64574,
+   "over1k": 6973,
+   "over10k": 1549,
+   "marketCapUsd": 259987164
+  },
+  {
+   "ts": 1788926400000,
+   "holders": 64583,
+   "over1k": 6974,
+   "over10k": 1549,
+   "marketCapUsd": 260077164
+  },
+  {
+   "ts": 1788930000000,
+   "holders": 64592,
+   "over1k": 6975,
+   "over10k": 1550,
+   "marketCapUsd": 260167164
+  },
+  {
+   "ts": 1788933600000,
+   "holders": 64601,
+   "over1k": 6976,
+   "over10k": 1550,
+   "marketCapUsd": 260257164
+  },
+  {
+   "ts": 1788937200000,
+   "holders": 64638,
+   "over1k": 6980,
+   "over10k": 1551,
+   "marketCapUsd": 260347164
+  },
+  {
+   "ts": 1788940800000,
+   "holders": 64647,
+   "over1k": 6981,
+   "over10k": 1551,
+   "marketCapUsd": 260437164
+  },
+  {
+   "ts": 1788944400000,
+   "holders": 64656,
+   "over1k": 6982,
+   "over10k": 1551,
+   "marketCapUsd": 260527164
+  },
+  {
+   "ts": 1788948000000,
+   "holders": 64665,
+   "over1k": 6983,
+   "over10k": 1551,
+   "marketCapUsd": 260617164
+  },
+  {
+   "ts": 1788951600000,
+   "holders": 64674,
+   "over1k": 6984,
+   "over10k": 1552,
+   "marketCapUsd": 260707164
+  },
+  {
+   "ts": 1788955200000,
+   "holders": 64683,
+   "over1k": 6985,
+   "over10k": 1552,
+   "marketCapUsd": 260797164
+  },
+  {
+   "ts": 1788958800000,
+   "holders": 64692,
+   "over1k": 6986,
+   "over10k": 1552,
+   "marketCapUsd": 260887164
+  },
+  {
+   "ts": 1788962400000,
+   "holders": 64729,
+   "over1k": 6990,
+   "over10k": 1553,
+   "marketCapUsd": 260977164
+  },
+  {
+   "ts": 1788966000000,
+   "holders": 64738,
+   "over1k": 6991,
+   "over10k": 1553,
+   "marketCapUsd": 261067164
+  },
+  {
+   "ts": 1788969600000,
+   "holders": 64747,
+   "over1k": 6992,
+   "over10k": 1553,
+   "marketCapUsd": 261157164
+  },
+  {
+   "ts": 1788973200000,
+   "holders": 64756,
+   "over1k": 6993,
+   "over10k": 1554,
+   "marketCapUsd": 261247164
+  },
+  {
+   "ts": 1788976800000,
+   "holders": 64765,
+   "over1k": 6994,
+   "over10k": 1554,
+   "marketCapUsd": 261337164
+  },
+  {
+   "ts": 1788980400000,
+   "holders": 64774,
+   "over1k": 6995,
+   "over10k": 1554,
+   "marketCapUsd": 261427164
+  },
+  {
+   "ts": 1788984000000,
+   "holders": 64783,
+   "over1k": 6996,
+   "over10k": 1554,
+   "marketCapUsd": 261517164
+  },
+  {
+   "ts": 1788987600000,
+   "holders": 64820,
+   "over1k": 7000,
+   "over10k": 1555,
+   "marketCapUsd": 261607164
+  },
+  {
+   "ts": 1788991200000,
+   "holders": 64829,
+   "over1k": 7001,
+   "over10k": 1555,
+   "marketCapUsd": 261697164
+  },
+  {
+   "ts": 1788994800000,
+   "holders": 64838,
+   "over1k": 7002,
+   "over10k": 1556,
+   "marketCapUsd": 261787164
+  },
+  {
+   "ts": 1788998400000,
+   "holders": 64847,
+   "over1k": 7003,
+   "over10k": 1556,
+   "marketCapUsd": 261877164
+  },
+  {
+   "ts": 1789002000000,
+   "holders": 64856,
+   "over1k": 7004,
+   "over10k": 1556,
+   "marketCapUsd": 261967164
+  },
+  {
+   "ts": 1789005600000,
+   "holders": 64865,
+   "over1k": 7005,
+   "over10k": 1556,
+   "marketCapUsd": 262057164
+  },
+  {
+   "ts": 1789009200000,
+   "holders": 64874,
+   "over1k": 7006,
+   "over10k": 1556,
+   "marketCapUsd": 262147164
+  },
+  {
+   "ts": 1789012800000,
+   "holders": 64911,
+   "over1k": 7010,
+   "over10k": 1557,
+   "marketCapUsd": 262237164
+  },
+  {
+   "ts": 1789016400000,
+   "holders": 64920,
+   "over1k": 7011,
+   "over10k": 1558,
+   "marketCapUsd": 262327164
+  },
+  {
+   "ts": 1789020000000,
+   "holders": 64929,
+   "over1k": 7012,
+   "over10k": 1558,
+   "marketCapUsd": 262417164
+  },
+  {
+   "ts": 1789023600000,
+   "holders": 64938,
+   "over1k": 7013,
+   "over10k": 1558,
+   "marketCapUsd": 262507164
+  },
+  {
+   "ts": 1789027200000,
+   "holders": 64947,
+   "over1k": 7014,
+   "over10k": 1558,
+   "marketCapUsd": 262597164
+  },
+  {
+   "ts": 1789030800000,
+   "holders": 64956,
+   "over1k": 7015,
+   "over10k": 1558,
+   "marketCapUsd": 262687164
+  },
+  {
+   "ts": 1789034400000,
+   "holders": 64965,
+   "over1k": 7016,
+   "over10k": 1559,
+   "marketCapUsd": 262777164
+  },
+  {
+   "ts": 1789038000000,
+   "holders": 65002,
+   "over1k": 7020,
+   "over10k": 1560,
+   "marketCapUsd": 262867164
+  },
+  {
+   "ts": 1789041600000,
+   "holders": 65011,
+   "over1k": 7021,
+   "over10k": 1560,
+   "marketCapUsd": 262957164
+  },
+  {
+   "ts": 1789045200000,
+   "holders": 65020,
+   "over1k": 7022,
+   "over10k": 1560,
+   "marketCapUsd": 263047164
+  },
+  {
+   "ts": 1789048800000,
+   "holders": 65029,
+   "over1k": 7023,
+   "over10k": 1560,
+   "marketCapUsd": 263137164
+  },
+  {
+   "ts": 1789052400000,
+   "holders": 65038,
+   "over1k": 7024,
+   "over10k": 1560,
+   "marketCapUsd": 263227164
+  },
+  {
+   "ts": 1789056000000,
+   "holders": 65047,
+   "over1k": 7025,
+   "over10k": 1561,
+   "marketCapUsd": 263317164
+  },
+  {
+   "ts": 1789059600000,
+   "holders": 65056,
+   "over1k": 7026,
+   "over10k": 1561,
+   "marketCapUsd": 263407164
+  },
+  {
+   "ts": 1789063200000,
+   "holders": 65093,
+   "over1k": 7030,
+   "over10k": 1562,
+   "marketCapUsd": 263497164
+  },
+  {
+   "ts": 1789066800000,
+   "holders": 65102,
+   "over1k": 7031,
+   "over10k": 1562,
+   "marketCapUsd": 263587164
+  },
+  {
+   "ts": 1789070400000,
+   "holders": 65111,
+   "over1k": 7031,
+   "over10k": 1562,
+   "marketCapUsd": 263677164
+  },
+  {
+   "ts": 1789074000000,
+   "holders": 65120,
+   "over1k": 7032,
+   "over10k": 1562,
+   "marketCapUsd": 263767164
+  },
+  {
+   "ts": 1789077600000,
+   "holders": 65129,
+   "over1k": 7033,
+   "over10k": 1563,
+   "marketCapUsd": 263857164
+  },
+  {
+   "ts": 1789081200000,
+   "holders": 65138,
+   "over1k": 7034,
+   "over10k": 1563,
+   "marketCapUsd": 263947164
+  },
+  {
+   "ts": 1789084800000,
+   "holders": 65147,
+   "over1k": 7035,
+   "over10k": 1563,
+   "marketCapUsd": 264037164
+  },
+  {
+   "ts": 1789088400000,
+   "holders": 65184,
+   "over1k": 7039,
+   "over10k": 1564,
+   "marketCapUsd": 264127164
+  },
+  {
+   "ts": 1789092000000,
+   "holders": 65193,
+   "over1k": 7040,
+   "over10k": 1564,
+   "marketCapUsd": 264217164
+  },
+  {
+   "ts": 1789095600000,
+   "holders": 65202,
+   "over1k": 7041,
+   "over10k": 1564,
+   "marketCapUsd": 264307164
+  },
+  {
+   "ts": 1789099200000,
+   "holders": 65211,
+   "over1k": 7042,
+   "over10k": 1565,
+   "marketCapUsd": 264397164
+  },
+  {
+   "ts": 1789102800000,
+   "holders": 65220,
+   "over1k": 7043,
+   "over10k": 1565,
+   "marketCapUsd": 264487164
+  },
+  {
+   "ts": 1789106400000,
+   "holders": 65229,
+   "over1k": 7044,
+   "over10k": 1565,
+   "marketCapUsd": 264577164
+  },
+  {
+   "ts": 1789110000000,
+   "holders": 65238,
+   "over1k": 7045,
+   "over10k": 1565,
+   "marketCapUsd": 264667164
+  },
+  {
+   "ts": 1789113600000,
+   "holders": 65275,
+   "over1k": 7049,
+   "over10k": 1566,
+   "marketCapUsd": 264757164
+  },
+  {
+   "ts": 1789117200000,
+   "holders": 65284,
+   "over1k": 7050,
+   "over10k": 1566,
+   "marketCapUsd": 264847164
+  },
+  {
+   "ts": 1789120800000,
+   "holders": 65293,
+   "over1k": 7051,
+   "over10k": 1567,
+   "marketCapUsd": 264937164
+  },
+  {
+   "ts": 1789124400000,
+   "holders": 65302,
+   "over1k": 7052,
+   "over10k": 1567,
+   "marketCapUsd": 265027164
+  },
+  {
+   "ts": 1789128000000,
+   "holders": 65311,
+   "over1k": 7053,
+   "over10k": 1567,
+   "marketCapUsd": 265117164
+  },
+  {
+   "ts": 1789131600000,
+   "holders": 65320,
+   "over1k": 7054,
+   "over10k": 1567,
+   "marketCapUsd": 265207164
+  },
+  {
+   "ts": 1789135200000,
+   "holders": 65329,
+   "over1k": 7055,
+   "over10k": 1567,
+   "marketCapUsd": 265297164
+  },
+  {
+   "ts": 1789138800000,
+   "holders": 65366,
+   "over1k": 7059,
+   "over10k": 1568,
+   "marketCapUsd": 265387164
+  },
+  {
+   "ts": 1789142400000,
+   "holders": 65375,
+   "over1k": 7060,
+   "over10k": 1569,
+   "marketCapUsd": 265477164
+  },
+  {
+   "ts": 1789146000000,
+   "holders": 65384,
+   "over1k": 7061,
+   "over10k": 1569,
+   "marketCapUsd": 265567164
+  },
+  {
+   "ts": 1789149600000,
+   "holders": 65393,
+   "over1k": 7062,
+   "over10k": 1569,
+   "marketCapUsd": 265657164
+  },
+  {
+   "ts": 1789153200000,
+   "holders": 65402,
+   "over1k": 7063,
+   "over10k": 1569,
+   "marketCapUsd": 265747164
+  },
+  {
+   "ts": 1789156800000,
+   "holders": 65411,
+   "over1k": 7064,
+   "over10k": 1569,
+   "marketCapUsd": 265837164
+  },
+  {
+   "ts": 1789160400000,
+   "holders": 65420,
+   "over1k": 7065,
+   "over10k": 1570,
+   "marketCapUsd": 265927164
+  },
+  {
+   "ts": 1789164000000,
+   "holders": 65457,
+   "over1k": 7069,
+   "over10k": 1570,
+   "marketCapUsd": 266017164
+  },
+  {
+   "ts": 1789167600000,
+   "holders": 65466,
+   "over1k": 7070,
+   "over10k": 1571,
+   "marketCapUsd": 266107164
+  },
+  {
+   "ts": 1789171200000,
+   "holders": 65475,
+   "over1k": 7071,
+   "over10k": 1571,
+   "marketCapUsd": 266197164
+  },
+  {
+   "ts": 1789174800000,
+   "holders": 65484,
+   "over1k": 7072,
+   "over10k": 1571,
+   "marketCapUsd": 266287164
+  },
+  {
+   "ts": 1789178400000,
+   "holders": 65493,
+   "over1k": 7073,
+   "over10k": 1571,
+   "marketCapUsd": 266377164
+  },
+  {
+   "ts": 1789182000000,
+   "holders": 65502,
+   "over1k": 7074,
+   "over10k": 1572,
+   "marketCapUsd": 266467164
+  },
+  {
+   "ts": 1789185600000,
+   "holders": 65511,
+   "over1k": 7075,
+   "over10k": 1572,
+   "marketCapUsd": 266557164
+  },
+  {
+   "ts": 1789189200000,
+   "holders": 65548,
+   "over1k": 7079,
+   "over10k": 1573,
+   "marketCapUsd": 266647164
+  },
+  {
+   "ts": 1789192800000,
+   "holders": 65557,
+   "over1k": 7080,
+   "over10k": 1573,
+   "marketCapUsd": 266737164
+  },
+  {
+   "ts": 1789196400000,
+   "holders": 65566,
+   "over1k": 7081,
+   "over10k": 1573,
+   "marketCapUsd": 266827164
+  },
+  {
+   "ts": 1789200000000,
+   "holders": 65575,
+   "over1k": 7082,
+   "over10k": 1573,
+   "marketCapUsd": 266917164
+  },
+  {
+   "ts": 1789203600000,
+   "holders": 65584,
+   "over1k": 7083,
+   "over10k": 1574,
+   "marketCapUsd": 267007164
+  },
+  {
+   "ts": 1789207200000,
+   "holders": 65593,
+   "over1k": 7084,
+   "over10k": 1574,
+   "marketCapUsd": 267097164
+  },
+  {
+   "ts": 1789210800000,
+   "holders": 65602,
+   "over1k": 7085,
+   "over10k": 1574,
+   "marketCapUsd": 267187164
+  },
+  {
+   "ts": 1789214400000,
+   "holders": 65639,
+   "over1k": 7089,
+   "over10k": 1575,
+   "marketCapUsd": 267277164
+  },
+  {
+   "ts": 1789218000000,
+   "holders": 65648,
+   "over1k": 7089,
+   "over10k": 1575,
+   "marketCapUsd": 267367164
+  },
+  {
+   "ts": 1789221600000,
+   "holders": 65657,
+   "over1k": 7090,
+   "over10k": 1575,
+   "marketCapUsd": 267457164
+  },
+  {
+   "ts": 1789225200000,
+   "holders": 65666,
+   "over1k": 7091,
+   "over10k": 1575,
+   "marketCapUsd": 267547164
+  },
+  {
+   "ts": 1789228800000,
+   "holders": 65675,
+   "over1k": 7092,
+   "over10k": 1576,
+   "marketCapUsd": 267637164
+  },
+  {
+   "ts": 1789232400000,
+   "holders": 65684,
+   "over1k": 7093,
+   "over10k": 1576,
+   "marketCapUsd": 267727164
+  },
+  {
+   "ts": 1789236000000,
+   "holders": 65693,
+   "over1k": 7094,
+   "over10k": 1576,
+   "marketCapUsd": 267817164
+  }
+ ],
+ "hoursOfHistory": 480
+}

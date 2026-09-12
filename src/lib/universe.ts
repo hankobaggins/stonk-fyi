@@ -2,13 +2,14 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
 import { getDb } from "./db";
-import { getHolderscanDeltas, getHolderscanHolderCount, holderscanEnabled } from "./holderscan";
+import { getHolderscanDeltas, getHolderscanHolderCount, HOLDERSCAN_ADVANCED, holderscanEnabled } from "./holderscan";
 import type { Pair, RewardLaunch } from "./types";
 
 // The whole universe of quote assets (CLAUDE.md §6g): every StonkFun pair with at least one reward-mode
 // coin launched against it, in every category — stock issuers, crypto/custom, currencies, SOL, leverage,
 // collectibles. Two readings per asset:
-//   holders      HolderScan holder_count, once a day (worker step `universe_holders`, quote_holder_snapshots)
+//   holders      HolderScan holder_count, once a day — hourly on the Advanced plan (worker step `universe_holders`,
+//                quote_holder_snapshots)
 //   paid wallets distinct wallets holding any reward coin quoted in the asset, from the daily reward-coin
 //                census (lib/wallets.ts runCoinCensus, coin_census_quotes). A lower bound: the census covers
 //                the largest coins by holder count up to a page budget, and says how much it covers.
@@ -92,18 +93,22 @@ export async function runUniverseHolders(db: SupabaseClient, ts: string): Promis
   return { rows: rows.length, read: rows.length, failed, skipped: false, firstError };
 }
 
-// Once a day on the 02:15 UTC tick (minute 15–19), its own slot.
+// The :15 tick (minute 15–19), its own slot: every hour on the Advanced plan (~325 × 10 units × 24 × 30 ≈ 2.3M a
+// month of 15M), once a day at 02:15 UTC on Standard (≈ 96K of 200K).
+export const UNIVERSE_EVERY_H = Math.max(1, Number(process.env.UNIVERSE_EVERY_H ?? (HOLDERSCAN_ADVANCED ? 1 : 24)));
 export function universeDue(ts: string): boolean {
   const d = new Date(ts);
   const m = d.getUTCMinutes();
-  return m >= 15 && m < 20 && d.getUTCHours() === 2;
+  return m >= 15 && m < 20 && (UNIVERSE_EVERY_H >= 24 ? d.getUTCHours() === 2 : d.getUTCHours() % UNIVERSE_EVERY_H === 0);
 }
 
-// HolderScan's 7/14/30-day deltas: every third day on the same 02:15 tick (20 units a call, ~6.3K a run,
-// ~63K a month on top of the daily counts — together inside the Standard plan's 200K).
-export const DELTAS_EVERY_DAYS = Math.max(1, Number(process.env.UNIVERSE_DELTAS_EVERY_DAYS ?? 4));
+// HolderScan's own 1d…30-day deltas on the 02:15 tick: every day on the Advanced plan (20 units a call, ~6.5K a
+// run), every fourth day on Standard (~49K a month on top of the daily counts, inside the plan's 200K).
+export const DELTAS_EVERY_DAYS = Math.max(1, Number(process.env.UNIVERSE_DELTAS_EVERY_DAYS ?? (HOLDERSCAN_ADVANCED ? 1 : 4)));
 export function deltasDue(ts: string): boolean {
-  return universeDue(ts) && Math.floor(Date.parse(ts) / 864e5) % DELTAS_EVERY_DAYS === 0;
+  const d = new Date(ts);
+  const m = d.getUTCMinutes();
+  return m >= 15 && m < 20 && d.getUTCHours() === 2 && Math.floor(Date.parse(ts) / 864e5) % DELTAS_EVERY_DAYS === 0;
 }
 
 export type DeltasStepResult = { rows: number; failed: number; skipped: boolean; firstError: string | null };
@@ -113,7 +118,7 @@ export async function runUniverseDeltas(db: SupabaseClient, ts: string): Promise
   const { assets } = await getUniverse();
   let firstError: string | null = null;
   let failed = 0;
-  const rows: { mint: string; ts: string; d7: number | null; d14: number | null; d30: number | null }[] = [];
+  const rows: { mint: string; ts: string; d1: number | null; d3: number | null; d7: number | null; d14: number | null; d30: number | null }[] = [];
   for (const a of assets) {
     const r = await getHolderscanDeltas(a.mint);
     if (!r.deltas) {
@@ -121,7 +126,8 @@ export async function runUniverseDeltas(db: SupabaseClient, ts: string): Promise
       if (!firstError) firstError = `${a.symbol}: ${r.error}`;
       continue;
     }
-    rows.push({ mint: a.mint, ts, ...r.deltas });
+    const { d1, d3, d7, d14, d30 } = r.deltas;
+    rows.push({ mint: a.mint, ts, d1, d3, d7, d14, d30 });
   }
   if (rows.length) {
     const { error } = await db.from("quote_holder_deltas").upsert(rows, { onConflict: "mint,ts" });
@@ -148,7 +154,7 @@ export async function runCoinDeltas(db: SupabaseClient, ts: string, top = COIN_D
   let firstError: string | null = null;
   let failed = 0;
   let slotsCovered = 0;
-  const rows: { mint: string; ts: string; quote_mint: string; holders_now: number; d7: number | null; d14: number | null; d30: number | null }[] = [];
+  const rows: { mint: string; ts: string; quote_mint: string; holders_now: number; d1: number | null; d3: number | null; d7: number | null; d14: number | null; d30: number | null }[] = [];
   for (const l of picked) {
     const r = await getHolderscanDeltas(l.mint);
     if (!r.deltas) {
@@ -157,7 +163,8 @@ export async function runCoinDeltas(db: SupabaseClient, ts: string, top = COIN_D
       continue;
     }
     slotsCovered += l.holderCount;
-    rows.push({ mint: l.mint, ts, quote_mint: l.quote.mint, holders_now: l.holderCount, ...r.deltas });
+    const { d1, d3, d7, d14, d30 } = r.deltas;
+    rows.push({ mint: l.mint, ts, quote_mint: l.quote.mint, holders_now: l.holderCount, d1, d3, d7, d14, d30 });
   }
   if (rows.length) {
     const { error } = await db.from("coin_holder_deltas").upsert(rows, { onConflict: "mint,ts" });
@@ -172,6 +179,7 @@ export type CoinDeltaTotals = {
   ts: string;
   coins: number; // coins with a delta in the newest run
   holdersNow: number; // Σ StonkFun holderCount over those coins
+  d1: number | null; // null until a run stored the 1-day figure (migration 0014)
   d7: number;
   d14: number;
   d30: number;
@@ -188,11 +196,12 @@ export async function getCoinDeltaTotals(): Promise<CoinDeltaTotals | null> {
     return null;
   }
   const ts = last.data[0].ts as string;
-  const { data, error } = await db.from("coin_holder_deltas").select("mint, quote_mint, holders_now, d7, d14, d30").eq("ts", ts).limit(5000);
+  const { data, error } = await db.from("coin_holder_deltas").select("mint, quote_mint, holders_now, d1, d7, d14, d30").eq("ts", ts).limit(5000);
   if (error || !data) return null;
-  const t: CoinDeltaTotals = { ts, coins: data.length, holdersNow: 0, d7: 0, d14: 0, d30: 0, byQuote: new Map() };
+  const t: CoinDeltaTotals = { ts, coins: data.length, holdersNow: 0, d1: data.some((r) => typeof r.d1 === "number") ? 0 : null, d7: 0, d14: 0, d30: 0, byQuote: new Map() };
   for (const r of data) {
     t.holdersNow += r.holders_now;
+    if (t.d1 !== null) t.d1 += r.d1 ?? 0;
     t.d7 += r.d7 ?? 0;
     t.d14 += r.d14 ?? 0;
     t.d30 += r.d30 ?? 0;
@@ -205,14 +214,26 @@ export async function getCoinDeltaTotals(): Promise<CoinDeltaTotals | null> {
   return t;
 }
 
-export type LatestDeltas = Map<string, { ts: string; d7: number | null; d14: number | null; d30: number | null }>;
+export type CoinHolderDelta = { ts: string; holdersNow: number; d1: number | null; d7: number | null; d14: number | null; d30: number | null };
+
+// Newest HolderScan delta row for one reward coin (token detail page); null when none or on a DB error.
+export async function getCoinHolderDelta(mint: string): Promise<CoinHolderDelta | null> {
+  const db = getDb();
+  if (!db) return null;
+  const { data, error } = await db.from("coin_holder_deltas").select("ts, holders_now, d1, d7, d14, d30").eq("mint", mint).order("ts", { ascending: false }).limit(1);
+  if (error || !data?.[0]) return null;
+  const r = data[0];
+  return { ts: r.ts, holdersNow: r.holders_now, d1: r.d1 ?? null, d7: r.d7 ?? null, d14: r.d14 ?? null, d30: r.d30 ?? null };
+}
+
+export type LatestDeltas = Map<string, { ts: string; d1: number | null; d7: number | null; d14: number | null; d30: number | null }>;
 
 // Newest HolderScan delta row per mint from the last `maxAgeDays` days; null on a DB error.
 export async function getLatestDeltas(maxAgeDays = 2 * DELTAS_EVERY_DAYS + 1): Promise<LatestDeltas | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - maxAgeDays * 864e5).toISOString();
-  const { data, error } = await db.from("quote_holder_deltas").select("mint, ts, d7, d14, d30").gte("ts", since).order("ts", { ascending: false }).limit(3000);
+  const { data, error } = await db.from("quote_holder_deltas").select("mint, ts, d1, d7, d14, d30").gte("ts", since).order("ts", { ascending: false }).limit(3000);
   if (error) {
     console.error(`quote_holder_deltas read failed: ${error.message} (migration 0012 applied?)`);
     return null;
@@ -386,6 +407,9 @@ export async function getUniverseTable(): Promise<UniverseTable> {
     const holders = latest?.toHolders ?? null;
     const q = census.quotes.get(a.mint);
     const p = census.prev.get(a.mint);
+    const dl = deltas?.get(a.mint);
+    // A 1-day figure read more than 36h ago describes a window that has since moved on; 7d / 30d tolerate the lag.
+    const d1Fresh = dl && Date.now() - Date.parse(dl.ts) < 36 * 3.6e6;
     return {
       mint: a.mint,
       symbol: a.symbol,
@@ -397,7 +421,7 @@ export async function getUniverseTable(): Promise<UniverseTable> {
       slots: a.slots,
       holders,
       readAt: latest?.to ?? null,
-      d1: change(w24?.get(a.mint), 24),
+      d1: change(w24?.get(a.mint), 24) ?? (d1Fresh ? deltaChange(dl.d1, holders, 1, dl.ts) : null),
       d7: change(w168?.get(a.mint), 168) ?? deltaChange(deltas?.get(a.mint)?.d7, holders, 7, deltas?.get(a.mint)?.ts ?? generatedAt),
       d30: change(w720?.get(a.mint), 720) ?? deltaChange(deltas?.get(a.mint)?.d30, holders, 30, deltas?.get(a.mint)?.ts ?? generatedAt),
       paid: q?.wallets ?? null,
@@ -407,7 +431,7 @@ export async function getUniverseTable(): Promise<UniverseTable> {
     };
   });
   const readCount = rows.filter((r) => r.holders !== null).length;
-  const deltaCount = rows.filter((r) => r.d7?.provider === "holderscan" || r.d30?.provider === "holderscan").length;
+  const deltaCount = rows.filter((r) => r.d1?.provider === "holderscan" || r.d7?.provider === "holderscan" || r.d30?.provider === "holderscan").length;
   return {
     status: !db ? "no-db" : dbError || census.status === "db-error" ? "db-error" : readCount || census.status === "ok" ? "ok" : "collecting",
     rows,

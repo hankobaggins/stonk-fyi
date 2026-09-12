@@ -256,3 +256,38 @@ export function BurnBarChart({ data, height = 220 }: { data: { date: string; val
     </ResponsiveContainer>
   );
 }
+
+// ---------- Generic time series (area, single series, count or USD) ----------
+
+export function SeriesAreaChart({ data, height = 220, name = "Value", fmt = "count", series = 0 }: { data: { ts: number; value: number }[]; height?: number; name?: string; fmt?: Fmt; series?: number }) {
+  const format = F[fmt];
+  const color = S[series % S.length];
+  const id = `seriesFill${series}`;
+  const fmtTs = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+        <defs>
+          <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={color} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="ts" type="number" domain={["dataMin", "dataMax"]} scale="time" tickFormatter={fmtTs} tickLine={false} axisLine={false} minTickGap={40} />
+        <YAxis tickFormatter={(v) => format(v)} tickLine={false} axisLine={false} width={64} domain={["auto", "auto"]} />
+        <Tooltip
+          content={({ label, payload }) =>
+            payload?.length ? (
+              <div className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-xs shadow-lg">
+                <div className="text-muted">{new Date(Number(label)).toLocaleString("en-US", { timeZone: "UTC" })} UTC</div>
+                <div className="num">{name}: {format(payload[0].value as number)}</div>
+              </div>
+            ) : null
+          }
+        />
+        <Area type="monotone" dataKey="value" name={name} stroke={color} strokeWidth={2} fill={`url(#${id})`} dot={false} activeDot={{ r: 4, stroke: "var(--surface-1)", strokeWidth: 2 }} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}

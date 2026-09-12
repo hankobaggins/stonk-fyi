@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTokens, type TokenQuery } from "@/lib/api";
+import { getRewards, getTokens, type TokenQuery } from "@/lib/api";
 import { getAprForTokens, YIELD_TRACKED } from "@/lib/yield";
 import type { Token } from "@/lib/types";
 import { fmtNum, nowMs } from "@/lib/format";
@@ -42,7 +42,19 @@ const CATEGORIES = [
   { v: "custom", label: "Custom" },
 ];
 const POOL_LABEL: Record<Sort, string> = { marketCap: "largest by market cap", volume: "busiest by 24h volume", newest: "newest" };
-const COL_LABEL: Record<SortKey, string> = { mcap: "market cap", price: "price", chg: "24h change", vol: "24h volume", ratio: "volume / market cap", apr1: "24h-based APR", apr3: "3d-based APR", age: "age" };
+const COL_LABEL: Record<SortKey, string> = { mcap: "market cap", price: "price", chg: "24h change", vol: "24h volume", ratio: "volume / market cap", apr1: "24h-based APR", apr3: "3d-based APR", holders: "holders", avg: "average per holder", age: "age" };
+
+// StonkFun's reward-eligible holder count per reward coin (one /rewards call, 30s cache) for the Holders and
+// Average-per-holder columns. Standard coins have no holder figure in the API.
+async function getHolderCounts(): Promise<Record<string, number>> {
+  try {
+    const out: Record<string, number> = {};
+    for (const l of (await getRewards()).data.launches) if (l.holderCount > 0) out[l.mint] = l.holderCount;
+    return out;
+  } catch {
+    return {};
+  }
+}
 
 const hhmm = (iso: string) => iso.slice(11, 16) + " UTC";
 const dmy = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
@@ -84,8 +96,8 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
     }
   }
 
-  const apr = await getAprForTokens(pool);
-  const sorted = by ? sortTokens(pool, apr.byMint, by, dir) : pool;
+  const [apr, holders] = await Promise.all([getAprForTokens(pool), getHolderCounts()]);
+  const sorted = by ? sortTokens(pool, apr.byMint, by, dir, holders) : pool;
   const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
   const page = Math.min(q.page!, totalPages);
   const tokens = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
@@ -180,7 +192,7 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
         action={<span className="num text-xs text-muted">click a column to sort · StonkFun market data · 30s · stonk.fyi payout snapshots · 5 min · Jupiter prices · 5 min</span>}
       >
         {tokens.length ? (
-          <TokenTable tokens={tokens} startRank={(page - 1) * PAGE_SIZE + 1} now={now} apr={apr.byMint} sort={tableSort} />
+          <TokenTable tokens={tokens} startRank={(page - 1) * PAGE_SIZE + 1} now={now} apr={apr.byMint} sort={tableSort} holders={holders} />
         ) : (
           <div className="p-8 text-center text-muted text-sm">No tokens match.</div>
         )}
@@ -193,6 +205,7 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
           )}
           {truncated && <p className="text-secondary text-[13px]">Sorting covers the {fmtNum(pool.length)} {POOL_LABEL[sort]} that match the filters, not all {fmtNum(total)}; narrow the filters or search to reach the rest.</p>}
           <p className="text-secondary text-[13px]">Only reward-mode coins pay holders, and only the {YIELD_TRACKED} largest by market cap are snapshotted, so the columns read &ldquo;—&rdquo; for standard coins and &ldquo;not tracked&rdquo; for smaller reward coins. Payout tokens over each window are from this site&apos;s own 5-minute readings of StonkFun&apos;s reward ledger, valued at the quote asset&apos;s Jupiter price now (STONK at StonkFun&apos;s price), divided by the coin&apos;s market cap now. No compounding, no price change of the coin or its quote asset.</p>
+          <p className="text-secondary text-[13px]">Holders is StonkFun&apos;s count of reward-eligible wallets for reward coins (standard coins carry none), live. Average per holder divides the coin&apos;s market cap by it: the stake each wallet would hold if every holder held the same. A few large wallets pull it up, so a high figure on a coin with few holders is concentration, not a broad base — $STONK&apos;s own median position is on the home page.</p>
           <p className="text-secondary text-[13px]">Market cap is the denominator because it is the one figure both you and this site can check. Payouts go only to eligible wallets (pools and program accounts are excluded), so a holder&apos;s own yield on eligible balance is higher than the figure shown. The 3d column averages daily payouts over 72 hours; the 24h column moves with the last day alone.</p>
           <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
             <span>Sources: StonkFun tokens &amp; rewards · stonk.fyi snapshots · Jupiter</span>

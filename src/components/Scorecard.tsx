@@ -5,7 +5,7 @@ const STATE: Record<Signal, string> = { bull: "bullish", neutral: "neutral", bea
 const GROUPS: { keys: Indicator["group"][]; title: string; blurb: string }[] = [
   { keys: ["flywheel"], title: "Flywheel", blurb: "Fees → buybacks → burns. Rises and falls with launchpad activity." },
   { keys: ["demand"], title: "Demand", blurb: "Who is buying STONK, and how deep the market is." },
-  { keys: ["holders"], title: "Holders & flow", blurb: "Holder base and order flow, via GMGN." },
+  { keys: ["holders"], title: "Holders & flow", blurb: "Holder base via HolderScan; order flow and wallet tags via GMGN." },
   { keys: ["platform", "valuation"], title: "Platform & valuation", blurb: "The fee source, and what the price pays for it." },
 ];
 

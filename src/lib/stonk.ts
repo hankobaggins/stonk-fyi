@@ -4,6 +4,7 @@ import { getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken
 import { getPoolInfo, poolSides } from "./raydium";
 import { getBurnsSince, getGmgnHistory, getPoolFlow } from "./db";
 import { getGmgnStonk, type GmgnData } from "./gmgn";
+import { getHolderHistory, profileChange, PROFILE_EVERY_MIN, type HolderHistory } from "./stonk-holders";
 import type { BurnEvent, PoolFlow, PoolInfo, PricePoint, Revenue, RevenueDay, Stats, Token, TokenBurns } from "./types";
 
 // STONK launched 2026-07-23 with a fixed 1B supply; mint and freeze authority are null,
@@ -38,6 +39,7 @@ export type StonkData = {
   flow: PoolFlow | null;
   gmgn: GmgnData | null;
   gmgnHistory: Awaited<ReturnType<typeof getGmgnHistory>>;
+  holders: HolderHistory | null; // HolderScan profile from the worker's readings (§6h); null without a DB or before the first read
   projection: { price: number; supply: number; marketCap: number; dailyRevenue: number; buybackShare: number; volume24h: number; quoteDepthUsd: number | null; poolVolume24h: number | null };
   supply: { initial: number; burned: number; burnedPct: number; circulating: number; impliedFromMarket?: number };
   launchMarketCapUsd: number; // from the launch record; ~$5K for STONK
@@ -105,7 +107,7 @@ async function computeStonkData(): Promise<StonkData> {
   const impliedFromMarket = m.priceUsd && m.marketCapUsd ? m.marketCapUsd / m.priceUsd : undefined;
   const supply = { initial: STONK_INITIAL_SUPPLY, burned, burnedPct: (burned / STONK_INITIAL_SUPPLY) * 100, circulating, impliedFromMarket };
   const sides = pool ? poolSides(pool, STONK_MINT, m.priceUsd) : null;
-  const [flow, gmgn, gmgnHistory, burnLedger] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnStonk(), getGmgnHistory(24), getBurnsSince(STONK_MINT, BURN_RATE_WINDOW_H)]);
+  const [flow, gmgn, gmgnHistory, burnLedger, holders] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnStonk(), getGmgnHistory(24), getBurnsSince(STONK_MINT, BURN_RATE_WINDOW_H), getHolderHistory(STONK_MINT)]);
   // A reserve delta over a few minutes is noise, not a 24h flow: only score once the window has real coverage.
   const flowHours = flow ? (new Date(flow.to).getTime() - new Date(flow.from).getTime()) / 3.6e6 : 0;
   const flowReady = flowHours >= 12;
@@ -244,8 +246,9 @@ async function computeStonkData(): Promise<StonkData> {
       signal: m.priceChange24h === undefined ? "info" : m.priceChange24h > 0 ? "bull" : m.priceChange24h > -15 ? "neutral" : "bear",
       group: "demand",
     },
-    // ---- Holders & flow (GMGN) ----
-    ...(gmgn ? gmgnIndicators(gmgn, gmgnHistory) : []),
+    // ---- Holders & flow (HolderScan profile when the worker has one, GMGN for order flow and tags) ----
+    ...(holders ? holderscanIndicators(holders, m.priceUsd ?? null) : []),
+    ...(gmgn ? gmgnIndicators(gmgn, gmgnHistory, !!holders) : []),
     {
       key: "platform",
       label: "Launchpad volume, 24h",
@@ -309,6 +312,7 @@ async function computeStonkData(): Promise<StonkData> {
     flow,
     gmgn,
     gmgnHistory,
+    holders,
     projection: {
       price: m.priceUsd ?? 0,
       supply: circulating,
@@ -330,7 +334,7 @@ async function computeStonkData(): Promise<StonkData> {
 
 // GMGN-derived indicators: holder base, concentration, buy/sell pressure across every STONK pool,
 // smart-money presence. Contract/LP facts are permanent, so they live in the Foundation block, unscored.
-function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHistory>>): Indicator[] {
+function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHistory>>, holdersCovered = false): Indicator[] {
   const pct = (n: number, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
   const usd = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `$${(n / 1e3).toFixed(1)}K` : `$${n.toFixed(2)}`);
   const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
@@ -343,7 +347,7 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
   const buyShare = g.vol24h.buyUsd + g.vol24h.sellUsd ? g.vol24h.buyUsd / (g.vol24h.buyUsd + g.vol24h.sellUsd) : null;
   const top10 = g.top10HolderRate * 100;
 
-  return [
+  const holdersCell: Indicator[] = holdersCovered ? [] : [
     {
       key: "holders",
       label: "Holders",
@@ -355,6 +359,9 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
       group: "holders",
       source: src,
     },
+  ];
+  return [
+    ...holdersCell,
     {
       key: "top10",
       label: "Top-10 concentration",
@@ -383,6 +390,87 @@ function gmgnIndicators(g: GmgnData, hist: Awaited<ReturnType<typeof getGmgnHist
       source: src,
     },
   ];
+}
+
+// HolderScan-derived indicators (worker readings, §6h). Each one can move both ways:
+//   holders     HolderScan's own 24h change in holder count (no waiting for this site's history)
+//   holders1k   holders with more than $1,000 of STONK, 24h change from this site's readings (scored after ~19h)
+//   diamond     share of the top-1000 wallets' supply held by HolderScan's "diamond" (longest-held) class
+//   breakeven   price vs the holder base's aggregate break-even — context only: above it means most holders
+//               sit in profit, which is both a healthy base and latent sell pressure
+function holderscanIndicators(h: HolderHistory, priceUsd: number | null): Indicator[] {
+  const p = h.latest;
+  const pct = (n: number, d = 1) => `${n >= 0 ? "+" : ""}${n.toFixed(d)}%`;
+  const num = (n: number) => (n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n >= 1e3 ? `${(n / 1e3).toFixed(1)}K` : n.toFixed(0));
+  const signed = (n: number) => `${n >= 0 ? "+" : "−"}${num(Math.abs(n))}`;
+  const src = `HolderScan · ${PROFILE_EVERY_MIN >= 60 ? `${PROFILE_EVERY_MIN / 60} h` : `${PROFILE_EVERY_MIN} min`}`;
+  const out: Indicator[] = [];
+
+  const d1 = p.deltas?.d1 ?? null;
+  const base = d1 !== null ? p.holders - d1 : null;
+  const d1Pct = d1 !== null && base && base > 0 ? (d1 / base) * 100 : null;
+  const parts = [p.deltas?.h1 !== null && p.deltas?.h1 !== undefined ? `${signed(p.deltas.h1)} 1h` : null, p.deltas?.d7 !== null && p.deltas?.d7 !== undefined ? `${signed(p.deltas.d7)} 7d` : null, p.deltas?.d30 !== null && p.deltas?.d30 !== undefined ? `${signed(p.deltas.d30)} 30d` : null].filter(Boolean);
+  out.push({
+    key: "holders",
+    label: "Holders",
+    value: num(p.holders),
+    detail: d1 !== null && d1Pct !== null
+      ? `${signed(d1)} wallets (${pct(d1Pct, 2)}) in 24h${parts.length ? ` · ${parts.join(" · ")}` : ""}. Wallets with any STONK balance, on any venue.`
+      : `Wallets with any STONK balance, on any venue.${parts.length ? ` ${parts.join(" · ")}.` : ""} HolderScan's 24h change is missing on this read.`,
+    signal: d1Pct === null ? "info" : d1Pct > 0.5 ? "bull" : d1Pct >= -0.5 ? "neutral" : "bear",
+    group: "holders",
+    source: src,
+  });
+
+  const b = p.breakdowns;
+  if (b) {
+    const c = profileChange(h.dayAgo, p, (x) => x.breakdowns?.over1k);
+    const share = p.holders > 0 ? (b.over1k / p.holders) * 100 : 0;
+    out.push({
+      key: "holders1k",
+      label: "Holders over $1K",
+      value: c ? num(b.over1k) : "collecting",
+      detail: c && c.pct !== null
+        ? `${signed(c.abs)} (${pct(c.pct, 2)}) in ${c.hours.toFixed(0)}h · ${share.toFixed(0)}% of holders · ${num(b.over10k)} over $10K, ${num(b.over100k)} over $100K.`
+        : `${num(b.over1k)} now (${share.toFixed(0)}% of holders), ${num(b.over10k)} over $10K. Scored on the 24h change after ~19h of readings (${h.hoursOfHistory < 1 ? `${Math.round(h.hoursOfHistory * 60)} min` : `${h.hoursOfHistory.toFixed(0)}h`} so far).`,
+      signal: c && c.pct !== null ? (c.pct > 0.5 ? "bull" : c.pct >= -0.5 ? "neutral" : "bear") : "info",
+      group: "holders",
+      source: src,
+    });
+  }
+
+  const sb = p.supplyBreakdown;
+  if (sb) {
+    const total = sb.diamond + sb.gold + sb.silver + sb.bronze + sb.wood;
+    const diamond = total > 0 ? (sb.diamond / total) * 100 : null;
+    const w = p.wallets;
+    out.push({
+      key: "diamond",
+      label: "Diamond hands, top 1000",
+      value: diamond !== null ? `${diamond.toFixed(0)}%` : "—",
+      detail: diamond !== null
+        ? `${num(sb.diamond)} of the ${num(total)} STONK held by the 1,000 largest wallets sits in HolderScan's longest-held class${w ? ` (${num(w.diamond)} of ${num(w.diamond + w.gold + w.silver + w.bronze + w.wood + w.newHolders)} wallets)` : ""}.`
+        : "Supply breakdown unavailable.",
+      signal: diamond === null ? "info" : diamond >= 50 ? "bull" : diamond >= 25 ? "neutral" : "bear",
+      group: "holders",
+      source: src,
+    });
+  }
+
+  const be = p.pnl?.breakEvenPrice ?? null;
+  if (be && priceUsd) {
+    const mult = priceUsd / be;
+    out.push({
+      key: "breakeven",
+      label: "Price vs holders' break-even",
+      value: `${mult.toFixed(2)}×`,
+      detail: `Holders' aggregate cost basis is $${be.toFixed(4)} per STONK vs $${priceUsd.toFixed(4)} now${p.pnl?.unrealizedPnlUsd !== null && p.pnl?.unrealizedPnlUsd !== undefined ? ` · ${p.pnl.unrealizedPnlUsd >= 0 ? "+" : "−"}$${(Math.abs(p.pnl.unrealizedPnlUsd) / 1e6).toFixed(1)}M unrealized` : ""}. Above 1× most holders sit in profit: a healthy base, and latent sell pressure.`,
+      signal: "info",
+      group: "holders",
+      source: src,
+    });
+  }
+  return out;
 }
 
 // Deduplicated per request: layout (nav ring + ticker) and page both need it.
