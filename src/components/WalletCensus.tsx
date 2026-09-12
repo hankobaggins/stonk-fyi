@@ -40,7 +40,7 @@ export default function WalletCensus({ runs, latest, quoteAssets, now }: { runs:
   const series = runs.map((r) => ({ ts: Date.parse(r.ts), wallets: count(r.hist, subset) }));
   const last = series[series.length - 1];
   const first = series[0];
-  const from = (hours: number) => (first ? fmtTs(first.ts + hours * 3.6e6 * MIN_COVERAGE) : "soon");
+  const from = (hours: number) => (first ? fmtTs(first.ts + Math.ceil((hours * MIN_COVERAGE) / 24) * 864e5) : "soon");
 
   const change = (hours: number) => {
     if (!last || !first) return null;

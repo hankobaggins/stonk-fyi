@@ -23,7 +23,7 @@ export type CoinGrowth = { ts: string; coins: number; holdersNow: number; d7: nu
 export default function EcosystemWallets({ runs, growth, now }: { runs: CensusPoint[]; growth: CoinGrowth | null; now: number }) {
   const series = runs.map((r) => ({ ts: Date.parse(r.ts), wallets: r.wallets }));
   const firstTs = series[0]?.ts ?? null;
-  const from = (hours: number) => (firstTs ? fmtTs(firstTs + hours * 3.6e6 * MIN_COVERAGE) : "soon");
+  const from = (hours: number) => (firstTs ? fmtTs(firstTs + Math.ceil((hours * MIN_COVERAGE) / 24) * 864e5) : "soon");
   const last = series[series.length - 1];
   const first = series[0];
   const latest = runs[runs.length - 1];
