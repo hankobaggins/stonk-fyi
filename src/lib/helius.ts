@@ -8,7 +8,7 @@ import "server-only";
 const KEY = () => process.env.HELIUS_API_KEY;
 const URL = () => `${process.env.HELIUS_RPC_URL ?? "https://mainnet.helius-rpc.com"}/?api-key=${KEY()}`;
 const PAGE = 1000;
-const GAP_MS = 550; // stays under the free plan's 2 DAS requests per second
+const GAP_MS = Math.max(0, Number(process.env.HELIUS_GAP_MS ?? 550)); // 550 stays under the free plan's 2 DAS requests per second; lower it on a paid plan
 
 type TokenAccount = { address: string; mint: string; owner: string; amount: number; frozen?: boolean; burnt?: boolean };
 type Page = { total: number; limit: number; cursor?: string | null; token_accounts: TokenAccount[] };

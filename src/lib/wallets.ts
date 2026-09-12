@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { getPairs, getRewards } from "./api";
 import { getDb } from "./db";
 import { getMintOwners } from "./helius";
 import { getStockQuoteAssets, STOCK_CATEGORIES, type StockCategory } from "./holders";
@@ -101,4 +102,116 @@ export async function getWalletCensus(days = WALLET_HISTORY_DAYS): Promise<Censu
     latest: m ? { ts: m.ts, mintsOk: m.mints_ok, mintsFailed: m.mints_failed, accounts: m.accounts, firstError: m.first_error, durationMs: m.duration_ms } : null,
     quoteAssets: quotes.length,
   };
+}
+
+// ---------- reward-coin census (CLAUDE.md §6g) ----------
+//
+// Distinct wallets holding at least one StonkFun reward coin — the ecosystem's holder base, since every
+// such wallet is paid the coin's quote asset — and, per quote asset, the distinct wallets holding any
+// coin quoted in it. Sized live on 2026-09-12: 11,768 reward coins, Σ holderCount 1.04M, so a full walk
+// is ~12K Helius pages (~2 h at the free plan's pace). Instead the coins are taken largest-first by
+// StonkFun holderCount until the estimated page count reaches COIN_CENSUS_MAX_PAGES (≈ the top 450
+// coins, ~70% of holder-slots, ~10 min, ~11K credits). The result is a lower bound and is labelled with
+// its coverage. Nothing but counts is stored.
+
+export const COIN_CENSUS_MAX_PAGES = Math.max(50, Number(process.env.COIN_CENSUS_MAX_PAGES ?? 1100));
+const PAGE = 1000;
+
+export type CoinCensusResult = {
+  ts: string;
+  wallets: number;
+  coins: number;
+  coinsTotal: number;
+  slotsCovered: number;
+  slotsTotal: number;
+  accounts: number;
+  coinsFailed: number;
+  firstError: string | null;
+  durationMs: number;
+  quotes: number;
+};
+
+// Pure: which coins fit the page budget, largest first.
+export function pickCoinsForCensus<T extends { holderCount: number }>(launches: T[], maxPages = COIN_CENSUS_MAX_PAGES): T[] {
+  const sorted = [...launches].filter((l) => l.holderCount > 0).sort((a, b) => b.holderCount - a.holderCount);
+  const out: T[] = [];
+  let pages = 0;
+  for (const l of sorted) {
+    const need = Math.ceil(l.holderCount / PAGE);
+    if (pages + need > maxPages) break;
+    pages += need;
+    out.push(l);
+  }
+  return out;
+}
+
+export async function runCoinCensus(db: SupabaseClient, ts: string, budgetMs = Infinity): Promise<CoinCensusResult> {
+  const t0 = Date.now();
+  const [rewards, pairs] = await Promise.all([getRewards(), getPairs()]);
+  const launches = rewards.data.launches;
+  const categoryOf = new Map(pairs.map((p) => [p.mint, p.category ?? "custom"]));
+  const picked = pickCoinsForCensus(launches);
+  const slotsTotal = launches.reduce((a, l) => a + l.holderCount, 0);
+  const all = new Set<string>();
+  const byQuote = new Map<string, { owners: Set<string>; coins: number }>();
+  const byCategory = new Map<string, { owners: Set<string>; coins: number }>();
+  const coinsTotalByQuote = new Map<string, number>();
+  for (const l of launches) coinsTotalByQuote.set(l.quote.mint, (coinsTotalByQuote.get(l.quote.mint) ?? 0) + 1);
+  let accounts = 0;
+  let coins = 0;
+  let coinsFailed = 0;
+  let slotsCovered = 0;
+  let firstError: string | null = null;
+  for (const l of picked) {
+    if (Date.now() - t0 > budgetMs) {
+      coinsFailed++;
+      if (!firstError) firstError = `time budget of ${Math.round(budgetMs / 1000)}s used up after ${coins} coins`;
+      continue;
+    }
+    try {
+      const r = await getMintOwners(l.mint);
+      let q = byQuote.get(l.quote.mint);
+      if (!q) byQuote.set(l.quote.mint, (q = { owners: new Set(), coins: 0 }));
+      const cat = categoryOf.get(l.quote.mint) ?? "other";
+      let c = byCategory.get(cat);
+      if (!c) byCategory.set(cat, (c = { owners: new Set(), coins: 0 }));
+      for (const o of r.owners) {
+        all.add(o);
+        q.owners.add(o);
+        c.owners.add(o);
+      }
+      q.coins++;
+      c.coins++;
+      accounts += r.accounts;
+      slotsCovered += l.holderCount;
+      coins++;
+    } catch (e) {
+      coinsFailed++;
+      if (!firstError) firstError = `${l.mint.slice(0, 6)}… (${l.quote.symbol}): ${e instanceof Error ? e.message : String(e)}`;
+    }
+  }
+  if (!coins) throw new Error(`no reward coin could be read (${firstError})`);
+  const durationMs = Date.now() - t0;
+
+  const r1 = await db.from("coin_census_runs").upsert(
+    { ts, wallets: all.size, coins, coins_total: launches.length, slots_covered: slotsCovered, slots_total: slotsTotal, accounts, coins_failed: coinsFailed, first_error: firstError, duration_ms: durationMs },
+    { onConflict: "ts" },
+  );
+  if (r1.error) throw new Error(r1.error.message);
+  const quoteRows = [...byQuote.entries()].map(([quote_mint, q]) => ({ ts, quote_mint, wallets: q.owners.size, coins: q.coins, coins_total: coinsTotalByQuote.get(quote_mint) ?? q.coins }));
+  const r2 = await db.from("coin_census_quotes").upsert(quoteRows, { onConflict: "ts,quote_mint" });
+  if (r2.error) throw new Error(r2.error.message);
+  const catRows = [...byCategory.entries()].map(([category, c]) => ({ ts, category, wallets: c.owners.size, coins: c.coins }));
+  const r3 = await db.from("coin_census_categories").upsert(catRows, { onConflict: "ts,category" });
+  if (r3.error) throw new Error(r3.error.message);
+
+  return { ts, wallets: all.size, coins, coinsTotal: launches.length, slotsCovered, slotsTotal, accounts, coinsFailed, firstError, durationMs, quotes: quoteRows.length };
+}
+
+// Once a day on the :15 tick of 01:00 UTC — its own slot, away from the :30 holders step, the :45
+// quote-asset census and the 03:00 full run.
+export function coinCensusDue(ts: string): boolean {
+  const d = new Date(ts);
+  const m = d.getUTCMinutes();
+  return m >= 15 && m < 20 && d.getUTCHours() === 1;
 }

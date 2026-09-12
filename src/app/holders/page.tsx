@@ -1,27 +1,54 @@
 import Link from "next/link";
 import { CATEGORY_LABEL, getHoldersTable, HOLDERS_TRACKED, STOCK_CATEGORIES } from "@/lib/holders";
+import { CATEGORY_ORDER, categoryLabel, getUniverseTable } from "@/lib/universe";
 import { fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
 import HoldersTable, { type HolderRow } from "@/components/HoldersTable";
 import WalletCensus from "@/components/WalletCensus";
+import EcosystemWallets from "@/components/EcosystemWallets";
+import UniverseTable, { type UniverseRowView } from "@/components/UniverseTable";
 import { getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 import { Empty, PageHeader, Section } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Holders of stock-quoted assets" };
+export const metadata = { title: "Holders across the StonkFun ecosystem" };
 
 const hhmm = (iso: string) => iso.slice(11, 16) + " UTC";
 const dmy = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });
+const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
 
 export default async function HoldersPage() {
   const now = nowMs();
-  const [t, census] = await Promise.all([getHoldersTable(), getWalletCensus()]);
+  const [u, t, census] = await Promise.all([getUniverseTable(), getHoldersTable(), getWalletCensus()]);
+
+  // ---- the whole universe (§6g) ----
+  const uRows: UniverseRowView[] = u.rows.map((r) => ({ ...r, logoUrl: resolveImage(r.logoUrl) }));
+  const catKeys = [...new Set(u.rows.map((r) => r.category))].sort((a, b) => {
+    const ia = CATEGORY_ORDER.indexOf(a);
+    const ib = CATEGORY_ORDER.indexOf(b);
+    return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+  });
+  const cats = catKeys.map((key) => {
+    const rows = u.rows.filter((r) => r.category === key);
+    const c = u.census.categories.get(key);
+    return {
+      key,
+      label: categoryLabel(key),
+      assets: rows.length,
+      coins: rows.reduce((a, r) => a + r.coins, 0),
+      slots: rows.reduce((a, r) => a + r.slots, 0),
+      wallets: c?.wallets ?? null,
+      walletsD1: c?.d1 ?? null,
+      read: rows.filter((r) => r.holders !== null).length,
+    };
+  });
+  const latestRun = u.census.latest;
+  const uReadAt = u.rows.map((r) => r.readAt).filter(Boolean).sort().pop() ?? null;
+
+  // ---- stock-quoted side (§6e / §6f), unchanged ----
   const reads = t.quotes.map((q) => q.readAt).filter(Boolean) as string[];
   const lastRead = reads.length ? reads.sort()[reads.length - 1] : null;
   const withReading = t.quotes.filter((q) => q.holders !== null).length;
-
-  // One flat row list for the client table: plain data only (rule 3 in CLAUDE.md). Quote assets first
-  // so the issuer chips come out in category order.
   const rows: HolderRow[] = [
     ...t.quotes.map<HolderRow>((q) => ({
       mint: q.mint,
@@ -54,9 +81,6 @@ export default async function HoldersPage() {
       external: false,
     })),
   ];
-
-  // Per-issuer breakdown: the tracked coins' market cap and holders (StonkFun's count), and the
-  // quote assets' holders (GMGN's count) — the two holder sums are kept apart, not added.
   const issuers = STOCK_CATEGORIES.map((cat) => {
     const coins = t.coins.filter((c) => c.quoteCategory === cat);
     const quotes = t.quotes.filter((q) => q.category === cat);
@@ -74,75 +98,135 @@ export default async function HoldersPage() {
       quoteHolders: read.reduce((a, q) => a + (q.holders ?? 0), 0),
     };
   });
-  const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Holders of stock-quoted assets"
-        sub={`Wallets holding each tokenized-stock quote asset (xStocks, Backpack, pre-stocks, Tessera) and the ${HOLDERS_TRACKED} largest reward coins quoted in them, with 24h and 7d change.`}
+        title="Holders across the StonkFun ecosystem"
+        sub={`Every quote asset with a StonkFun reward coin launched against it — ${u.rows.length} assets in ${cats.length} categories — with its holder count, the wallets StonkFun pays it to, and how both move.`}
       >
         <div className="text-right text-xs text-secondary num space-y-0.5">
           <div><span className="pill up">unique holders</span></div>
-          <div>Market snapshot: {dmy(t.generatedAt)} · {hhmm(t.generatedAt)}</div>
-          {lastRead && <div>Newest holder reading {timeAgo(lastRead, now)}</div>}
+          <div>Market snapshot: {dmy(u.generatedAt)} · {hhmm(u.generatedAt)}</div>
+          {uReadAt && <div>Newest HolderScan reading {timeAgo(uReadAt, now)}</div>}
         </div>
       </PageHeader>
 
-      {t.status === "no-db" && <Empty>This page needs the site&apos;s holder snapshots (Postgres), which this deployment does not have.</Empty>}
-      {t.status === "db-error" && <Empty>The holder readings could not be read just now (the snapshot store did not answer). The worker keeps recording; try again in a minute, or check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → holder_windows.</Empty>}
-      {t.status === "collecting" && (
-        <Empty>
-          Collecting holder readings: none stored yet. Readings are taken once an hour; the 24h column appears after about 20 hours, the 7-day column after about 5½ days.
-          {t.quotes.length > 0 && <> {t.quotes.length} quote assets and {t.coins.length} coins are being tracked.</>}
-        </Empty>
-      )}
+      {u.status === "no-db" && <Empty>This page needs the site&apos;s holder readings and census runs (Postgres), which this deployment does not have.</Empty>}
+      {u.status === "db-error" && <Empty>The universe readings could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → universe_holders and coin_census.</Empty>}
 
       <Section
-        title="Unique wallets holding at least one quote asset"
-        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · every {WALLET_CENSUS_EVERY_H}h</span>}
+        title="Wallets holding a StonkFun reward coin"
+        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · daily</span>}
       >
-        {census.status === "no-db" && <Empty>This block needs the site&apos;s census runs (Postgres), which this deployment does not have.</Empty>}
-        {census.status === "db-error" && <Empty>The census could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → wallet_census.</Empty>}
-        {census.status === "empty" && <Empty>No census run stored yet. The worker counts every wallet holding any of the {census.quoteAssets} quote assets every {WALLET_CENSUS_EVERY_H} hours; the first run appears here, the 24h change after a day, 7d after six, 30d after 24.</Empty>}
-        {census.status === "ok" && <WalletCensus runs={census.runs} latest={census.latest} quoteAssets={census.quoteAssets} now={now} />}
+        {u.census.status === "ok" ? (
+          <EcosystemWallets runs={u.census.runs} now={now} />
+        ) : (
+          <Empty>
+            {u.census.status === "empty" || u.census.status === "no-db"
+              ? `No reward-coin census stored yet. It runs once a day (01:15 UTC): every wallet holding one of the largest reward coins by holder count, de-duplicated across coins. The first run appears here, the 24h change after two, 7d after six, 30d after 24.`
+              : "The census could not be read just now."}
+          </Empty>
+        )}
         <p className="mt-3 text-secondary text-[13px] leading-relaxed">
-          One wallet = one owner address with a non-zero balance of any selected quote asset, counted directly from token accounts on Solana; a wallet holding several assets counts once. Program-owned accounts (pool vaults, protocol treasuries) are included, since nothing on-chain marks them apart — a few dozen addresses among tens of thousands. This is a different measure again from the per-asset holder counts below.
+          This is the ecosystem&apos;s holder base: each of these wallets holds a reward-mode coin and is paid that coin&apos;s quote asset on every payout, so every one of them is a holder StonkFun created or keeps for some project&apos;s token. One wallet holding several coins counts once. The census covers the largest coins up to a fixed budget and says how much of the ledger that is; the true figure is at least this large. Program-owned accounts (pool vaults) are counted like any owner.
         </p>
       </Section>
 
-      {t.status === "ok" && (
+      {cats.length > 0 && (
         <div className="kpis">
-          {issuers.map((x) => (
-            <div key={x.cat} className="kpi min-w-0">
-              <div className="label">{x.label}</div>
-              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{x.coins ? fmtUsd(x.mcap, { compact: true }) : "—"}</div>
+          {cats.map((c) => (
+            <div key={c.key} className="kpi min-w-0">
+              <div className="label">{c.label}</div>
+              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{c.wallets === null ? <span className="text-base text-muted">{latestRun ? "not covered" : "collecting"}</span> : fmtNum(c.wallets)}</div>
               <div className="mt-1.5 text-xs text-secondary num space-y-0.5">
-                <div>{x.coins ? <>{fmtNum(x.coins)} tracked coin{x.coins === 1 ? "" : "s"} · {fmtNum(x.coinHolders)} holders{x.coinHolders24h !== null && <span className={x.coinHolders24h > 0 ? " text-up" : x.coinHolders24h < 0 ? " text-down" : ""}> {signed(x.coinHolders24h)} 24h</span>}</> : "no tracked coins"}</div>
-                <div className="text-muted">{fmtNum(x.quotes)} quote asset{x.quotes === 1 ? "" : "s"} · {x.quotesRead ? <>{fmtNum(x.quoteHolders)} holders across {x.quotesRead} read</> : "no readings"}</div>
+                <div>
+                  StonkFun wallets
+                  {c.walletsD1 !== null && <span className={c.walletsD1 > 0 ? " text-up" : c.walletsD1 < 0 ? " text-down" : ""}> {signed(c.walletsD1)} 24h</span>}
+                </div>
+                <div className="text-muted">{fmtNum(c.assets)} quote asset{c.assets === 1 ? "" : "s"} · {fmtNum(c.coins)} coin{c.coins === 1 ? "" : "s"} · {fmtNum(c.slots)} holder-slots</div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {t.status === "ok" && (
-        <Section
-          title={`${t.quotes.length} quote assets · ${t.coins.length} coins`}
-          action={<span className="num text-xs text-muted">GMGN holder count · StonkFun rewards ledger · stonk.fyi snapshots · hourly</span>}
-        >
-          <HoldersTable rows={rows} now={now} />
-          <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
-            <p className="font-medium">The two kinds of row count holders differently. Sort within a kind, or compare a row with itself over time.</p>
-            <p className="text-secondary text-[13px]">Quote assets: GMGN&apos;s holder count for the mint, every wallet with a balance across all venues, read hourly; assets GMGN does not index show no reading ({withReading} of {t.quotes.length} have one). Coins: StonkFun&apos;s own count of reward-eligible wallets from its rewards ledger, live, with changes from this site&apos;s hourly readings; only reward-mode coins carry a holder figure, so standard-mode coins are not listed. Market cap is shown for coins only. Read / age is the newest reading for a quote asset and time since launch for a coin.</p>
-            <p className="text-secondary text-[13px]">The issuer tiles sum the tracked coins only (the {HOLDERS_TRACKED} largest by market cap across all four issuers, so a small issuer&apos;s total is its whole top end, a large one&apos;s is a slice): market cap and StonkFun holder count, with the 24h holder change where readings exist. The quote-asset line is GMGN holders summed over the assets that have a reading.</p>
-            <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
-              <span>Sources: GMGN · StonkFun rewards · stonk.fyi snapshots · StonkFun market data</span>
-              <span>Change columns appear once readings cover 80% of the window</span>
-            </div>
+      <Section
+        title={`${u.rows.length} quote assets`}
+        action={<span className="num text-xs text-muted">HolderScan holder count · daily · stonk.fyi census · daily</span>}
+      >
+        {u.readCount === 0 && u.census.status !== "ok" && (
+          <Empty>
+            Collecting: no HolderScan reading stored yet. Readings are taken once a day (02:15 UTC); the 24h column appears after two, 7d after six, 30d after 24. {u.rows.length} quote assets are tracked.
+          </Empty>
+        )}
+        <UniverseTable rows={uRows} categories={cats.map((c) => ({ key: c.key, label: c.label }))} now={now} />
+        <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
+          <p className="font-medium">Per project: of an asset&apos;s holders, how many hold a StonkFun coin that pays them the asset — and whether both are growing.</p>
+          <p className="text-secondary text-[13px]">Holders: HolderScan&apos;s count of wallets with any balance of the asset, on any venue, read once a day{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. StonkFun wallets: this site&apos;s daily on-chain census of wallets holding a reward coin quoted in the asset, de-duplicated within the asset; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget, so its figure is a floor. Share divides the second by the first. Holder-slots is StonkFun&apos;s own reward-eligible count summed over the asset&apos;s coins (one slot per coin per wallet). The category tiles are de-duplicated within each category; adding them up over-counts wallets that hold coins on several categories — the headline above is the only cross-category figure.</p>
+          <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
+            <span>Sources: HolderScan · Helius · StonkFun rewards ledger · StonkFun pairs</span>
+            <span>Change columns appear once readings cover 80% of the window</span>
           </div>
-        </Section>
-      )}
+        </div>
+      </Section>
+
+      <Section
+        title="Stock-quoted assets, hourly"
+        action={<span className="num text-xs text-muted">GMGN · StonkFun rewards ledger · stonk.fyi snapshots · hourly</span>}
+      >
+        <p className="text-secondary text-[13px] leading-relaxed mb-4">
+          The tokenized-stock side (xStocks, Backpack, pre-stocks, Tessera) is read every hour rather than daily, with a separate on-chain census of wallets holding the quote assets themselves. {lastRead ? `Newest reading ${timeAgo(lastRead, now)}.` : ""}
+        </p>
+
+        {t.status === "no-db" && <Empty>This block needs the site&apos;s holder snapshots (Postgres), which this deployment does not have.</Empty>}
+        {t.status === "db-error" && <Empty>The hourly holder readings could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → holder_windows.</Empty>}
+        {t.status === "collecting" && (
+          <Empty>
+            Collecting hourly holder readings: none stored yet. The 24h column appears after about 20 hours, the 7-day column after about 5½ days.
+            {t.quotes.length > 0 && <> {t.quotes.length} quote assets and {t.coins.length} coins are being tracked.</>}
+          </Empty>
+        )}
+
+        <h3 className="text-sm font-medium mb-2">Unique wallets holding at least one stock quote asset <span className="num text-xs text-muted font-normal">· Helius on-chain · every {WALLET_CENSUS_EVERY_H}h</span></h3>
+        {census.status === "no-db" && <Empty>This block needs the site&apos;s census runs (Postgres), which this deployment does not have.</Empty>}
+        {census.status === "db-error" && <Empty>The census could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → wallet_census.</Empty>}
+        {census.status === "empty" && <Empty>No census run stored yet. The worker counts every wallet holding any of the {census.quoteAssets} stock quote assets every {WALLET_CENSUS_EVERY_H} hours; the first run appears here, the 24h change after a day, 7d after six, 30d after 24.</Empty>}
+        {census.status === "ok" && <WalletCensus runs={census.runs} latest={census.latest} quoteAssets={census.quoteAssets} now={now} />}
+        <p className="mt-3 mb-5 text-secondary text-[13px] leading-relaxed">
+          One wallet = one owner address with a non-zero balance of any selected quote asset, counted directly from token accounts on Solana; a wallet holding several assets counts once. This is a different measure from the reward-coin census above (holding the stock token itself vs. holding a coin that pays it) and from the per-asset counts below.
+        </p>
+
+        {t.status === "ok" && (
+          <div className="kpis mb-5">
+            {issuers.map((x) => (
+              <div key={x.cat} className="kpi min-w-0">
+                <div className="label">{x.label}</div>
+                <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{x.coins ? fmtUsd(x.mcap, { compact: true }) : "—"}</div>
+                <div className="mt-1.5 text-xs text-secondary num space-y-0.5">
+                  <div>{x.coins ? <>{fmtNum(x.coins)} tracked coin{x.coins === 1 ? "" : "s"} · {fmtNum(x.coinHolders)} holders{x.coinHolders24h !== null && <span className={x.coinHolders24h > 0 ? " text-up" : x.coinHolders24h < 0 ? " text-down" : ""}> {signed(x.coinHolders24h)} 24h</span>}</> : "no tracked coins"}</div>
+                  <div className="text-muted">{fmtNum(x.quotes)} quote asset{x.quotes === 1 ? "" : "s"} · {x.quotesRead ? <>{fmtNum(x.quoteHolders)} holders across {x.quotesRead} read</> : "no readings"}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {t.status === "ok" && (
+          <>
+            <h3 className="text-sm font-medium mb-2">{t.quotes.length} quote assets · {t.coins.length} coins <span className="num text-xs text-muted font-normal">· hourly</span></h3>
+            <HoldersTable rows={rows} now={now} />
+            <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
+              <p className="font-medium">The two kinds of row count holders differently. Sort within a kind, or compare a row with itself over time.</p>
+              <p className="text-secondary text-[13px]">Quote assets: GMGN&apos;s holder count for the mint, every wallet with a balance across all venues, read hourly; assets GMGN does not index show no reading ({withReading} of {t.quotes.length} have one). Coins: StonkFun&apos;s own count of reward-eligible wallets from its rewards ledger, live, with changes from this site&apos;s hourly readings; only reward-mode coins carry a holder figure. Market cap is shown for coins only. The issuer tiles sum the {HOLDERS_TRACKED} largest tracked coins by market cap across the four issuers.</p>
+              <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
+                <span>Sources: GMGN · StonkFun rewards · stonk.fyi snapshots · StonkFun market data</span>
+                <span>Change columns appear once readings cover 80% of the window</span>
+              </div>
+            </div>
+          </>
+        )}
+      </Section>
 
       <p className="text-xs text-muted">
         Method on <Link href="/about#holders" className="underline underline-offset-2 hover:text-primary">the About page</Link>. Not financial advice.

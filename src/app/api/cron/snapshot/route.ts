@@ -9,7 +9,8 @@ import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getStockCoinsByMcap, getStockQuoteAssets, HOLDERS_RETENTION_DAYS, HOLDERS_TRACKED, runHoldersSnapshot, trackedMints } from "@/lib/holders";
 import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
-import { censusDue } from "@/lib/wallets";
+import { censusDue, coinCensusDue } from "@/lib/wallets";
+import { pruneUniverseHolders, runUniverseHolders, universeDue } from "@/lib/universe";
 import { SITE_URL } from "@/lib/site";
 import type { Token } from "@/lib/types";
 
@@ -19,6 +20,8 @@ import type { Token } from "@/lib/types";
 //   GET /api/cron/snapshot?hourly=1   -> same, but top 500 tokens
 //   GET /api/cron/snapshot?full=1     -> walks the entire token list, then prunes non-STONK snapshots older than 30 days
 //   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert steps record but never post to X
+//   ...&census=1 | &census=coins      -> kick off the quote-asset / reward-coin census now (/api/cron/census)
+//   ...&universe=1                    -> run the daily HolderScan universe_holders step now
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -77,6 +80,8 @@ export async function GET(req: Request) {
   const hourly = params.get("hourly") === "1";
   const dry = params.get("dry") === "1";
   const census = params.get("census") === "1";
+  const coinCensus = params.get("census") === "coins";
+  const universe = params.get("universe") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -297,6 +302,40 @@ export async function GET(req: Request) {
         notes.holders += ` · pruned ${dropped}`;
       }
       return r.rows;
+    });
+  }
+
+  // Once a day on the 02:15 UTC tick (or ?universe=1): one HolderScan holder_count per universe quote asset
+  // (~320 calls, paced 250 ms → ~80 s; CLAUDE.md §6g). Its own slot so it never shares a run with the 500-token
+  // walk or the full run. Skipped with a note when HOLDERSCAN_API_KEY is unset. Prunes readings older than 60 days.
+  if (universe || (!hourly && !full && universeDue(ts))) {
+    await step("universe_holders", async () => {
+      const r = await runUniverseHolders(db, ts);
+      if (r.skipped) {
+        notes.universe_holders = `skipped: ${r.firstError}`;
+        return 0;
+      }
+      notes.universe_holders = `${r.read} quote assets read${r.failed ? `, ${r.failed} without a reading (${r.firstError})` : ""}`;
+      const dropped = await pruneUniverseHolders(db);
+      if (dropped) notes.universe_holders += ` · pruned ${dropped}`;
+      return r.rows;
+    });
+  }
+
+  if (coinCensus || (!hourly && !full && coinCensusDue(ts))) {
+    await step("coin_census", async () => {
+      // Distinct wallets holding any reward coin (Helius DAS over the largest coins by holder count, ~10 min):
+      // runs in /api/cron/census?kind=coins with its own 800 s budget; only kicked off here. Daily on the
+      // 01:15 UTC tick, or on demand with ?census=coins. See CLAUDE.md §6g.
+      const res = await fetch(`${SITE_URL}/api/cron/census?kind=coins`, {
+        headers: secret ? { authorization: `Bearer ${secret}` } : {},
+        cache: "no-store",
+        signal: AbortSignal.timeout(20_000),
+      });
+      const body = (await res.json().catch(() => ({}))) as { error?: string; budget_s?: number };
+      if (!res.ok) throw new Error(`/api/cron/census?kind=coins ${res.status} ${body.error ?? ""}`.trim());
+      notes.coin_census = `started /api/cron/census?kind=coins (up to ${body.budget_s ?? "?"}s; result in coin_census_runs and /api/health)`;
+      return 1;
     });
   }
 

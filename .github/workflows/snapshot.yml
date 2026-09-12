@@ -9,7 +9,15 @@ on:
   workflow_dispatch:
     inputs:
       census:
-        description: "Run the wallet census (?census=1) on this tick"
+        description: "Run the quote-asset wallet census (?census=1) on this tick"
+        type: boolean
+        default: false
+      coin_census:
+        description: "Run the reward-coin census (/api/cron/census?kind=coins) instead"
+        type: boolean
+        default: false
+      universe:
+        description: "Run the HolderScan universe_holders step (?universe=1) on this tick"
         type: boolean
         default: false
 concurrency:
@@ -31,7 +39,9 @@ jobs:
           if [ "$(date -u +%M)" -lt 5 ]; then full="?hourly=1"; fi
           # manual run with the census box ticked → the wallet census, waited for (its own route, up to ~13 min; CLAUDE.md §6f)
           route="/api/cron/snapshot$full"; wait=280
+          if [ "${{ inputs.universe }}" = "true" ]; then route="/api/cron/snapshot?universe=1"; fi
           if [ "${{ inputs.census }}" = "true" ]; then route="/api/cron/census?sync=1"; wait=840; fi
+          if [ "${{ inputs.coin_census }}" = "true" ]; then route="/api/cron/census?kind=coins&sync=1"; wait=840; fi
           code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time $wait \
             -H "Authorization: Bearer $CRON_SECRET" "$SNAPSHOT_URL$route")
           echo "HTTP $code"; cat /tmp/out.json | head -c 4000; echo

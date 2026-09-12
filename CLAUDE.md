@@ -40,7 +40,9 @@ src/app/                    routes
   launches/page.tsx         launch ledger & velocity
   yield/page.tsx            redirect → /tokens?mode=reward&by=apr3 (the table lived here 2026-09-09 → 2026-09-11). `getYieldTable()` in lib/yield.ts still
                             exists for /yield-card and /api/health (needs migration 0005 + the `rewards` worker step)
-  holders/page.tsx          wallet census block (§6f: unique wallets across all quote assets, issuer multi-select, 24h/7d/30d, chart) then
+  holders/page.tsx          ecosystem view first (§6g: wallets holding a reward coin, category tiles, every universe quote asset with
+                            HolderScan holders + StonkFun wallets + share; migration 0011, HOLDERSCAN_API_KEY), then the stock-quoted
+                            hourly blocks: wallet census block (§6f: unique wallets across all quote assets, issuer multi-select, 24h/7d/30d, chart) then
                             unique holders of the stock-quoted side: every xstock/backpack/prestock/tessera quote asset (GMGN holder
                             count) and the 100 largest reward coins quoted in them (StonkFun holderCount), 24h and 7d change from hourly
                             `holder_snapshots` (added 2026-09-10; needs migration 0009 + the hourly `holders` worker step on the :30 tick, §6e)
@@ -98,6 +100,8 @@ supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
 supabase/migrations/0007_burn_milestones.sql   burn_milestones table (§6c) — paste into the SQL editor by hand
 supabase/migrations/0010_wallet_census.sql   wallet_runs + wallet_run_meta + wallet_mint_counts (§6f) — paste by hand
+supabase/migrations/0011_universe_holders.sql   quote_holder_snapshots + quote_holder_window() + coin_census_runs/quotes/categories (§6g) — paste by hand
+src/lib/holderscan.ts, universe.ts   HolderScan client; the universe of quote assets, the daily universe_holders step, the page's rows (§6g)
 supabase/migrations/0009_holder_snapshots.sql   holder_snapshots + holder_window(win_hours, mints) + holder_snapshots_prune() (§6e) — paste by hand
 supabase/migrations/0008_ath_alerts.sql   ath_alerts table (§6d) — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
@@ -315,6 +319,20 @@ Owner asked for unique holders, with 24h and 1-week change, for "stocks + Backpa
 
 **Follow-up (owner's ask, third):** holder count by quote asset over time — `wallet_mint_counts` already accumulates it from the same runs; needs a per-asset sparkline/chart on the page.
 
+## 6g — The whole universe: HolderScan holder counts + reward-coin wallet census (`/holders`, added 2026-09-12)
+
+**Owner's ask (2026-09-12):** extend /holders from the four stock categories to every quote-asset category, and lead with the story that the StonkFun ecosystem is adding holders across the whole universe of quote tokens — then show each project what the ecosystem does for it. Decisions: universe = quote assets with ≥1 reward-mode coin launched against them; HolderScan (owner bought Premium → Standard API plan) read once a day over the universe; the headline is the **de-duplicated on-chain count of wallets holding a reward coin**, not a sum of anyone's holder counts; everything on /holders, the stock-only hourly blocks (§6e/§6f) kept below. Spec: project doc `claude/universe-holders-spec.md`.
+
+**Universe (`lib/universe.ts` → `getUniverse()`):** `/pairs` joined with `/rewards` launches; only pairs with ≥1 reward launch (317 of 484 pairs live on 2026-09-12: custom 391 → "Crypto", backpack 49, xstock 24, prestock 7, currency 5 → "Stablecoins", tessera 2, leverage 2, solana 2, collectible 2). Quote mints the rewards ledger knows but /pairs no longer lists are kept as category `other`. `slots` = Σ StonkFun `holderCount` over the asset's coins (1.04M in total; one slot per coin per wallet, not distinct wallets).
+
+**Two readings, two tables, never added:**
+- *Holders* — HolderScan `GET /v0/sol/tokens/{mint}/holders?limit=1` → `holder_count` (`lib/holderscan.ts`, header `x-api-key`, 10 request units a call, paced 250 ms under the 300/min limit, 429 retries). Worker step `universe_holders`, **once a day on the 02:15 UTC tick** (`universeDue`; or `?universe=1`; its own slot, ~320 calls ≈ 80 s) → `quote_holder_snapshots` (migration 0011), `quote_holder_window(win_hours, mints)` (same three-probe shape as 0009), pruned to `UNIVERSE_RETENTION_DAYS`=60. 24h / 7d / 30d columns once readings cover ≥80% of the window. 404 = not tracked by HolderScan → "no reading", never zero. Budget: ~96K of the Standard plan's 200K units a month; hourly needs the Advanced plan ($149/mo, 15M units). Skipped with a note when `HOLDERSCAN_API_KEY` is unset.
+- *StonkFun wallets* — `runCoinCensus` in `lib/wallets.ts`, run by **`/api/cron/census?kind=coins`** (same route and 720 s budget as §6f), kicked off by the tick **daily at 01:15 UTC** (`coinCensusDue`; or `?census=coins` on the snapshot URL, or the workflow's `coin_census` box). A full walk of all 11,768 reward coins would be ~12K Helius pages (~2 h at the free plan's 550 ms gap), so `pickCoinsForCensus` takes coins largest-first by StonkFun `holderCount` until the estimated page count reaches `COIN_CENSUS_MAX_PAGES` (env, default 1100 ≈ the top ~450 coins, ~70% of holder-slots, ~10 min, ~11K credits a run). Owners are de-duplicated in memory three ways — overall, per quote asset, per quote-asset category — and only counts are stored: `coin_census_runs`, `coin_census_quotes`, `coin_census_categories` (0011). **The figure is a lower bound and the page says so**, with the coverage line. `HELIUS_GAP_MS` (default 550) lowers the pacing on a paid Helius plan; raise `COIN_CENSUS_MAX_PAGES` with it.
+
+**Page:** headline block `EcosystemWallets.tsx` (count, 24h/7d/30d, 31-day area chart, coverage line), category tiles (StonkFun wallets de-duplicated within the category + 24h, assets / coins / holder-slots), then `UniverseTable.tsx` over every universe asset: HolderScan holders + 24h/7d/30d, StonkFun wallets + 24h, share (= wallets ÷ holders — the per-project impact figure), coins, read age; presets All / Stocks / Pre-IPO / Crypto plus per-category toggles (never empty), sortable headers. A "+" after a StonkFun-wallets figure marks an asset whose smaller coins fell outside the census budget. Category sums are stated as over-counting across categories; the headline is the only cross-category figure.
+
+**Ops:** env `HOLDERSCAN_API_KEY` (dashboard at holderscan.com/account); migration `0011_universe_holders.sql` by hand. `/api/health` → `universe_holders` (key present, assets with a reading, newest age — fails past 36 h) and `coin_census` (last run age — fails past 36 h —, wallets, coins covered / total, % of slots, duration, failures). **First-run checks:** how many of the ~320 assets HolderScan answers for (the API is beta with a "supported tokens" list — small custom quote assets may 404), and the coin census `duration_ms` against the 720 s budget (lower `COIN_CENSUS_MAX_PAGES` if it hits the budget; it stores a partial, flagged run rather than nothing). Neither the sandbox nor the local VM can reach api.holderscan.com or Helius; verify from production.
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -323,7 +341,7 @@ Owner asked for unique holders, with 24h and 1-week change, for "stocks + Backpa
 4. **Phase 3 on-chain (Helius):** started 2026-09-11 with the wallet census (§6f). ~~holder count & top-holder concentration~~ (now via GMGN; Helius would make them first-party), unique traders/day, on-chain verification of burn totals against the mint's supply, pool liquidity distribution around the current tick (would make the projection ceiling realistic).
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
-7. **Holders (§6e, §6f):** owner's next ask — holder count by quote asset over time (`wallet_mint_counts` is accumulating it; build the per-asset chart). Then per-asset sparklines in the table and a "holders added, 7d" ranking.
+7. **Holders (§6e, §6f, §6g):** the ecosystem view shipped 2026-09-12 (§6g); once a week of daily readings exists, add the per-asset "holders added, 7d" ranking and a "StonkFun wallets vs holders" chart per asset. Earlier ask — holder count by quote asset over time (`wallet_mint_counts` is accumulating it; build the per-asset chart). Then per-asset sparklines in the table and a "holders added, 7d" ranking.
 8. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
@@ -339,7 +357,8 @@ GMGN_API_KEY                        # optional; enables the Holders & flow secti
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, CRON_SECRET   # Phase 2 only
 SOCIALBU_TOKEN, SOCIALBU_ACCOUNT_ID=201802             # big-burn alerts to X (§6a); unset = dry run
 BURN_ALERT_THRESHOLD_USD=120000, BURN_ALERT_WINDOW_MIN=60  # optional overrides (USD at burn)
-HELIUS_API_KEY, WALLET_CENSUS_EVERY_H=6                # wallet census (§6f); HELIUS_RPC_URL optional override
+HELIUS_API_KEY, WALLET_CENSUS_EVERY_H=6                # wallet census (§6f); HELIUS_RPC_URL optional override; HELIUS_GAP_MS=550 pacing
+HOLDERSCAN_API_KEY, COIN_CENSUS_MAX_PAGES=1100         # universe holders + reward-coin census (§6g); HOLDERSCAN_GAP_MS=250 optional
 ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```

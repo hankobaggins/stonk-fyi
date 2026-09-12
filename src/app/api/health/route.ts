@@ -9,7 +9,9 @@ import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
-import { getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
+import { COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
+import { getCoinCensus, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
+import { holderscanEnabled } from "@/lib/holderscan";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -132,6 +134,40 @@ export async function GET() {
       const wallets = last ? last.hist.reduce((a, b) => a + b, 0) : 0;
       const note = `${key} · last run ${ageH.toFixed(1)}h ago: ${wallets} wallets, ${c.latest.mintsOk} ok / ${c.latest.mintsFailed} failed${c.latest.firstError ? ` (${c.latest.firstError})` : ""}`;
       if (ageH > WALLET_CENSUS_EVERY_H * 1.5) throw new Error(`${note} — census stalled`);
+      return note;
+    }),
+    run("universe_holders", async () => {
+      // §6g: HolderScan holder count per universe quote asset, daily. The page's own window query.
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const key = holderscanEnabled() ? "HOLDERSCAN_API_KEY set" : "HOLDERSCAN_API_KEY unset — the step is skipped";
+      const { assets } = await getUniverse();
+      const w = await getQuoteHolderWindows(720, assets.map((a) => a.mint));
+      if (!w) throw new Error(`quote_holder_window failed (migration 0011 applied?) · ${key}`);
+      if (!w.size) return `${key} · ${assets.length} quote assets in the universe, no reading yet (daily on the 02:15 UTC tick, or ?universe=1)`;
+      let newest = 0;
+      let hours = 0;
+      for (const x of w.values()) {
+        newest = Math.max(newest, Date.parse(x.to));
+        hours = Math.max(hours, x.hours);
+      }
+      const ageH = (Date.now() - newest) / 3.6e6;
+      const note = `${key} · ${w.size} of ${assets.length} quote assets have a reading, newest ${ageH.toFixed(1)}h ago, ${(hours / 24).toFixed(1)} days of history`;
+      if (ageH > 36) throw new Error(`${note} — universe_holders step stalled`);
+      return note;
+    }),
+    run("coin_census", async () => {
+      // §6g: distinct wallets holding any reward coin, daily (/api/cron/census?kind=coins).
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const key = process.env.HELIUS_API_KEY ? "HELIUS_API_KEY set" : "HELIUS_API_KEY unset — the census cannot run";
+      const c = await getCoinCensus(3);
+      if (c.status === "db-error") throw new Error(`coin_census_runs unreadable (migration 0011 applied?) · ${key}`);
+      if (!c.latest) return `${key} · no run yet (daily on the 01:15 UTC tick, or /api/cron/census?kind=coins&sync=1) · budget ${COIN_CENSUS_MAX_PAGES} pages`;
+      const l = c.latest;
+      const ageH = (Date.now() - Date.parse(l.ts)) / 3.6e6;
+      const note = `${key} · last run ${ageH.toFixed(1)}h ago: ${l.wallets} wallets across ${l.coins} of ${l.coinsTotal} coins (${((l.slotsCovered / Math.max(1, l.slotsTotal)) * 100).toFixed(0)}% of holder-slots), ${c.quotes.size} quote assets, ${l.durationMs ? (l.durationMs / 1000).toFixed(0) : "?"}s${l.coinsFailed ? ` · ${l.coinsFailed} coins failed (${l.firstError})` : ""}`;
+      if (ageH > 36) throw new Error(`${note} — coin census stalled`);
       return note;
     }),
     run("burn_alerts", async () => {
