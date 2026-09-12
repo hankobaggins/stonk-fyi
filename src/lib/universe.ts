@@ -252,6 +252,39 @@ export async function pruneUniverseHolders(db: SupabaseClient, retentionDays = U
 
 // ---------- reads ----------
 
+// (lives here rather than in wallets.ts to keep the import graph one-way: wallets.ts imports getUniverse)
+export type MintCount = { owners: number; truncated: boolean; ts: string; d1: number | null };
+
+// Newest census count per quote asset (wallets holding the asset itself, on-chain) and the change vs the newest
+// run at or before 24h earlier. null on a DB error or when no run exists.
+export async function getMintCounts(): Promise<Map<string, MintCount> | null> {
+  const db = getDb();
+  if (!db) return null;
+  const meta = await db.from("wallet_run_meta").select("ts").order("ts", { ascending: false }).limit(200);
+  if (meta.error) {
+    console.error(`wallet_run_meta read failed: ${meta.error.message} (migration 0010 applied?)`);
+    return null;
+  }
+  const runs = (meta.data ?? []).map((r) => r.ts as string);
+  if (!runs.length) return new Map();
+  const latest = runs[0];
+  const dayAgo = Date.parse(latest) - 24 * 3.6e6;
+  const prev = runs.find((t) => Date.parse(t) <= dayAgo) ?? null;
+  const { data, error } = await db.from("wallet_mint_counts").select("mint, ts, owners, truncated").in("ts", prev ? [latest, prev] : [latest]).limit(2000);
+  if (error) {
+    console.error(`wallet_mint_counts read failed: ${error.message} (migration 0015 applied?)`);
+    return null;
+  }
+  const out = new Map<string, MintCount>();
+  const prevOwners = new Map<string, number>();
+  for (const r of data ?? []) {
+    if (r.ts === latest) out.set(r.mint, { owners: r.owners, truncated: !!r.truncated, ts: r.ts, d1: null });
+    else prevOwners.set(r.mint, r.owners);
+  }
+  for (const [mint, c] of out) if (!c.truncated && prevOwners.has(mint)) c.d1 = c.owners - prevOwners.get(mint)!;
+  return out;
+}
+
 export type Window = { from: string; to: string; fromHolders: number; toHolders: number; hours: number };
 export type Change = { abs: number; pct: number | null; hours: number; from: string; to: string; provider?: "holderscan" } | null;
 
@@ -379,12 +412,17 @@ export type UniverseRow = {
   paidD1: number | null; // vs the run ≥24h earlier
   paidCoins: number | null; // covered coins
   share: number | null; // paid / holders
+  onchain: number | null; // quote-asset census: wallets holding the asset itself, on-chain (Helius)
+  onchainD1: number | null;
+  onchainTruncated: boolean; // the mint exceeded the per-mint page cap: the figure is a floor
+  onchainAt: string | null;
 };
 
 export type UniverseTable = {
   status: "ok" | "collecting" | "no-db" | "db-error";
   rows: UniverseRow[];
   readCount: number; // rows with a HolderScan reading
+  onchainCount: number; // rows with a quote-asset census count
   deltaCount: number; // rows whose 7d/30d come from HolderScan's own deltas
   historyHours: number;
   census: CoinCensus;
@@ -395,7 +433,7 @@ export type UniverseTable = {
 export async function getUniverseTable(): Promise<UniverseTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
-  const [{ assets }, census, deltas, coinDeltas] = await Promise.all([getUniverse(), getCoinCensus(), getLatestDeltas(), getCoinDeltaTotals()]);
+  const [{ assets }, census, deltas, coinDeltas, mintCounts] = await Promise.all([getUniverse(), getCoinCensus(), getLatestDeltas(), getCoinDeltaTotals(), getMintCounts()]);
   const mints = assets.map((a) => a.mint);
   const [w24, w168, w720] = db ? await Promise.all([getQuoteHolderWindows(24, mints), getQuoteHolderWindows(168, mints), getQuoteHolderWindows(720, mints)]) : [null, null, null];
   const dbError = !!db && (w24 === null || w168 === null || w720 === null);
@@ -408,6 +446,7 @@ export async function getUniverseTable(): Promise<UniverseTable> {
     const q = census.quotes.get(a.mint);
     const p = census.prev.get(a.mint);
     const dl = deltas?.get(a.mint);
+    const mc = mintCounts?.get(a.mint);
     // A 1-day figure read more than 36h ago describes a window that has since moved on; 7d / 30d tolerate the lag.
     const d1Fresh = dl && Date.now() - Date.parse(dl.ts) < 36 * 3.6e6;
     return {
@@ -428,14 +467,20 @@ export async function getUniverseTable(): Promise<UniverseTable> {
       paidD1: q && p ? q.wallets - p.wallets : null,
       paidCoins: q?.coins ?? null,
       share: q && holders ? q.wallets / holders : null,
+      onchain: mc?.owners ?? null,
+      onchainD1: mc?.d1 ?? null,
+      onchainTruncated: mc?.truncated ?? false,
+      onchainAt: mc?.ts ?? null,
     };
   });
   const readCount = rows.filter((r) => r.holders !== null).length;
+  const onchainCount = rows.filter((r) => r.onchain !== null).length;
   const deltaCount = rows.filter((r) => r.d1?.provider === "holderscan" || r.d7?.provider === "holderscan" || r.d30?.provider === "holderscan").length;
   return {
     status: !db ? "no-db" : dbError || census.status === "db-error" ? "db-error" : readCount || census.status === "ok" ? "ok" : "collecting",
     rows,
     readCount,
+    onchainCount,
     deltaCount,
     historyHours,
     census,

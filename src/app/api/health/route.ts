@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
-import { getDb, getHolderWindows, getRewardWindows } from "@/lib/db";
+import { getDb, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
-import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
-import { COIN_CENSUS_EVERY_H, COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
-import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
+import { COIN_CENSUS_EVERY_H, COIN_CENSUS_MAX_PAGES, getWalletCensus, QUOTE_CENSUS_MAX_PAGES, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
+import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, getMintCounts, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
 import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/lib/holderscan";
 import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
 
@@ -99,30 +98,6 @@ export async function GET() {
       for (const x of w.values()) hours = Math.max(hours, x.hours);
       return `${w.size} of ${coins.length} tracked coins have readings, ${hours.toFixed(1)}h of history`;
     }),
-    run("holder_snapshots", async () => {
-      const db = getDb();
-      if (!db) return "not configured (needs supabase)";
-      const { data: last, error } = await db.from("holder_snapshots").select("ts, kind, source").eq("kind", "quote").order("ts", { ascending: false }).limit(1);
-      if (error) throw new Error(`${error.message} (migration 0009 applied?)`);
-      if (!last?.[0]) return "no readings yet (first hourly run after 0009 writes them)";
-      const ageMin = (Date.now() - Date.parse(last[0].ts)) / 60000;
-      const note = `last quote-asset reading ${ageMin.toFixed(0)} min ago via ${last[0].source} (hourly)`;
-      if (ageMin > 75) throw new Error(`${note} — holders step stalled`);
-      return note;
-    }),
-    run("holder_windows", async () => {
-      // The exact call /holders makes: fails on a missing 0009 or a timeout.
-      const db = getDb();
-      if (!db) return "not configured (needs supabase)";
-      const [quotes, coins] = await Promise.all([getStockQuoteAssets(), getStockCoinsByMcap()]);
-      const mints = trackedMints(quotes, coins);
-      const w = await getHolderWindows(168, mints);
-      if (!w) throw new Error("holder_window failed (migration 0009 applied? see server log)");
-      let hours = 0;
-      for (const x of w.values()) hours = Math.max(hours, x.hours);
-      const q = quotes.filter((x) => w.has(x.mint)).length;
-      return `${q} of ${quotes.length} quote assets and ${coins.filter((c) => w.has(c.token.mint)).length} of ${coins.length} coins have readings, ${hours.toFixed(1)}h of history`;
-    }),
     run("wallet_census", async () => {
       const db = getDb();
       if (!db) return "not configured (needs supabase)";
@@ -133,7 +108,9 @@ export async function GET() {
       const ageH = (Date.now() - Date.parse(c.latest.ts)) / 3.6e6;
       const last = c.runs[c.runs.length - 1];
       const wallets = last ? last.hist.reduce((a, b) => a + b, 0) : 0;
-      const note = `${key} · last run ${ageH.toFixed(1)}h ago: ${wallets} wallets, ${c.latest.mintsOk} ok / ${c.latest.mintsFailed} failed${c.latest.firstError ? ` (${c.latest.firstError})` : ""}`;
+      const mc = await getMintCounts();
+      const truncated = mc ? [...mc.values()].filter((x) => x.truncated).length : 0;
+      const note = `${key} · last run ${ageH.toFixed(1)}h ago: ${wallets} stock-token wallets, ${c.latest.mintsOk} quote assets ok / ${c.latest.mintsFailed} failed${c.latest.firstError ? ` (${c.latest.firstError})` : ""}${mc ? ` · on-chain counts for ${mc.size} assets, ${truncated} past the ${QUOTE_CENSUS_MAX_PAGES}-page cap` : " · mint counts unreadable (migration 0015 applied?)"}${c.latest.durationMs ? ` · ${(c.latest.durationMs / 1000).toFixed(0)}s` : ""}`;
       if (ageH > WALLET_CENSUS_EVERY_H * 1.5) throw new Error(`${note} — census stalled`);
       return note;
     }),

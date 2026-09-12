@@ -5,9 +5,10 @@ import TokenIcon from "./TokenIcon";
 import { TradeLink } from "./BuyButton";
 import { fmtNum, timeAgo } from "@/lib/format";
 
-// Every quote asset with at least one reward coin, in every category. Two holder figures per row from
-// two providers, kept in separate columns: HolderScan's holder count (any balance, any venue) and this
-// site's census of wallets holding a StonkFun coin that pays the asset. Rows are plain data.
+// Every quote asset with at least one reward coin, in every category. Three wallet counts per row, kept in
+// separate columns: HolderScan's holder count (any balance, any venue), this site's own on-chain count of
+// wallets holding the asset (Helius, every few hours), and its census of wallets holding a StonkFun coin
+// that pays the asset. Rows are plain data.
 
 export type UniverseChange = { abs: number; pct: number | null; hours: number; from: string; to: string; provider?: "holderscan" } | null;
 
@@ -29,9 +30,13 @@ export type UniverseRowView = {
   paidD1: number | null;
   paidCoins: number | null;
   share: number | null;
+  onchain: number | null;
+  onchainD1: number | null;
+  onchainTruncated: boolean;
+  onchainAt: string | null;
 };
 
-type SortKey = "symbol" | "category" | "holders" | "d1" | "d7" | "d30" | "paid" | "paidD1" | "share" | "coins";
+type SortKey = "symbol" | "category" | "holders" | "d1" | "d7" | "d30" | "onchain" | "onchainD1" | "paid" | "paidD1" | "share" | "coins";
 
 const hhmm = (iso: string) => iso.slice(11, 16) + " UTC";
 const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
@@ -63,6 +68,8 @@ function sortValue(r: UniverseRowView, k: SortKey): number | string | null {
     case "d1": return r.d1?.abs ?? null;
     case "d7": return r.d7?.abs ?? null;
     case "d30": return r.d30?.abs ?? null;
+    case "onchain": return r.onchain;
+    case "onchainD1": return r.onchainD1;
     case "paid": return r.paid;
     case "paidD1": return r.paidD1;
     case "share": return r.share;
@@ -84,7 +91,7 @@ function Th({ k, sort, onSort, right = false, title, children }: { k: SortKey; s
 
 // A change column with no value on any row is hidden and its "appears from" date shown once above the
 // table instead of "collecting" on every row. `firstRead` = when this site's daily readings started.
-export type ColumnAvailability = { d1: boolean; d7: boolean; d30: boolean; paidD1: boolean; firstRead: string | null; firstCensus: string | null };
+export type ColumnAvailability = { d1: boolean; d7: boolean; d30: boolean; onchain: boolean; onchainD1: boolean; paidD1: boolean; firstRead: string | null; firstCensus: string | null };
 
 const dayAfter = (iso: string | null, days: number) => (iso ? new Date(Date.parse(iso) + days * 864e5).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : "soon");
 
@@ -94,6 +101,8 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
     d1: rows.some((r) => r.d1),
     d7: rows.some((r) => r.d7),
     d30: rows.some((r) => r.d30),
+    onchain: rows.some((r) => r.onchain !== null),
+    onchainD1: rows.some((r) => r.onchainD1 !== null),
     paidD1: rows.some((r) => r.paidD1 !== null),
     firstRead: rows.map((r) => r.readAt).filter(Boolean).sort()[0] ?? null,
     firstCensus: null,
@@ -102,6 +111,7 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
   if (!avail.d1) pending.push(`holders 24h from ${dayAfter(avail.firstRead, 1)}`);
   if (!avail.d7) pending.push(`holders 7d from ${dayAfter(avail.firstRead, 6)}`);
   if (!avail.d30) pending.push(`holders 30d from ${dayAfter(avail.firstRead, 24)}`);
+  if (avail.onchain && !avail.onchainD1) pending.push(`on-chain 24h from ${dayAfter(rows.map((r) => r.onchainAt).filter(Boolean).sort()[0] ?? null, 1)}`);
   if (!avail.paidD1) pending.push(`StonkFun wallets 24h from ${dayAfter(avail.firstRead, 1)}`);
   const [selected, setSelected] = useState<string[]>(all);
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "paid", desc: true });
@@ -149,11 +159,13 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
               <th className="r">#</th>
               <Th k="symbol" sort={sort} onSort={toggle}>Quote asset</Th>
               <Th k="category" sort={sort} onSort={toggle}>Category</Th>
-              <Th k="holders" sort={sort} onSort={toggle} right title="HolderScan holder count, read daily">Holders</Th>
+              <Th k="holders" sort={sort} onSort={toggle} right title="HolderScan holder count (any balance, any venue)">Holders</Th>
               {avail.d1 && <Th k="d1" sort={sort} onSort={toggle} right>24h</Th>}
               {avail.d7 && <Th k="d7" sort={sort} onSort={toggle} right>7d</Th>}
               {avail.d30 && <Th k="d30" sort={sort} onSort={toggle} right>30d</Th>}
-              <Th k="paid" sort={sort} onSort={toggle} right title="Wallets holding a StonkFun reward coin that pays this asset (stonk.fyi census, daily, lower bound)">StonkFun wallets</Th>
+              {avail.onchain && <Th k="onchain" sort={sort} onSort={toggle} right title="Owner addresses with a non-zero balance of the asset, counted from token accounts via Helius (stonk.fyi census); ≥ marks a floor">On-chain</Th>}
+              {avail.onchainD1 && <Th k="onchainD1" sort={sort} onSort={toggle} right>24h</Th>}
+              <Th k="paid" sort={sort} onSort={toggle} right title="Wallets holding a StonkFun reward coin that pays this asset (stonk.fyi census, lower bound)">StonkFun wallets</Th>
               {avail.paidD1 && <Th k="paidD1" sort={sort} onSort={toggle} right>24h</Th>}
               <Th k="share" sort={sort} onSort={toggle} right title="StonkFun wallets ÷ holders: the fraction of this asset's holders that hold a StonkFun coin paying them the asset">StonkFun share</Th>
               <Th k="coins" sort={sort} onSort={toggle} right title="Reward coins launched against this asset">Coins</Th>
@@ -177,6 +189,12 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
                 {avail.d1 && <td className="r"><ChangeCell c={r.d1} hint="no second reading for this asset yet" /></td>}
                 {avail.d7 && <td className="r"><ChangeCell c={r.d7} hint="no 7-day history for this asset yet (HolderScan has none; this site's readings cover it in about 6 days)" /></td>}
                 {avail.d30 && <td className="r"><ChangeCell c={r.d30} hint="no 30-day history for this asset yet" /></td>}
+                {avail.onchain && (
+                  <td className="r num text-[14px]" title={r.onchainAt ? `${r.onchainTruncated ? "more token accounts than one run reads — a floor · " : ""}counted ${timeAgo(r.onchainAt, now)}` : undefined}>
+                    {r.onchain === null ? <span className="text-muted text-xs">—</span> : <>{r.onchainTruncated ? <span className="text-muted text-xs">≥ </span> : null}{fmtNum(r.onchain)}</>}
+                  </td>
+                )}
+                {avail.onchainD1 && <td className="r num">{r.onchainD1 === null ? <span className="text-muted text-xs">—</span> : <span className={`text-[14px] ${r.onchainD1 > 0 ? "text-up" : r.onchainD1 < 0 ? "text-down" : "text-muted"}`}>{signed(r.onchainD1)}</span>}</td>}
                 <td className="r num text-[14px]" title={r.paidCoins !== null ? `${r.paidCoins} of ${r.coins} coins covered by the census` : undefined}>
                   {r.paid === null ? <span className="text-muted text-xs">{r.coins ? "not covered" : "—"}</span> : <>{fmtNum(r.paid)}{r.paidCoins !== null && r.paidCoins < r.coins ? <span className="text-muted text-xs">+</span> : null}</>}
                 </td>

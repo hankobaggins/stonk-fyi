@@ -40,7 +40,7 @@ export async function GET(req: Request) {
       return { kind, ...r, note };
     }
     const r = await runWalletCensus(db, ts, CENSUS_BUDGET_MS);
-    const note = `${r.wallets} wallets across ${r.mintsOk} quote assets${r.mintsFailed ? ` (${r.mintsFailed} failed: ${r.firstError})` : ""}, ${r.accounts} accounts, ${(r.durationMs / 1000).toFixed(0)}s`;
+    const note = `${r.wallets} wallets across ${r.mintsOk} quote assets${r.mintsFailed ? ` (${r.mintsFailed} failed: ${r.firstError})` : ""}${r.truncated ? ` (${r.truncated} past the page cap)` : ""}, ${r.accounts} accounts, ${(r.durationMs / 1000).toFixed(0)}s`;
     console.log(`wallet census ${ts}: ${note}`);
     return { kind, ...r, note };
   };

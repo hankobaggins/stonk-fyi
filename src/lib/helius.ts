@@ -42,7 +42,7 @@ async function rpc<T>(method: string, params: Record<string, unknown>): Promise<
   }
 }
 
-export type MintOwners = { owners: Set<string>; accounts: number; pages: number };
+export type MintOwners = { owners: Set<string>; accounts: number; pages: number; truncated: boolean };
 
 // Every distinct owner with a non-zero balance of `mint`. Walks the cursor until a short page.
 // `maxPages` is a runaway guard (100 pages = 100K token accounts for one mint).
@@ -59,8 +59,9 @@ export async function getMintOwners(mint: string, maxPages = 100): Promise<MintO
       accounts++;
       owners.add(a.owner);
     }
-    if (!page.cursor || (page.token_accounts?.length ?? 0) < PAGE || pages >= maxPages) break;
+    if (!page.cursor || (page.token_accounts?.length ?? 0) < PAGE) break;
+    if (pages >= maxPages) return { owners, accounts, pages, truncated: true };
     cursor = page.cursor;
   }
-  return { owners, accounts, pages };
+  return { owners, accounts, pages, truncated: false };
 }

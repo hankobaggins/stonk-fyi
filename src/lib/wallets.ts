@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
 import { getDb } from "./db";
 import { getMintOwners, HELIUS_PAID } from "./helius";
-import { getStockQuoteAssets, STOCK_CATEGORIES, type StockCategory } from "./holders";
+import { getStockQuoteAssets, isStockCategory, STOCK_CATEGORIES, type StockCategory } from "./holders";
+import { getUniverse } from "./universe";
 
 // Wallet census: distinct wallets holding at least one stock-quoted quote asset, by issuer category
 // (migration 0010, CLAUDE.md §6f). One Helius DAS pull per quote asset, reduced to a per-wallet
@@ -14,31 +15,48 @@ export const WALLET_HISTORY_DAYS = 31;
 
 export const categoryBit = (c: StockCategory) => 1 << STOCK_CATEGORIES.indexOf(c);
 
-export type CensusResult = { ts: string; wallets: number; accounts: number; mintsOk: number; mintsFailed: number; firstError: string | null; durationMs: number };
+export type CensusResult = { ts: string; wallets: number; accounts: number; mintsOk: number; mintsFailed: number; truncated: number; firstError: string | null; durationMs: number };
+
+// Per-mint page cap (1,000 accounts a page). A mint past it (USDC, SOL, the biggest memecoins) is stored with what
+// was read and flagged truncated — the page shows "≥" — rather than eating the whole run's budget.
+export const QUOTE_CENSUS_MAX_PAGES = Math.max(10, Number(process.env.QUOTE_CENSUS_MAX_PAGES ?? (HELIUS_PAID ? 150 : 100)));
+
+// Which quote assets the census walks: the whole universe on a paid Helius plan (stock assets first, so the
+// issuer histogram is complete even if the budget runs out; then the rest by holder-slots), the ~80 stock
+// assets only on the free plan (a universe walk is ~2–3K pages, too slow at 550 ms a page).
+async function censusMints(): Promise<{ mint: string; symbol: string; category: string }[]> {
+  if (!HELIUS_PAID) return (await getStockQuoteAssets()).map((q) => ({ mint: q.mint, symbol: q.symbol, category: q.category! }));
+  const { assets } = await getUniverse();
+  const stock = assets.filter((a) => isStockCategory(a.category)).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  const rest = assets.filter((a) => !isStockCategory(a.category)); // already sorted by slots desc
+  return [...stock, ...rest].map((a) => ({ mint: a.mint, symbol: a.symbol, category: a.category }));
+}
 
 // `budgetMs`: stop walking mints once this much time has passed (the rest count as failed, the run is
 // stored and flagged incomplete) so a slow Helius day yields a partial reading instead of a killed function.
 export async function runWalletCensus(db: SupabaseClient, ts: string, budgetMs = Infinity): Promise<CensusResult> {
   const t0 = Date.now();
-  const quotes = await getStockQuoteAssets();
+  const quotes = await censusMints();
   const masks = new Map<string, number>();
-  const mintRows: { mint: string; ts: string; category: string; owners: number; accounts: number }[] = [];
+  const mintRows: { mint: string; ts: string; category: string; owners: number; accounts: number; truncated: boolean }[] = [];
   let accounts = 0;
   let mintsOk = 0;
   let mintsFailed = 0;
+  let truncated = 0;
   let firstError: string | null = null;
   for (const q of quotes) {
-    const bit = categoryBit(q.category as StockCategory);
+    const bit = isStockCategory(q.category) ? categoryBit(q.category) : 0;
     if (Date.now() - t0 > budgetMs) {
       mintsFailed++;
       if (!firstError) firstError = `${q.symbol}: time budget of ${Math.round(budgetMs / 1000)}s used up after ${mintsOk} quote assets`;
       continue;
     }
     try {
-      const r = await getMintOwners(q.mint);
-      for (const o of r.owners) masks.set(o, (masks.get(o) ?? 0) | bit);
+      const r = await getMintOwners(q.mint, QUOTE_CENSUS_MAX_PAGES);
+      if (bit) for (const o of r.owners) masks.set(o, (masks.get(o) ?? 0) | bit);
       accounts += r.accounts;
-      mintRows.push({ mint: q.mint, ts, category: q.category!, owners: r.owners.size, accounts: r.accounts });
+      if (r.truncated) truncated++;
+      mintRows.push({ mint: q.mint, ts, category: q.category, owners: r.owners.size, accounts: r.accounts, truncated: r.truncated });
       mintsOk++;
     } catch (e) {
       mintsFailed++;
@@ -59,9 +77,8 @@ export async function runWalletCensus(db: SupabaseClient, ts: string, budgetMs =
   const r3 = await db.from("wallet_run_meta").upsert({ ts, mints_ok: mintsOk, mints_failed: mintsFailed, accounts, first_error: firstError, duration_ms: durationMs }, { onConflict: "ts" });
   if (r3.error) throw new Error(r3.error.message);
 
-  return { ts, wallets: masks.size, accounts, mintsOk, mintsFailed, firstError, durationMs };
+  return { ts, wallets: masks.size, accounts, mintsOk, mintsFailed, truncated, firstError, durationMs };
 }
-
 // Whether this tick should run the census: once every WALLET_CENSUS_EVERY_H hours, on the :45 tick
 // (minute 45–49), so it never shares a run with the hourly token walk or the :30 holders step.
 export function censusDue(ts: string): boolean {
@@ -219,3 +236,4 @@ export function coinCensusDue(ts: string): boolean {
   const m = d.getUTCMinutes();
   return m >= 15 && m < 20 && d.getUTCHours() % COIN_CENSUS_EVERY_H === 1 % COIN_CENSUS_EVERY_H;
 }
+

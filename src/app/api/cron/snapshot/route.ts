@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
-import { getDb, pruneHolderSnapshots, pruneRewardSnapshots } from "@/lib/db";
+import { getDb, pruneRewardSnapshots } from "@/lib/db";
 import { runAthAlert } from "@/lib/ath-alerts";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { runBurnMilestone } from "@/lib/burn-milestones";
 import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
-import { getStockCoinsByMcap, getStockQuoteAssets, HOLDERS_RETENTION_DAYS, HOLDERS_TRACKED, runHoldersSnapshot, trackedMints } from "@/lib/holders";
 import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
 import { censusDue, coinCensusDue } from "@/lib/wallets";
 import { deltasDue, pruneUniverseHolders, runCoinDeltas, runUniverseDeltas, runUniverseHolders, universeDue } from "@/lib/universe";
@@ -294,25 +293,6 @@ export async function GET(req: Request) {
     }
     return rows.length;
   });
-
-  // Once an hour, on the :30 tick (not the hourly run, whose 500-token walk already takes a while):
-  // the GMGN calls are paced one every 1.2 s, so this step alone is ~2 min.
-  const minute = new Date(ts).getUTCMinutes();
-  if (full || (!hourly && minute >= 30 && minute < 35)) {
-    await step("holders", async () => {
-      // Unique holders of the stock-quoted quote assets (GMGN, ~80 calls) and the HOLDERS_TRACKED largest
-      // reward coins quoted in them (StonkFun /rewards holderCount) → holder_snapshots, once an hour.
-      // Feeds /holders (src/lib/holders.ts). Full mode also prunes untracked mints and old readings.
-      const r = await runHoldersSnapshot(db, ts);
-      notes.holders = `${r.quotesRead} quote assets read${r.quotesFailed ? `, ${r.quotesFailed} failed (${r.firstError})` : ""}, ${r.coins} coins`;
-      if (full) {
-        const [quotes, coins] = await Promise.all([getStockQuoteAssets(), getStockCoinsByMcap(HOLDERS_TRACKED)]);
-        const dropped = await pruneHolderSnapshots(trackedMints(quotes, coins), HOLDERS_RETENTION_DAYS);
-        notes.holders += ` · pruned ${dropped}`;
-      }
-      return r.rows;
-    });
-  }
 
   // On the :15 tick, once a day at 02:15 UTC (Standard plan) or every hour (HOLDERSCAN_PLAN=advanced), or ?universe=1:
   // one HolderScan holder_count per universe quote asset (~320 calls, paced → ~35–80 s; CLAUDE.md §6g). Its own
