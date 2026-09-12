@@ -10,7 +10,7 @@ import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getStockCoinsByMcap, getStockQuoteAssets, HOLDERS_RETENTION_DAYS, HOLDERS_TRACKED, runHoldersSnapshot, trackedMints } from "@/lib/holders";
 import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
 import { censusDue, coinCensusDue } from "@/lib/wallets";
-import { deltasDue, pruneUniverseHolders, runUniverseDeltas, runUniverseHolders, universeDue } from "@/lib/universe";
+import { deltasDue, pruneUniverseHolders, runCoinDeltas, runUniverseDeltas, runUniverseHolders, universeDue } from "@/lib/universe";
 import { SITE_URL } from "@/lib/site";
 import type { Token } from "@/lib/types";
 
@@ -23,6 +23,7 @@ import type { Token } from "@/lib/types";
 //   ...&census=1 | &census=coins      -> kick off the quote-asset / reward-coin census now (/api/cron/census)
 //   ...&universe=1                    -> run the daily HolderScan universe_holders step now
 //   ...&deltas=1                      -> run the HolderScan universe_deltas step (7/14/30-day changes) now
+//   ...&coindeltas=1[&top=N]          -> run the HolderScan coin_deltas step (per reward coin) now
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -84,6 +85,8 @@ export async function GET(req: Request) {
   const coinCensus = params.get("census") === "coins";
   const universe = params.get("universe") === "1";
   const deltas = params.get("deltas") === "1";
+  const coinDeltas = params.get("coindeltas") === "1";
+  const coinDeltasTop = Number(params.get("top")) || undefined;
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -334,6 +337,20 @@ export async function GET(req: Request) {
         return 0;
       }
       notes.universe_deltas = `${r.rows} quote assets read${r.failed ? `, ${r.failed} without deltas (${r.firstError})` : ""}`;
+      return r.rows;
+    });
+  }
+
+  // Same cadence: HolderScan deltas per reward coin (the largest by holder count) — the only backdated
+  // "holders added to StonkFun coins" figure, summed as holder-slots on /holders (migration 0013).
+  if (coinDeltas || (!hourly && !full && deltasDue(ts))) {
+    await step("coin_deltas", async () => {
+      const r = await runCoinDeltas(db, ts, coinDeltasTop);
+      if (r.skipped) {
+        notes.coin_deltas = `skipped: ${r.firstError}`;
+        return 0;
+      }
+      notes.coin_deltas = `${r.rows} coins read (${((r.slotsCovered / Math.max(1, r.slotsTotal)) * 100).toFixed(0)}% of holder-slots)${r.failed ? `, ${r.failed} not tracked by HolderScan (${r.firstError})` : ""}`;
       return r.rows;
     });
   }

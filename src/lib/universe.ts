@@ -101,7 +101,7 @@ export function universeDue(ts: string): boolean {
 
 // HolderScan's 7/14/30-day deltas: every third day on the same 02:15 tick (20 units a call, ~6.3K a run,
 // ~63K a month on top of the daily counts — together inside the Standard plan's 200K).
-export const DELTAS_EVERY_DAYS = Math.max(1, Number(process.env.UNIVERSE_DELTAS_EVERY_DAYS ?? 3));
+export const DELTAS_EVERY_DAYS = Math.max(1, Number(process.env.UNIVERSE_DELTAS_EVERY_DAYS ?? 4));
 export function deltasDue(ts: string): boolean {
   return universeDue(ts) && Math.floor(Date.parse(ts) / 864e5) % DELTAS_EVERY_DAYS === 0;
 }
@@ -130,6 +130,79 @@ export async function runUniverseDeltas(db: SupabaseClient, ts: string): Promise
     throw new Error(`no deltas could be read (${firstError})`);
   }
   return { rows: rows.length, failed, skipped: false, firstError };
+}
+
+// ---------- reward-coin deltas (HolderScan, per coin) ----------
+
+export const COIN_DELTAS_TOP = Math.max(10, Number(process.env.COIN_DELTAS_TOP ?? 250));
+
+export type CoinDeltasStepResult = { rows: number; failed: number; skipped: boolean; firstError: string | null; slotsCovered: number; slotsTotal: number };
+
+// HolderScan deltas for the COIN_DELTAS_TOP largest reward coins by StonkFun holderCount (20 units each).
+// Runs with the quote-asset deltas (every DELTAS_EVERY_DAYS days) or on demand with ?coindeltas=1.
+export async function runCoinDeltas(db: SupabaseClient, ts: string, top = COIN_DELTAS_TOP): Promise<CoinDeltasStepResult> {
+  if (!holderscanEnabled()) return { rows: 0, failed: 0, skipped: true, firstError: "HOLDERSCAN_API_KEY not set", slotsCovered: 0, slotsTotal: 0 };
+  const launches = (await getRewards()).data.launches;
+  const slotsTotal = launches.reduce((a, l) => a + l.holderCount, 0);
+  const picked = [...launches].filter((l) => l.holderCount > 0).sort((a, b) => b.holderCount - a.holderCount).slice(0, top);
+  let firstError: string | null = null;
+  let failed = 0;
+  let slotsCovered = 0;
+  const rows: { mint: string; ts: string; quote_mint: string; holders_now: number; d7: number | null; d14: number | null; d30: number | null }[] = [];
+  for (const l of picked) {
+    const r = await getHolderscanDeltas(l.mint);
+    if (!r.deltas) {
+      failed++;
+      if (!firstError) firstError = `${l.mint.slice(0, 6)}… (${l.quote.symbol}, ${l.holderCount} holders): ${r.error}`;
+      continue;
+    }
+    slotsCovered += l.holderCount;
+    rows.push({ mint: l.mint, ts, quote_mint: l.quote.mint, holders_now: l.holderCount, ...r.deltas });
+  }
+  if (rows.length) {
+    const { error } = await db.from("coin_holder_deltas").upsert(rows, { onConflict: "mint,ts" });
+    if (error) throw new Error(error.message);
+  } else if (picked.length) {
+    throw new Error(`no coin deltas could be read (${firstError})`);
+  }
+  return { rows: rows.length, failed, skipped: false, firstError, slotsCovered, slotsTotal };
+}
+
+export type CoinDeltaTotals = {
+  ts: string;
+  coins: number; // coins with a delta in the newest run
+  holdersNow: number; // Σ StonkFun holderCount over those coins
+  d7: number;
+  d14: number;
+  d30: number;
+  byQuote: Map<string, { coins: number; d7: number; d30: number }>;
+};
+
+// Newest run of coin_holder_deltas, summed. null when the table is empty or unreadable.
+export async function getCoinDeltaTotals(): Promise<CoinDeltaTotals | null> {
+  const db = getDb();
+  if (!db) return null;
+  const last = await db.from("coin_holder_deltas").select("ts").order("ts", { ascending: false }).limit(1);
+  if (last.error || !last.data?.[0]) {
+    if (last.error) console.error(`coin_holder_deltas read failed: ${last.error.message} (migration 0013 applied?)`);
+    return null;
+  }
+  const ts = last.data[0].ts as string;
+  const { data, error } = await db.from("coin_holder_deltas").select("mint, quote_mint, holders_now, d7, d14, d30").eq("ts", ts).limit(5000);
+  if (error || !data) return null;
+  const t: CoinDeltaTotals = { ts, coins: data.length, holdersNow: 0, d7: 0, d14: 0, d30: 0, byQuote: new Map() };
+  for (const r of data) {
+    t.holdersNow += r.holders_now;
+    t.d7 += r.d7 ?? 0;
+    t.d14 += r.d14 ?? 0;
+    t.d30 += r.d30 ?? 0;
+    const q = t.byQuote.get(r.quote_mint) ?? { coins: 0, d7: 0, d30: 0 };
+    q.coins++;
+    q.d7 += r.d7 ?? 0;
+    q.d30 += r.d30 ?? 0;
+    t.byQuote.set(r.quote_mint, q);
+  }
+  return t;
 }
 
 export type LatestDeltas = Map<string, { ts: string; d7: number | null; d14: number | null; d30: number | null }>;
@@ -294,13 +367,14 @@ export type UniverseTable = {
   deltaCount: number; // rows whose 7d/30d come from HolderScan's own deltas
   historyHours: number;
   census: CoinCensus;
+  coinDeltas: CoinDeltaTotals | null;
   generatedAt: string;
 };
 
 export async function getUniverseTable(): Promise<UniverseTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
-  const [{ assets }, census, deltas] = await Promise.all([getUniverse(), getCoinCensus(), getLatestDeltas()]);
+  const [{ assets }, census, deltas, coinDeltas] = await Promise.all([getUniverse(), getCoinCensus(), getLatestDeltas(), getCoinDeltaTotals()]);
   const mints = assets.map((a) => a.mint);
   const [w24, w168, w720] = db ? await Promise.all([getQuoteHolderWindows(24, mints), getQuoteHolderWindows(168, mints), getQuoteHolderWindows(720, mints)]) : [null, null, null];
   const dbError = !!db && (w24 === null || w168 === null || w720 === null);
@@ -341,6 +415,7 @@ export async function getUniverseTable(): Promise<UniverseTable> {
     deltaCount,
     historyHours,
     census,
+    coinDeltas,
     generatedAt,
   };
 }

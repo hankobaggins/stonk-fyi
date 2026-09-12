@@ -24,6 +24,10 @@ on:
         description: "Run the HolderScan universe_deltas step (?deltas=1, 7/14/30-day changes) on this tick"
         type: boolean
         default: false
+      coin_deltas:
+        description: "Run the HolderScan coin_deltas step (?coindeltas=1, per reward coin) on this tick"
+        type: boolean
+        default: false
 concurrency:
   group: snapshot
   cancel-in-progress: false
@@ -45,6 +49,7 @@ jobs:
           route="/api/cron/snapshot$full"; wait=280
           if [ "${{ inputs.universe }}" = "true" ]; then route="/api/cron/snapshot?universe=1"; fi
           if [ "${{ inputs.deltas }}" = "true" ]; then route="/api/cron/snapshot?deltas=1"; fi
+          if [ "${{ inputs.coin_deltas }}" = "true" ]; then route="/api/cron/snapshot?coindeltas=1"; fi
           if [ "${{ inputs.census }}" = "true" ]; then route="/api/cron/census?sync=1"; wait=840; fi
           if [ "${{ inputs.coin_census }}" = "true" ]; then route="/api/cron/census?kind=coins&sync=1"; wait=840; fi
           code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time $wait \

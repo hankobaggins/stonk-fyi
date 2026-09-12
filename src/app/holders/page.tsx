@@ -43,6 +43,8 @@ export default async function HoldersPage() {
     };
   });
   const latestRun = u.census.latest;
+  const slotsTotal = u.rows.reduce((a, r) => a + r.slots, 0);
+  const growth = u.coinDeltas ? { ts: u.coinDeltas.ts, coins: u.coinDeltas.coins, holdersNow: u.coinDeltas.holdersNow, d7: u.coinDeltas.d7, d14: u.coinDeltas.d14, d30: u.coinDeltas.d30, slotsTotal } : null;
   const uReadAt = u.rows.map((r) => r.readAt).filter(Boolean).sort().pop() ?? null;
 
   // ---- stock-quoted side (§6e / §6f), unchanged ----
@@ -119,8 +121,8 @@ export default async function HoldersPage() {
         title="Wallets holding a StonkFun reward coin"
         action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · daily</span>}
       >
-        {u.census.status === "ok" ? (
-          <EcosystemWallets runs={u.census.runs} now={now} />
+        {u.census.status === "ok" || growth ? (
+          <EcosystemWallets runs={u.census.status === "ok" ? u.census.runs : []} growth={growth} now={now} />
         ) : (
           <Empty>
             {u.census.status === "empty" || u.census.status === "no-db"

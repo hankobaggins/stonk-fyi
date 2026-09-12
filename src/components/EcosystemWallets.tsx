@@ -18,7 +18,9 @@ const MIN_COVERAGE = 0.8;
 const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
 const fmtTs = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export default function EcosystemWallets({ runs, now }: { runs: CensusPoint[]; now: number }) {
+export type CoinGrowth = { ts: string; coins: number; holdersNow: number; d7: number; d14: number; d30: number; slotsTotal: number };
+
+export default function EcosystemWallets({ runs, growth, now }: { runs: CensusPoint[]; growth: CoinGrowth | null; now: number }) {
   const series = runs.map((r) => ({ ts: Date.parse(r.ts), wallets: r.wallets }));
   const firstTs = series[0]?.ts ?? null;
   const from = (hours: number) => (firstTs ? fmtTs(firstTs + hours * 3.6e6 * MIN_COVERAGE) : "soon");
@@ -57,6 +59,38 @@ export default function EcosystemWallets({ runs, now }: { runs: CensusPoint[]; n
           );
         })}
       </div>
+
+      {growth && (
+        <div className="mt-5 pt-4 border-t border-border">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-2">
+            <div className="label">Holders added to StonkFun coins</div>
+            <span className="num text-xs text-muted">HolderScan · {fmtNum(growth.coins)} largest coins · {((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots · read {timeAgo(growth.ts, now)}</span>
+          </div>
+          <div className="kpis">
+            <div className="kpi min-w-0">
+              <div className="label">Holder-slots now</div>
+              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{fmtNum(growth.holdersNow)}</div>
+              <div className="mt-1.5 text-xs text-secondary num">across the covered coins</div>
+            </div>
+            {[
+              { label: "7d", v: growth.d7 },
+              { label: "14d", v: growth.d14 },
+              { label: "30d", v: growth.d30 },
+            ].map((w) => {
+              const base = growth.holdersNow - w.v;
+              const cls = w.v > 0 ? "text-up" : w.v < 0 ? "text-down" : "text-muted";
+              return (
+                <div key={w.label} className="kpi min-w-0">
+                  <div className="label">{w.label} added</div>
+                  <div className={`mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight ${cls}`}>{signed(w.v)}</div>
+                  <div className="mt-1.5 text-xs text-secondary num">{base > 0 ? `${w.v >= 0 ? "+" : ""}${((w.v / base) * 100).toFixed(1)}%` : "—"} · vs {w.label} ago</div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-xs text-muted">Holder-slots: one per coin per wallet, summed over the covered coins from HolderScan&apos;s per-coin history — a wallet holding two coins counts twice, and coins HolderScan does not track are left out. The de-duplicated wallet count above only has history from its first census.</p>
+        </div>
+      )}
 
       {series.length > 1 && (
         <div className="mt-5">

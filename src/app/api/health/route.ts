@@ -10,7 +10,7 @@ import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
 import { COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
-import { DELTAS_EVERY_DAYS, getCoinCensus, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
+import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, getCoinCensus, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
 import { holderscanEnabled } from "@/lib/holderscan";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
@@ -157,6 +157,14 @@ export async function GET() {
       const note = `${key} · ${w.size} of ${assets.length} quote assets have a reading, newest ${ageH.toFixed(1)}h ago, ${(hours / 24).toFixed(1)} days of history · ${dNote}`;
       if (ageH > 36) throw new Error(`${note} — universe_holders step stalled`);
       return note;
+    }),
+    run("coin_deltas", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const t = await getCoinDeltaTotals();
+      if (!t) return `no coin deltas yet (?coindeltas=1; top ${COIN_DELTAS_TOP} coins every ${DELTAS_EVERY_DAYS} days) — or migration 0013 missing`;
+      const ageH = (Date.now() - Date.parse(t.ts)) / 3.6e6;
+      return `${t.coins} coins, ${t.holdersNow} holders now · 7d ${t.d7 >= 0 ? "+" : ""}${t.d7} · 14d ${t.d14 >= 0 ? "+" : ""}${t.d14} · 30d ${t.d30 >= 0 ? "+" : ""}${t.d30} (holder-slots, HolderScan) · read ${ageH.toFixed(1)}h ago`;
     }),
     run("coin_census", async () => {
       // §6g: distinct wallets holding any reward coin, daily (/api/cron/census?kind=coins).
