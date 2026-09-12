@@ -10,7 +10,7 @@ import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getStockCoinsByMcap, getStockQuoteAssets, HOLDERS_RETENTION_DAYS, HOLDERS_TRACKED, runHoldersSnapshot, trackedMints } from "@/lib/holders";
 import { getRewardCoinsByMcap, YIELD_TRACKED } from "@/lib/yield";
 import { censusDue, coinCensusDue } from "@/lib/wallets";
-import { pruneUniverseHolders, runUniverseHolders, universeDue } from "@/lib/universe";
+import { deltasDue, pruneUniverseHolders, runUniverseDeltas, runUniverseHolders, universeDue } from "@/lib/universe";
 import { SITE_URL } from "@/lib/site";
 import type { Token } from "@/lib/types";
 
@@ -22,6 +22,7 @@ import type { Token } from "@/lib/types";
 //   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert steps record but never post to X
 //   ...&census=1 | &census=coins      -> kick off the quote-asset / reward-coin census now (/api/cron/census)
 //   ...&universe=1                    -> run the daily HolderScan universe_holders step now
+//   ...&deltas=1                      -> run the HolderScan universe_deltas step (7/14/30-day changes) now
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -82,6 +83,7 @@ export async function GET(req: Request) {
   const census = params.get("census") === "1";
   const coinCensus = params.get("census") === "coins";
   const universe = params.get("universe") === "1";
+  const deltas = params.get("deltas") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -318,6 +320,20 @@ export async function GET(req: Request) {
       notes.universe_holders = `${r.read} quote assets read${r.failed ? `, ${r.failed} without a reading (${r.firstError})` : ""}`;
       const dropped = await pruneUniverseHolders(db);
       if (dropped) notes.universe_holders += ` · pruned ${dropped}`;
+      return r.rows;
+    });
+  }
+
+  // Every third day, right after the counts: HolderScan's own 7/14/30-day deltas (20 units a call), so the
+  // 7d and 30d columns show from day one until this site's readings cover the window (migration 0012).
+  if (deltas || (!hourly && !full && deltasDue(ts))) {
+    await step("universe_deltas", async () => {
+      const r = await runUniverseDeltas(db, ts);
+      if (r.skipped) {
+        notes.universe_deltas = `skipped: ${r.firstError}`;
+        return 0;
+      }
+      notes.universe_deltas = `${r.rows} quote assets read${r.failed ? `, ${r.failed} without deltas (${r.firstError})` : ""}`;
       return r.rows;
     });
   }

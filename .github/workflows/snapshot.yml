@@ -20,6 +20,10 @@ on:
         description: "Run the HolderScan universe_holders step (?universe=1) on this tick"
         type: boolean
         default: false
+      deltas:
+        description: "Run the HolderScan universe_deltas step (?deltas=1, 7/14/30-day changes) on this tick"
+        type: boolean
+        default: false
 concurrency:
   group: snapshot
   cancel-in-progress: false
@@ -40,6 +44,7 @@ jobs:
           # manual run with the census box ticked → the wallet census, waited for (its own route, up to ~13 min; CLAUDE.md §6f)
           route="/api/cron/snapshot$full"; wait=280
           if [ "${{ inputs.universe }}" = "true" ]; then route="/api/cron/snapshot?universe=1"; fi
+          if [ "${{ inputs.deltas }}" = "true" ]; then route="/api/cron/snapshot?deltas=1"; fi
           if [ "${{ inputs.census }}" = "true" ]; then route="/api/cron/census?sync=1"; wait=840; fi
           if [ "${{ inputs.coin_census }}" = "true" ]; then route="/api/cron/census?kind=coins&sync=1"; wait=840; fi
           code=$(curl -sS -o /tmp/out.json -w "%{http_code}" --max-time $wait \

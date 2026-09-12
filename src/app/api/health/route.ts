@@ -10,7 +10,7 @@ import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
 import { COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
-import { getCoinCensus, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
+import { DELTAS_EVERY_DAYS, getCoinCensus, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
 import { holderscanEnabled } from "@/lib/holderscan";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
@@ -152,7 +152,9 @@ export async function GET() {
         hours = Math.max(hours, x.hours);
       }
       const ageH = (Date.now() - newest) / 3.6e6;
-      const note = `${key} · ${w.size} of ${assets.length} quote assets have a reading, newest ${ageH.toFixed(1)}h ago, ${(hours / 24).toFixed(1)} days of history`;
+      const d = await getLatestDeltas();
+      const dNote = d === null ? "deltas unreadable (migration 0012 applied?)" : d.size ? `HolderScan deltas for ${d.size} assets (every ${DELTAS_EVERY_DAYS} days)` : "no HolderScan deltas yet (?deltas=1)";
+      const note = `${key} · ${w.size} of ${assets.length} quote assets have a reading, newest ${ageH.toFixed(1)}h ago, ${(hours / 24).toFixed(1)} days of history · ${dNote}`;
       if (ageH > 36) throw new Error(`${note} — universe_holders step stalled`);
       return note;
     }),

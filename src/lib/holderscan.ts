@@ -49,3 +49,21 @@ export async function getHolderscanHolderCount(mint: string): Promise<HolderCoun
     return { holders: null, error: e instanceof Error ? e.message : String(e) };
   }
 }
+
+export type HolderDeltas = { d7: number | null; d14: number | null; d30: number | null };
+
+// HolderScan's own change in holder count over 7 / 14 / 30 days: `GET /sol/tokens/{mint}/holders/deltas`
+// → `{ "7days": -12, "14days": 100, "30days": 150 }` (20 units; no 24h figure exists on this route).
+export async function getHolderscanDeltas(mint: string): Promise<{ deltas: HolderDeltas | null; error: string | null }> {
+  try {
+    const r = await get<Record<string, unknown>>(`/sol/tokens/${mint}/holders/deltas`);
+    if (r.status === 404) return { deltas: null, error: "not tracked by HolderScan" };
+    if (r.status !== 200) return { deltas: null, error: `HTTP ${r.status} ${r.text.slice(0, 120)}` };
+    const num = (k: string) => (typeof r.body?.[k] === "number" && Number.isFinite(r.body[k] as number) ? Math.round(r.body[k] as number) : null);
+    const deltas = { d7: num("7days"), d14: num("14days"), d30: num("30days") };
+    if (deltas.d7 === null && deltas.d14 === null && deltas.d30 === null) return { deltas: null, error: `unexpected shape: ${r.text.slice(0, 120)}` };
+    return { deltas, error: null };
+  } catch (e) {
+    return { deltas: null, error: e instanceof Error ? e.message : String(e) };
+  }
+}

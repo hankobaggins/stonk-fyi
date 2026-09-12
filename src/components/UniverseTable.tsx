@@ -9,7 +9,7 @@ import { fmtNum, timeAgo } from "@/lib/format";
 // two providers, kept in separate columns: HolderScan's holder count (any balance, any venue) and this
 // site's census of wallets holding a StonkFun coin that pays the asset. Rows are plain data.
 
-export type UniverseChange = { abs: number; pct: number | null; hours: number; from: string; to: string } | null;
+export type UniverseChange = { abs: number; pct: number | null; hours: number; from: string; to: string; provider?: "holderscan" } | null;
 
 export type UniverseRowView = {
   mint: string;
@@ -45,10 +45,12 @@ const PRESETS: { label: string; cats: string[] }[] = [
 function ChangeCell({ c, hint }: { c: UniverseChange; hint: string }) {
   if (!c) return <span className="text-muted text-xs" title={hint}>collecting</span>;
   const cls = c.abs > 0 ? "text-up" : c.abs < 0 ? "text-down" : "text-muted";
+  const hs = c.provider === "holderscan";
   return (
-    <span className="num" title={`${signed(c.abs)} over ${c.hours.toFixed(0)}h · ${hhmm(c.from)} → ${hhmm(c.to)}`}>
+    <span className="num" title={hs ? `HolderScan's own ${Math.round(c.hours / 24)}-day change, read ${c.to.slice(0, 10)}; stonk.fyi's readings take over once they cover the window` : `${signed(c.abs)} over ${c.hours.toFixed(0)}h · ${hhmm(c.from)} → ${hhmm(c.to)}`}>
       <span className={`${cls} text-[14px]`}>{signed(c.abs)}</span>
       {c.pct !== null && <span className="text-muted text-xs"> {c.pct > 0 ? "+" : ""}{c.pct.toFixed(1)}%</span>}
+      {hs && <span className="text-muted text-[10px] align-super"> HS</span>}
     </span>
   );
 }

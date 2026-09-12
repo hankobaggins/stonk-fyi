@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
 import { getDb } from "./db";
-import { getHolderscanHolderCount, holderscanEnabled } from "./holderscan";
+import { getHolderscanDeltas, getHolderscanHolderCount, holderscanEnabled } from "./holderscan";
 import type { Pair, RewardLaunch } from "./types";
 
 // The whole universe of quote assets (CLAUDE.md §6g): every StonkFun pair with at least one reward-mode
@@ -99,6 +99,56 @@ export function universeDue(ts: string): boolean {
   return m >= 15 && m < 20 && d.getUTCHours() === 2;
 }
 
+// HolderScan's 7/14/30-day deltas: every third day on the same 02:15 tick (20 units a call, ~6.3K a run,
+// ~63K a month on top of the daily counts — together inside the Standard plan's 200K).
+export const DELTAS_EVERY_DAYS = Math.max(1, Number(process.env.UNIVERSE_DELTAS_EVERY_DAYS ?? 3));
+export function deltasDue(ts: string): boolean {
+  return universeDue(ts) && Math.floor(Date.parse(ts) / 864e5) % DELTAS_EVERY_DAYS === 0;
+}
+
+export type DeltasStepResult = { rows: number; failed: number; skipped: boolean; firstError: string | null };
+
+export async function runUniverseDeltas(db: SupabaseClient, ts: string): Promise<DeltasStepResult> {
+  if (!holderscanEnabled()) return { rows: 0, failed: 0, skipped: true, firstError: "HOLDERSCAN_API_KEY not set" };
+  const { assets } = await getUniverse();
+  let firstError: string | null = null;
+  let failed = 0;
+  const rows: { mint: string; ts: string; d7: number | null; d14: number | null; d30: number | null }[] = [];
+  for (const a of assets) {
+    const r = await getHolderscanDeltas(a.mint);
+    if (!r.deltas) {
+      failed++;
+      if (!firstError) firstError = `${a.symbol}: ${r.error}`;
+      continue;
+    }
+    rows.push({ mint: a.mint, ts, ...r.deltas });
+  }
+  if (rows.length) {
+    const { error } = await db.from("quote_holder_deltas").upsert(rows, { onConflict: "mint,ts" });
+    if (error) throw new Error(error.message);
+  } else if (assets.length) {
+    throw new Error(`no deltas could be read (${firstError})`);
+  }
+  return { rows: rows.length, failed, skipped: false, firstError };
+}
+
+export type LatestDeltas = Map<string, { ts: string; d7: number | null; d14: number | null; d30: number | null }>;
+
+// Newest HolderScan delta row per mint from the last `maxAgeDays` days; null on a DB error.
+export async function getLatestDeltas(maxAgeDays = 2 * DELTAS_EVERY_DAYS + 1): Promise<LatestDeltas | null> {
+  const db = getDb();
+  if (!db) return null;
+  const since = new Date(Date.now() - maxAgeDays * 864e5).toISOString();
+  const { data, error } = await db.from("quote_holder_deltas").select("mint, ts, d7, d14, d30").gte("ts", since).order("ts", { ascending: false }).limit(3000);
+  if (error) {
+    console.error(`quote_holder_deltas read failed: ${error.message} (migration 0012 applied?)`);
+    return null;
+  }
+  const out: LatestDeltas = new Map();
+  for (const r of data ?? []) if (!out.has(r.mint)) out.set(r.mint, r);
+  return out;
+}
+
 export async function pruneUniverseHolders(db: SupabaseClient, retentionDays = UNIVERSE_RETENTION_DAYS): Promise<number> {
   const keepAfter = new Date(Date.now() - retentionDays * 864e5).toISOString();
   const { data, error } = await db.rpc("quote_holder_snapshots_prune", { keep_after: keepAfter });
@@ -109,7 +159,7 @@ export async function pruneUniverseHolders(db: SupabaseClient, retentionDays = U
 // ---------- reads ----------
 
 export type Window = { from: string; to: string; fromHolders: number; toHolders: number; hours: number };
-export type Change = { abs: number; pct: number | null; hours: number; from: string; to: string } | null;
+export type Change = { abs: number; pct: number | null; hours: number; from: string; to: string; provider?: "holderscan" } | null;
 
 export async function getQuoteHolderWindows(winHours: number, mints: string[]): Promise<Map<string, Window> | null> {
   const db = getDb();
@@ -125,6 +175,14 @@ export async function getQuoteHolderWindows(winHours: number, mints: string[]): 
     out.set(r.mint, { from: r.from_ts, to: r.to_ts, fromHolders: r.from_holders, toHolders: r.to_holders, hours: (Date.parse(r.to_ts) - Date.parse(r.from_ts)) / 3.6e6 });
   }
   return out;
+}
+
+// HolderScan's own delta as a Change, used for a window this site's readings do not cover yet.
+// pct is against the count at the window start (holders now − delta).
+export function deltaChange(abs: number | null | undefined, holders: number | null, days: number, at: string): Change {
+  if (abs === null || abs === undefined || holders === null) return null;
+  const base = holders - abs;
+  return { abs, pct: base > 0 ? (abs / base) * 100 : null, hours: days * 24, from: new Date(Date.parse(at) - days * 864e5).toISOString(), to: at, provider: "holderscan" };
 }
 
 export function change(w: Window | undefined, winHours: number): Change {
@@ -233,6 +291,7 @@ export type UniverseTable = {
   status: "ok" | "collecting" | "no-db" | "db-error";
   rows: UniverseRow[];
   readCount: number; // rows with a HolderScan reading
+  deltaCount: number; // rows whose 7d/30d come from HolderScan's own deltas
   historyHours: number;
   census: CoinCensus;
   generatedAt: string;
@@ -241,7 +300,7 @@ export type UniverseTable = {
 export async function getUniverseTable(): Promise<UniverseTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
-  const [{ assets }, census] = await Promise.all([getUniverse(), getCoinCensus()]);
+  const [{ assets }, census, deltas] = await Promise.all([getUniverse(), getCoinCensus(), getLatestDeltas()]);
   const mints = assets.map((a) => a.mint);
   const [w24, w168, w720] = db ? await Promise.all([getQuoteHolderWindows(24, mints), getQuoteHolderWindows(168, mints), getQuoteHolderWindows(720, mints)]) : [null, null, null];
   const dbError = !!db && (w24 === null || w168 === null || w720 === null);
@@ -265,8 +324,8 @@ export async function getUniverseTable(): Promise<UniverseTable> {
       holders,
       readAt: latest?.to ?? null,
       d1: change(w24?.get(a.mint), 24),
-      d7: change(w168?.get(a.mint), 168),
-      d30: change(w720?.get(a.mint), 720),
+      d7: change(w168?.get(a.mint), 168) ?? deltaChange(deltas?.get(a.mint)?.d7, holders, 7, deltas?.get(a.mint)?.ts ?? generatedAt),
+      d30: change(w720?.get(a.mint), 720) ?? deltaChange(deltas?.get(a.mint)?.d30, holders, 30, deltas?.get(a.mint)?.ts ?? generatedAt),
       paid: q?.wallets ?? null,
       paidD1: q && p ? q.wallets - p.wallets : null,
       paidCoins: q?.coins ?? null,
@@ -274,10 +333,12 @@ export async function getUniverseTable(): Promise<UniverseTable> {
     };
   });
   const readCount = rows.filter((r) => r.holders !== null).length;
+  const deltaCount = rows.filter((r) => r.d7?.provider === "holderscan" || r.d30?.provider === "holderscan").length;
   return {
     status: !db ? "no-db" : dbError || census.status === "db-error" ? "db-error" : readCount || census.status === "ok" ? "ok" : "collecting",
     rows,
     readCount,
+    deltaCount,
     historyHours,
     census,
     generatedAt,
