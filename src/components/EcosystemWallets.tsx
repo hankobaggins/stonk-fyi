@@ -16,14 +16,21 @@ const WINDOWS = [
 ];
 const MIN_COVERAGE = 0.8;
 const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
+const nextRun = (at: number, now: number) => {
+  const m = Math.round((at - now) / 60000);
+  if (m <= 0) return "next run is due now";
+  return m < 60 ? `next run in about ${m} min` : `next run in about ${Math.round(m / 60)}h`;
+};
 const fmtTs = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
 export type CoinGrowth = { ts: string; coins: number; holdersNow: number; d7: number; d14: number; d30: number; slotsTotal: number };
 
-export default function EcosystemWallets({ runs, growth, now }: { runs: CensusPoint[]; growth: CoinGrowth | null; now: number }) {
+export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { runs: CensusPoint[]; growth: CoinGrowth | null; now: number; everyH?: number }) {
   const series = runs.map((r) => ({ ts: Date.parse(r.ts), wallets: r.wallets }));
   const firstTs = series[0]?.ts ?? null;
-  const from = (hours: number) => (firstTs ? fmtTs(firstTs + Math.ceil((hours * MIN_COVERAGE) / 24) * 864e5) : "soon");
+  // A window shows once runs cover 80% of it; runs land every `everyH` hours, so round up to the next run.
+  const from = (hours: number) => (firstTs ? fmtTs(firstTs + Math.ceil((hours * MIN_COVERAGE) / everyH) * everyH * 3.6e6) : "soon");
+  const cadence = everyH >= 24 ? "daily" : `every ${everyH}h`;
   const last = series[series.length - 1];
   const first = series[0];
   const latest = runs[runs.length - 1];
@@ -69,6 +76,13 @@ export default function EcosystemWallets({ runs, growth, now }: { runs: CensusPo
         </p>
       )}
 
+      {series.length === 1 && last && (
+        <div className="mt-5 h-[120px] rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-center text-xs text-muted gap-1">
+          <div>One census so far — the chart draws from the second run.</div>
+          <div className="num">{nextRun(last.ts + everyH * 3.6e6, now)} · {cadence}</div>
+        </div>
+      )}
+
       {series.length > 1 && (
         <div className="mt-5">
           <ResponsiveContainer width="100%" height={220}>
@@ -108,7 +122,7 @@ export default function EcosystemWallets({ runs, growth, now }: { runs: CensusPo
             </>
           ) : null}
         </span>
-        <span>Helius on-chain · stonk.fyi census · daily</span>
+        <span>Helius on-chain · stonk.fyi census · {cadence}</span>
       </div>
     </div>
   );

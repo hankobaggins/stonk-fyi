@@ -9,7 +9,7 @@ import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { getStockCoinsByMcap, getStockQuoteAssets, trackedMints } from "@/lib/holders";
-import { COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
+import { COIN_CENSUS_EVERY_H, COIN_CENSUS_MAX_PAGES, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
 import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/lib/holderscan";
 import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
@@ -187,11 +187,11 @@ export async function GET() {
       const key = process.env.HELIUS_API_KEY ? "HELIUS_API_KEY set" : "HELIUS_API_KEY unset — the census cannot run";
       const c = await getCoinCensus(3);
       if (c.status === "db-error") throw new Error(`coin_census_runs unreadable (migration 0011 applied?) · ${key}`);
-      if (!c.latest) return `${key} · no run yet (daily on the 01:15 UTC tick, or /api/cron/census?kind=coins&sync=1) · budget ${COIN_CENSUS_MAX_PAGES} pages`;
+      if (!c.latest) return `${key} · no run yet (every ${COIN_CENSUS_EVERY_H}h from the 01:15 UTC tick, or /api/cron/census?kind=coins&sync=1) · budget ${COIN_CENSUS_MAX_PAGES} pages`;
       const l = c.latest;
       const ageH = (Date.now() - Date.parse(l.ts)) / 3.6e6;
       const note = `${key} · last run ${ageH.toFixed(1)}h ago: ${l.wallets} wallets across ${l.coins} of ${l.coinsTotal} coins (${((l.slotsCovered / Math.max(1, l.slotsTotal)) * 100).toFixed(0)}% of holder-slots), ${c.quotes.size} quote assets, ${l.durationMs ? (l.durationMs / 1000).toFixed(0) : "?"}s${l.coinsFailed ? ` · ${l.coinsFailed} coins failed (${l.firstError})` : ""}`;
-      if (ageH > 36) throw new Error(`${note} — coin census stalled`);
+      if (ageH > Math.max(3, COIN_CENSUS_EVERY_H * 1.5)) throw new Error(`${note} — coin census stalled (every ${COIN_CENSUS_EVERY_H}h)`);
       return note;
     }),
     run("burn_alerts", async () => {

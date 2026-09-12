@@ -7,7 +7,7 @@ import HoldersTable, { type HolderRow } from "@/components/HoldersTable";
 import WalletCensus from "@/components/WalletCensus";
 import EcosystemWallets from "@/components/EcosystemWallets";
 import UniverseTable, { type UniverseRowView } from "@/components/UniverseTable";
-import { getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
+import { COIN_CENSUS_EVERY_H, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 import { UNIVERSE_EVERY_H } from "@/lib/universe";
 import { Empty, PageHeader, Section } from "@/components/ui";
 
@@ -120,14 +120,14 @@ export default async function HoldersPage() {
 
       <Section
         title="Wallets holding a StonkFun reward coin"
-        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · daily</span>}
+        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `every ${COIN_CENSUS_EVERY_H}h`}</span>}
       >
         {u.census.status === "ok" || growth ? (
-          <EcosystemWallets runs={u.census.status === "ok" ? u.census.runs : []} growth={growth} now={now} />
+          <EcosystemWallets runs={u.census.status === "ok" ? u.census.runs : []} growth={growth} now={now} everyH={COIN_CENSUS_EVERY_H} />
         ) : (
           <Empty>
             {u.census.status === "empty" || u.census.status === "no-db"
-              ? `No reward-coin census stored yet. It runs once a day (01:15 UTC): every wallet holding one of the largest reward coins by holder count, de-duplicated across coins. The first run appears here, the 24h change after two, 7d after six, 30d after 24.`
+              ? `No reward-coin census stored yet. It runs ${COIN_CENSUS_EVERY_H >= 24 ? "once a day (01:15 UTC)" : `every ${COIN_CENSUS_EVERY_H} hours from 01:15 UTC`}: every wallet holding one of the largest reward coins by holder count, de-duplicated across coins. The first run appears here, the chart from the second, then the 24h, 7d and 30d changes as runs cover each window.`
               : "The census could not be read just now."}
           </Empty>
         )}
@@ -156,7 +156,7 @@ export default async function HoldersPage() {
 
       <Section
         title={`${u.rows.length} quote assets`}
-        action={<span className="num text-xs text-muted">HolderScan holder count · {UNIVERSE_EVERY_H === 1 ? "hourly" : UNIVERSE_EVERY_H >= 24 ? "daily" : `every ${UNIVERSE_EVERY_H}h`} · stonk.fyi census · daily</span>}
+        action={<span className="num text-xs text-muted">HolderScan holder count · {UNIVERSE_EVERY_H === 1 ? "hourly" : UNIVERSE_EVERY_H >= 24 ? "daily" : `every ${UNIVERSE_EVERY_H}h`} · stonk.fyi census · {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `every ${COIN_CENSUS_EVERY_H}h`}</span>}
       >
         {u.readCount === 0 && u.census.status !== "ok" && (
           <Empty>
@@ -166,7 +166,7 @@ export default async function HoldersPage() {
         <UniverseTable rows={uRows} categories={cats.map((c) => ({ key: c.key, label: c.label }))} now={now} />
         <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
           <p className="font-medium">Per project: of an asset&apos;s holders, how many hold a StonkFun coin that pays them the asset — and whether both are growing.</p>
-          <p className="text-secondary text-[13px]">Holders: HolderScan&apos;s count of wallets with any balance of the asset, on any venue, read {UNIVERSE_EVERY_H === 1 ? "every hour" : "once a day"}{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. StonkFun wallets: this site&apos;s daily on-chain census of wallets holding a reward coin quoted in the asset, de-duplicated within the asset; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget, so its figure is a floor. StonkFun share divides the second by the first: TTWO at 75% means three in four TTWO holders hold a StonkFun coin that pays them TTWO. A small &ldquo;HS&rdquo; after a change figure means it is HolderScan&apos;s own change for that window{u.deltaCount ? ` (${u.deltaCount} assets today)` : ""}; this site&apos;s own readings replace it once they cover the window (a 24h figure is only borrowed from a delta read in the last 36 hours). Holder-slots is StonkFun&apos;s own reward-eligible count summed over the asset&apos;s coins (one slot per coin per wallet). The category tiles are de-duplicated within each category; adding them up over-counts wallets that hold coins on several categories — the headline above is the only cross-category figure.</p>
+          <p className="text-secondary text-[13px]">Holders: HolderScan&apos;s count of wallets with any balance of the asset, on any venue, read {UNIVERSE_EVERY_H === 1 ? "every hour" : "once a day"}{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. StonkFun wallets: this site&apos;s {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `${COIN_CENSUS_EVERY_H}-hourly`} on-chain census of wallets holding a reward coin quoted in the asset, de-duplicated within the asset; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget, so its figure is a floor. StonkFun share divides the second by the first: TTWO at 75% means three in four TTWO holders hold a StonkFun coin that pays them TTWO. A small &ldquo;HS&rdquo; after a change figure means it is HolderScan&apos;s own change for that window{u.deltaCount ? ` (${u.deltaCount} assets today)` : ""}; this site&apos;s own readings replace it once they cover the window (a 24h figure is only borrowed from a delta read in the last 36 hours). Holder-slots is StonkFun&apos;s own reward-eligible count summed over the asset&apos;s coins (one slot per coin per wallet). The category tiles are de-duplicated within each category; adding them up over-counts wallets that hold coins on several categories — the headline above is the only cross-category figure.</p>
           <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
             <span>Sources: HolderScan · Helius · StonkFun rewards ledger · StonkFun pairs</span>
             <span>A change column shows once readings cover 80% of its window; empty columns are hidden until then</span>

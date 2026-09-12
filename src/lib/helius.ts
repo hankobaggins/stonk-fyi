@@ -8,7 +8,10 @@ import "server-only";
 const KEY = () => process.env.HELIUS_API_KEY;
 const URL = () => `${process.env.HELIUS_RPC_URL ?? "https://mainnet.helius-rpc.com"}/?api-key=${KEY()}`;
 const PAGE = 1000;
-const GAP_MS = Math.max(0, Number(process.env.HELIUS_GAP_MS ?? 550)); // 550 stays under the free plan's 2 DAS requests per second; lower it on a paid plan
+// HELIUS_PLAN=free (default) paces DAS at 550 ms (under the free plan's 2 req/s); any other value (developer,
+// business) at 100 ms — the paid plans allow 50+ req/s but DAS is heavier than a plain RPC call. HELIUS_GAP_MS overrides.
+export const HELIUS_PAID = (process.env.HELIUS_PLAN ?? "free").toLowerCase() !== "free";
+const GAP_MS = Math.max(0, Number(process.env.HELIUS_GAP_MS ?? (HELIUS_PAID ? 100 : 550)));
 
 type TokenAccount = { address: string; mint: string; owner: string; amount: number; frozen?: boolean; burnt?: boolean };
 type Page = { total: number; limit: number; cursor?: string | null; token_accounts: TokenAccount[] };

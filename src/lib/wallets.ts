@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
 import { getDb } from "./db";
-import { getMintOwners } from "./helius";
+import { getMintOwners, HELIUS_PAID } from "./helius";
 import { getStockQuoteAssets, STOCK_CATEGORIES, type StockCategory } from "./holders";
 
 // Wallet census: distinct wallets holding at least one stock-quoted quote asset, by issuer category
@@ -114,7 +114,10 @@ export async function getWalletCensus(days = WALLET_HISTORY_DAYS): Promise<Censu
 // coins, ~70% of holder-slots, ~10 min, ~11K credits). The result is a lower bound and is labelled with
 // its coverage. Nothing but counts is stored.
 
-export const COIN_CENSUS_MAX_PAGES = Math.max(50, Number(process.env.COIN_CENSUS_MAX_PAGES ?? 1100));
+// Paid Helius (HELIUS_PLAN set, §6g): 3,000 pages a run at 100 ms ≈ 5 min, ~30K credits — covers ~90% of holder-slots;
+// every 6 h that is ~3.6M credits a month (the Developer plan has 10M). Free: 1,100 pages, once a day.
+export const COIN_CENSUS_MAX_PAGES = Math.max(50, Number(process.env.COIN_CENSUS_MAX_PAGES ?? (HELIUS_PAID ? 3000 : 1100)));
+export const COIN_CENSUS_EVERY_H = Math.max(1, Math.min(24, Number(process.env.COIN_CENSUS_EVERY_H ?? (HELIUS_PAID ? 6 : 24))));
 const PAGE = 1000;
 
 export type CoinCensusResult = {
@@ -208,10 +211,11 @@ export async function runCoinCensus(db: SupabaseClient, ts: string, budgetMs = I
   return { ts, wallets: all.size, coins, coinsTotal: launches.length, slotsCovered, slotsTotal, accounts, coinsFailed, firstError, durationMs, quotes: quoteRows.length };
 }
 
-// Once a day on the :15 tick of 01:00 UTC — its own slot, away from the :30 holders step, the :45
-// quote-asset census and the 03:00 full run.
+// On the :15 tick, every COIN_CENSUS_EVERY_H hours starting 01:00 UTC (01:15 daily on the free plan; 01/07/13/19:15
+// on a paid one) — away from the :30 holders step, the :45 quote-asset census and the 03:00 full run. The tick
+// only kicks the census off (/api/cron/census), so sharing the :15 slot with the HolderScan universe read is fine.
 export function coinCensusDue(ts: string): boolean {
   const d = new Date(ts);
   const m = d.getUTCMinutes();
-  return m >= 15 && m < 20 && d.getUTCHours() === 1;
+  return m >= 15 && m < 20 && d.getUTCHours() % COIN_CENSUS_EVERY_H === 1 % COIN_CENSUS_EVERY_H;
 }
