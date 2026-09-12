@@ -43,7 +43,7 @@ const PRESETS: { label: string; cats: string[] }[] = [
 ];
 
 function ChangeCell({ c, hint }: { c: UniverseChange; hint: string }) {
-  if (!c) return <span className="text-muted text-xs" title={hint}>collecting</span>;
+  if (!c) return <span className="text-muted text-xs" title={hint}>—</span>;
   const cls = c.abs > 0 ? "text-up" : c.abs < 0 ? "text-down" : "text-muted";
   const hs = c.provider === "holderscan";
   return (
@@ -82,8 +82,27 @@ function Th({ k, sort, onSort, right = false, title, children }: { k: SortKey; s
   );
 }
 
+// A change column with no value on any row is hidden and its "appears from" date shown once above the
+// table instead of "collecting" on every row. `firstRead` = when this site's daily readings started.
+export type ColumnAvailability = { d1: boolean; d7: boolean; d30: boolean; paidD1: boolean; firstRead: string | null; firstCensus: string | null };
+
+const dayAfter = (iso: string | null, days: number) => (iso ? new Date(Date.parse(iso) + days * 864e5).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }) : "soon");
+
 export default function UniverseTable({ rows, categories, now }: { rows: UniverseRowView[]; categories: { key: string; label: string }[]; now: number }) {
   const all = categories.map((c) => c.key);
+  const avail: ColumnAvailability = {
+    d1: rows.some((r) => r.d1),
+    d7: rows.some((r) => r.d7),
+    d30: rows.some((r) => r.d30),
+    paidD1: rows.some((r) => r.paidD1 !== null),
+    firstRead: rows.map((r) => r.readAt).filter(Boolean).sort()[0] ?? null,
+    firstCensus: null,
+  };
+  const pending: string[] = [];
+  if (!avail.d1) pending.push(`holders 24h from ${dayAfter(avail.firstRead, 1)}`);
+  if (!avail.d7) pending.push(`holders 7d from ${dayAfter(avail.firstRead, 6)}`);
+  if (!avail.d30) pending.push(`holders 30d from ${dayAfter(avail.firstRead, 24)}`);
+  if (!avail.paidD1) pending.push(`StonkFun wallets 24h from ${dayAfter(avail.firstRead, 1)}`);
   const [selected, setSelected] = useState<string[]>(all);
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "paid", desc: true });
   const toggleCat = (k: string) => setSelected((s) => (s.includes(k) ? (s.length === 1 ? s : s.filter((x) => x !== k)) : [...s, k]));
@@ -122,6 +141,7 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
         </div>
         <span className="text-xs text-muted num ml-auto">{shown.length} quote assets · click a column to sort</span>
       </div>
+      {pending.length > 0 && <p className="mb-3 text-xs text-muted num">Change columns appear as daily readings accumulate: {pending.join(" · ")}.</p>}
       <div className="table-wrap">
         <table className="data">
           <thead>
@@ -130,12 +150,12 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
               <Th k="symbol" sort={sort} onSort={toggle}>Quote asset</Th>
               <Th k="category" sort={sort} onSort={toggle}>Category</Th>
               <Th k="holders" sort={sort} onSort={toggle} right title="HolderScan holder count, read daily">Holders</Th>
-              <Th k="d1" sort={sort} onSort={toggle} right>24h</Th>
-              <Th k="d7" sort={sort} onSort={toggle} right>7d</Th>
-              <Th k="d30" sort={sort} onSort={toggle} right>30d</Th>
+              {avail.d1 && <Th k="d1" sort={sort} onSort={toggle} right>24h</Th>}
+              {avail.d7 && <Th k="d7" sort={sort} onSort={toggle} right>7d</Th>}
+              {avail.d30 && <Th k="d30" sort={sort} onSort={toggle} right>30d</Th>}
               <Th k="paid" sort={sort} onSort={toggle} right title="Wallets holding a StonkFun reward coin that pays this asset (stonk.fyi census, daily, lower bound)">StonkFun wallets</Th>
-              <Th k="paidD1" sort={sort} onSort={toggle} right>24h</Th>
-              <Th k="share" sort={sort} onSort={toggle} right title="StonkFun wallets ÷ holders">Share</Th>
+              {avail.paidD1 && <Th k="paidD1" sort={sort} onSort={toggle} right>24h</Th>}
+              <Th k="share" sort={sort} onSort={toggle} right title="StonkFun wallets ÷ holders: the fraction of this asset's holders that hold a StonkFun coin paying them the asset">StonkFun share</Th>
               <Th k="coins" sort={sort} onSort={toggle} right title="Reward coins launched against this asset">Coins</Th>
               <th className="r">Read</th>
               <th className="r">Trade</th>
@@ -154,13 +174,13 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
                 </td>
                 <td className="text-secondary text-xs">{r.categoryLabel}</td>
                 <td className="r num text-[14px]">{r.holders === null ? <span className="text-muted text-xs">no reading</span> : fmtNum(r.holders)}</td>
-                <td className="r"><ChangeCell c={r.d1} hint="needs two daily readings" /></td>
-                <td className="r"><ChangeCell c={r.d7} hint="needs about 6 days of readings" /></td>
-                <td className="r"><ChangeCell c={r.d30} hint="needs about 24 days of readings" /></td>
+                {avail.d1 && <td className="r"><ChangeCell c={r.d1} hint="no second reading for this asset yet" /></td>}
+                {avail.d7 && <td className="r"><ChangeCell c={r.d7} hint="no 7-day history for this asset yet (HolderScan has none; this site's readings cover it in about 6 days)" /></td>}
+                {avail.d30 && <td className="r"><ChangeCell c={r.d30} hint="no 30-day history for this asset yet" /></td>}
                 <td className="r num text-[14px]" title={r.paidCoins !== null ? `${r.paidCoins} of ${r.coins} coins covered by the census` : undefined}>
                   {r.paid === null ? <span className="text-muted text-xs">{r.coins ? "not covered" : "—"}</span> : <>{fmtNum(r.paid)}{r.paidCoins !== null && r.paidCoins < r.coins ? <span className="text-muted text-xs">+</span> : null}</>}
                 </td>
-                <td className="r num">{r.paidD1 === null ? <span className="text-muted text-xs">collecting</span> : <span className={`text-[14px] ${r.paidD1 > 0 ? "text-up" : r.paidD1 < 0 ? "text-down" : "text-muted"}`}>{signed(r.paidD1)}</span>}</td>
+                {avail.paidD1 && <td className="r num">{r.paidD1 === null ? <span className="text-muted text-xs">—</span> : <span className={`text-[14px] ${r.paidD1 > 0 ? "text-up" : r.paidD1 < 0 ? "text-down" : "text-muted"}`}>{signed(r.paidD1)}</span>}</td>}
                 <td className="r num text-[14px]">{r.share === null ? <span className="text-muted">—</span> : `${(r.share * 100).toFixed(r.share < 0.01 ? 2 : 1)}%`}</td>
                 <td className="r num text-secondary text-xs">{fmtNum(r.coins)}</td>
                 <td className="r num text-muted text-xs">{r.readAt ? timeAgo(r.readAt, now) : "—"}</td>

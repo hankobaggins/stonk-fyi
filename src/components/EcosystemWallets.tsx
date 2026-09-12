@@ -20,6 +20,8 @@ const fmtTs = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "s
 
 export default function EcosystemWallets({ runs, now }: { runs: CensusPoint[]; now: number }) {
   const series = runs.map((r) => ({ ts: Date.parse(r.ts), wallets: r.wallets }));
+  const firstTs = series[0]?.ts ?? null;
+  const from = (hours: number) => (firstTs ? fmtTs(firstTs + hours * 3.6e6 * MIN_COVERAGE) : "soon");
   const last = series[series.length - 1];
   const first = series[0];
   const latest = runs[runs.length - 1];
@@ -49,8 +51,8 @@ export default function EcosystemWallets({ runs, now }: { runs: CensusPoint[]; n
           return (
             <div key={w.h} className="kpi min-w-0">
               <div className="label">{w.label} change</div>
-              <div className={`mt-2 text-[30px] leading-tight font-medium num truncate tracking-tight ${cls}`}>{c ? signed(c.abs) : <span className="text-base">collecting</span>}</div>
-              <div className="mt-1.5 text-xs text-secondary num">{c ? <>{c.pct !== null ? `${c.pct > 0 ? "+" : ""}${c.pct.toFixed(2)}%` : "—"} · vs {fmtTs(c.at)}</> : `needs about ${Math.ceil((w.h * MIN_COVERAGE) / 24)} day${w.h > 30 ? "s" : ""} of daily census history`}</div>
+              <div className={`mt-2 text-[30px] leading-tight font-medium num truncate tracking-tight ${cls}`}>{c ? signed(c.abs) : <span className="text-base text-muted">from {from(w.h)}</span>}</div>
+              <div className="mt-1.5 text-xs text-secondary num">{c ? <>{c.pct !== null ? `${c.pct > 0 ? "+" : ""}${c.pct.toFixed(2)}%` : "—"} · vs {fmtTs(c.at)}</> : `first census ${firstTs ? fmtTs(firstTs) : "pending"}; the ${w.label} change needs history that far back`}</div>
             </div>
           );
         })}

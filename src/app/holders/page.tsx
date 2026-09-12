@@ -138,7 +138,7 @@ export default async function HoldersPage() {
           {cats.map((c) => (
             <div key={c.key} className="kpi min-w-0">
               <div className="label">{c.label}</div>
-              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{c.wallets === null ? <span className="text-base text-muted">{latestRun ? "not covered" : "collecting"}</span> : fmtNum(c.wallets)}</div>
+              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{c.wallets === null ? <span className="text-base text-muted">{latestRun ? "not covered" : "—"}</span> : fmtNum(c.wallets)}</div>
               <div className="mt-1.5 text-xs text-secondary num space-y-0.5">
                 <div>
                   StonkFun wallets
@@ -163,10 +163,10 @@ export default async function HoldersPage() {
         <UniverseTable rows={uRows} categories={cats.map((c) => ({ key: c.key, label: c.label }))} now={now} />
         <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
           <p className="font-medium">Per project: of an asset&apos;s holders, how many hold a StonkFun coin that pays them the asset — and whether both are growing.</p>
-          <p className="text-secondary text-[13px]">Holders: HolderScan&apos;s count of wallets with any balance of the asset, on any venue, read once a day{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. StonkFun wallets: this site&apos;s daily on-chain census of wallets holding a reward coin quoted in the asset, de-duplicated within the asset; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget, so its figure is a floor. Share divides the second by the first. A small &ldquo;HS&rdquo; after a 7d or 30d figure means it is HolderScan&apos;s own change for that window{u.deltaCount ? ` (${u.deltaCount} assets today)` : ""}; this site&apos;s daily readings replace it once they cover the window, and the 24h column only ever comes from those readings. Holder-slots is StonkFun&apos;s own reward-eligible count summed over the asset&apos;s coins (one slot per coin per wallet). The category tiles are de-duplicated within each category; adding them up over-counts wallets that hold coins on several categories — the headline above is the only cross-category figure.</p>
+          <p className="text-secondary text-[13px]">Holders: HolderScan&apos;s count of wallets with any balance of the asset, on any venue, read once a day{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. StonkFun wallets: this site&apos;s daily on-chain census of wallets holding a reward coin quoted in the asset, de-duplicated within the asset; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget, so its figure is a floor. StonkFun share divides the second by the first: TTWO at 75% means three in four TTWO holders hold a StonkFun coin that pays them TTWO. A small &ldquo;HS&rdquo; after a 7d or 30d figure means it is HolderScan&apos;s own change for that window{u.deltaCount ? ` (${u.deltaCount} assets today)` : ""}; this site&apos;s daily readings replace it once they cover the window, and the 24h column only ever comes from those readings. Holder-slots is StonkFun&apos;s own reward-eligible count summed over the asset&apos;s coins (one slot per coin per wallet). The category tiles are de-duplicated within each category; adding them up over-counts wallets that hold coins on several categories — the headline above is the only cross-category figure.</p>
           <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
             <span>Sources: HolderScan · Helius · StonkFun rewards ledger · StonkFun pairs</span>
-            <span>Change columns appear once readings cover 80% of the window</span>
+            <span>A change column shows once readings cover 80% of its window; empty columns are hidden until then</span>
           </div>
         </div>
       </Section>
@@ -221,7 +221,7 @@ export default async function HoldersPage() {
               <p className="text-secondary text-[13px]">Quote assets: GMGN&apos;s holder count for the mint, every wallet with a balance across all venues, read hourly; assets GMGN does not index show no reading ({withReading} of {t.quotes.length} have one). Coins: StonkFun&apos;s own count of reward-eligible wallets from its rewards ledger, live, with changes from this site&apos;s hourly readings; only reward-mode coins carry a holder figure. Market cap is shown for coins only. The issuer tiles sum the {HOLDERS_TRACKED} largest tracked coins by market cap across the four issuers.</p>
               <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
                 <span>Sources: GMGN · StonkFun rewards · stonk.fyi snapshots · StonkFun market data</span>
-                <span>Change columns appear once readings cover 80% of the window</span>
+                <span>A change column shows once readings cover 80% of its window; empty columns are hidden until then</span>
               </div>
             </div>
           </>
