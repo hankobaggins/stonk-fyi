@@ -88,8 +88,7 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
                   <div className="menu" role="menu">
                     {g.menu.map((m) => (
                       <Link key={m.href} href={m.href} role="menuitem" aria-current={childActive(m.href, path) ? "page" : undefined} onClick={() => setMenu(null)}>
-                        <span>{m.label}</span>
-                        <span className="num text-[11px] text-muted">{m.hint}</span>
+                        {m.label}
                       </Link>
                     ))}
                   </div>
@@ -147,8 +146,7 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
                       const cur = childActive(m.href, path);
                       return (
                         <Link key={m.href} href={m.href} aria-current={cur ? "page" : undefined} onClick={() => setOpen(false)} className={`flex items-center justify-between min-h-11 pl-[26px] pr-2.5 rounded-md ${cur ? "bg-surface-2 text-primary" : "text-secondary hover:text-primary hover:bg-surface-2/60"}`}>
-                          <span>{m.label}</span>
-                          <span className="num text-[11px] text-muted">{m.hint}</span>
+                          {m.label}
                         </Link>
                       );
                     })}
