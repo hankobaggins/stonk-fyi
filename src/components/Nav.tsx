@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LiveRefresh from "./LiveRefresh";
 import BurnRing from "./BurnRing";
 import BuyButton from "./BuyButton";
@@ -17,6 +17,18 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
   const active = groupOf(path)?.label;
+  // Closing is delayed a beat so a pointer that briefly leaves the trigger/menu does not lose the dropdown.
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openMenu = (label: string) => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+    setMenu(label);
+  };
+  const closeMenuSoon = () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => setMenu(null), 180);
+  };
+  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
 
   // Close the mobile panel and any dropdown whenever the route changes (state adjusted during render).
   const [prevPath, setPrevPath] = useState(path);
@@ -57,10 +69,10 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
               <div
                 key={g.label}
                 className="relative shrink-0"
-                onMouseEnter={() => g.menu && setMenu(g.label)}
-                onMouseLeave={() => setMenu(null)}
-                onFocus={() => g.menu && setMenu(g.label)}
-                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setMenu(null); }}
+                onMouseEnter={() => g.menu && openMenu(g.label)}
+                onMouseLeave={closeMenuSoon}
+                onFocus={() => g.menu && openMenu(g.label)}
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) closeMenuSoon(); }}
               >
                 <Link
                   href={href}
