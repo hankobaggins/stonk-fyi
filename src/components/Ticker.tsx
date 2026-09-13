@@ -12,8 +12,8 @@ function usMarketOpen(ts: number): boolean {
   return mins >= 9 * 60 + 30 && mins < 16 * 60;
 }
 
-// One mono line under the nav on every page: the numbers a holder checks first, plus the
-// SPYx dependency where it is always visible. Rendered server-side; never throws.
+// One mono line under the nav on every page: eight segments at most (redesign 2026-09-13, Rationale §6), the
+// last burn merged into one, the market-hours note as an amber chip on the SPYx segment. Server-rendered; never throws.
 export default function Ticker({ d }: { d: StonkData }) {
   const now = nowMs();
   const m = d.token.market ?? {};
@@ -23,22 +23,26 @@ export default function Ticker({ d }: { d: StonkData }) {
   const open = usMarketOpen(now);
   return (
     <div className="border-b border-border bg-surface-1">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 ticker">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 ticker !gap-5">
         <span><span className="k">STONK/SPYx</span> <b>{fmtPrice(m.priceUsd)}</b>{" "}
-          {chg !== undefined && chg !== null && <span className={chg >= 0 ? "text-up" : "text-down"}>{chg >= 0 ? "+" : ""}{chg.toFixed(1)}%</span>}
+          {chg !== undefined && chg !== null && <span className={chg >= 0 ? "text-up" : "text-down"}>{chg >= 0 ? "+" : "−"}{Math.abs(chg).toFixed(1)}%</span>}
         </span>
         <span><span className="k">MCAP</span> <b>{fmtUsd(m.marketCapUsd)}</b></span>
         <span><span className="k">24H VOL</span> <b>{fmtUsd(m.volume24hUsd)}</b></span>
         <span><span className="k">BURNED</span> <b>{d.supply.burnedPct.toFixed(2)}%</b></span>
         {lastBurn && (
-          <span><span className="k">LAST BURN</span> <b>{timeAgo(lastBurn.burnedAt, now)}</b> · {fmtNum(lastBurn.amountTokens)} STONK · {fmtUsd(lastBurn.valueUsdAtBurn)}</span>
+          <span><span className="k">LAST BURN</span> <b>{fmtNum(lastBurn.amountTokens)}</b> <span className="k">· {fmtUsd(lastBurn.valueUsdAtBurn)} · {timeAgo(lastBurn.burnedAt, now)}</span></span>
         )}
         {d.pool && <span><span className="k">POOL TVL</span> <b>{fmtUsd(d.pool.tvl)}</b></span>}
-        {d.gmgn && <span><span className="k">HOLDERS</span> <b>{fmtNum(d.gmgn.holderCount)}</b></span>}
+        {(d.holders || d.gmgn) && <span><span className="k">HOLDERS</span> <b>{fmtNum(d.holders?.latest.holders ?? d.gmgn?.holderCount)}</b></span>}
         {spyxImplied && (
-          <span>
+          <span title={open ? "STONK is priced in SPYx. Implied from the pool ratio and STONK's USD price; the US market is open, so SPYx has a live reference." : "STONK is priced in SPYx. Outside US market hours the SPYx price is implied from the pool, not traded, so USD figures can drift."}>
             <span className="k">SPYx</span> <b>{fmtUsd(spyxImplied)}</b>{" "}
-            <span className="k" title={open ? "Implied from the pool ratio and STONK's USD price. US market open: SPYx has a live reference." : "Implied from the pool ratio and STONK's USD price. US market closed: SPYx has no live reference, so USD figures can drift."}>· implied{open ? "" : " · mkt closed"}</span>
+            {open ? (
+              <span className="k">· implied</span>
+            ) : (
+              <span className="inline-flex items-center ml-1 px-1.5 py-0.5 rounded border border-caution/40 text-caution text-[10.5px] leading-none">implied · mkt closed</span>
+            )}
           </span>
         )}
       </div>

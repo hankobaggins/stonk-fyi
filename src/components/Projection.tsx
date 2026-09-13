@@ -45,7 +45,7 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
 
   return (
     <div className="space-y-4">
-      <div className="grid sm:grid-cols-3 gap-4 text-xs">
+      <div className="grid sm:grid-cols-3 gap-4 text-xs text-secondary">
         <label className="block">
           <span className="text-muted">Revenue growth per day</span>
           <span className="float-right num text-primary">{growth}%</span>
@@ -58,7 +58,7 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
         </label>
         <label className="block">
           <span className="text-muted">Quote-side pool depth</span>
-          <span className="float-right num text-primary">{r.depth ? usd(r.depth) : "—"}{depth === null && inputs.quoteDepthUsd ? " (live)" : ""}</span>
+          <span className="float-right num text-primary">{r.depth ? usd(r.depth) : "—"}</span>
           <input
             type="range" min={100_000} max={10_000_000} step={50_000}
             value={r.depth ?? 1_000_000}
@@ -71,7 +71,7 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
         </label>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
         <Tile label={`Buybacks over ${days}d`} value={usd(r.buybacks)} sub={`${usd(r.rev)} revenue × ${(inputs.buybackShare * 100).toFixed(0)}%`} />
         <Tile label="STONK removed" value={num(r.burned)} sub={`${r.supplyCut.toFixed(2)}% of supply`} />
         <Tile label="Floor (supply-only)" value={px(r.floor)} sub={pct((r.floor / inputs.price - 1) * 100)} accent="up" />
@@ -82,7 +82,7 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
         <table className="data">
           <thead>
             <tr>
-              <th>Revenue growth / day</th>
+              <th>Growth / day</th>
               <th className="r">{days}d revenue</th>
               <th className="r">Buybacks</th>
               <th className="r">Supply cut</th>
@@ -105,26 +105,21 @@ export default function Projection({ inputs }: { inputs: Inputs }) {
         </table>
       </div>
 
-      <div className="text-xs text-secondary leading-relaxed space-y-1">
-        <p>
-          Starting point: {px(inputs.price)}, {num(inputs.supply)} circulating, {usd(inputs.dailyRevenue)}/day platform revenue (7-day average), {(inputs.buybackShare * 100).toFixed(0)}% of it bought back and burned
-          {buybackVsVol !== null && <>, about <span className="text-primary num">{(buybackVsVol * 100).toFixed(1)}%</span> of STONK&apos;s daily volume</>}.
-        </p>
-        <p>
-          <span className="text-primary">Floor</span>: fewer tokens, market cap held flat. <span className="text-primary">Ceiling</span>: every buyback dollar as a net buy that nobody sells into, a deliberate over-estimate. Models one input only; not a forecast.{" "}
-          <a href="/about#projection" className="underline underline-offset-2 hover:text-primary">How this works →</a>
-        </p>
-      </div>
+      <p className="text-xs text-muted leading-relaxed">
+        Starting point: {px(inputs.price)}, {num(inputs.supply)} circulating, {usd(inputs.dailyRevenue)}/day revenue (7-day average), {(inputs.buybackShare * 100).toFixed(0)}% of it bought back and burned{buybackVsVol !== null && <>, about <span className="num text-secondary">{(buybackVsVol * 100).toFixed(1)}%</span> of STONK&apos;s daily volume</>}.
+        Floor assumes supply removal only; ceiling assumes AMM buys with no sellers. Real prices land between and depend on SPYx.{" "}
+        <a href="/about#projection" className="text-secondary hover:text-primary">How this works →</a>
+      </p>
     </div>
   );
 }
 
 function Tile({ label, value, sub, accent }: { label: string; value: string; sub?: string; accent?: "up" }) {
   return (
-    <div className="rounded-lg border border-border bg-surface-2/40 p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
-      <div className={`mt-1 text-lg font-semibold num ${accent === "up" ? "text-up" : ""}`}>{value}</div>
-      {sub && <div className="text-xs text-muted num">{sub}</div>}
+    <div className="rounded-lg border border-border bg-surface-2/40 px-3 py-2.5 min-w-0">
+      <div className="label">{label}</div>
+      <div className={`mt-1.5 text-[20px] font-medium tracking-tight num truncate ${accent === "up" ? "text-up" : ""}`}>{value}</div>
+      {sub && <div className="text-[11px] text-muted num truncate">{sub}</div>}
     </div>
   );
 }

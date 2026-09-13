@@ -68,8 +68,8 @@ export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { r
       </div>
 
       {growth && (
-        <p className="mt-4 pt-3 border-t border-border text-xs text-muted num" title="HolderScan's per-coin holder history, summed over the StonkFun coins it tracks. Holder-slots: a wallet holding two coins counts twice. Direction only — the de-duplicated count above is the base.">
-          Direction, until the census has its own history: HolderScan tracks {fmtNum(growth.coins)} of these coins ({((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots) and has them at {fmtNum(growth.holdersNow)} holder-slots,{" "}
+        <p className="mt-4 pt-3 border-t border-border text-xs text-muted num leading-relaxed" title="HolderScan's per-coin holder history, summed over the StonkFun coins it tracks. Holder-slots: a wallet holding two coins counts twice. Direction only — the de-duplicated count above is the base.">
+          <span className="text-secondary">Direction, until the census has its own history:</span> <i className="sw mr-1" style={{ background: "var(--series-7)" }} aria-hidden="true" />HolderScan tracks {fmtNum(growth.coins)} of these coins ({((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots) and has them at {fmtNum(growth.holdersNow)} holder-slots,{" "}
           <span className={growth.d7 > 0 ? "text-up" : growth.d7 < 0 ? "text-down" : ""}>{signed(growth.d7)}</span> over 7d ·{" "}
           <span className={growth.d14 > 0 ? "text-up" : growth.d14 < 0 ? "text-down" : ""}>{signed(growth.d14)}</span> 14d ·{" "}
           <span className={growth.d30 > 0 ? "text-up" : growth.d30 < 0 ? "text-down" : ""}>{signed(growth.d30)}</span> 30d. Slots, not wallets; read {timeAgo(growth.ts, now)}.
@@ -77,9 +77,10 @@ export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { r
       )}
 
       {series.length === 1 && last && (
-        <div className="mt-5 h-[120px] rounded-lg border border-dashed border-border flex flex-col items-center justify-center text-center text-xs text-muted gap-1">
-          <div>One census so far — the chart draws from the second run.</div>
-          <div className="num">{nextRun(last.ts + everyH * 3.6e6, now)} · {cadence}</div>
+        <div className="mt-5 h-[180px] rounded-md border border-dashed border-border-strong flex flex-col items-center justify-center text-center gap-1.5">
+          <span className="state collecting">collecting</span>
+          <div className="text-[13px] text-secondary">One census so far — the chart draws from the second run.</div>
+          <div className="num text-[11px] text-muted">{nextRun(last.ts + everyH * 3.6e6, now)} · {cadence}</div>
         </div>
       )}
 
@@ -89,8 +90,8 @@ export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { r
             <AreaChart data={series} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <defs>
                 <linearGradient id="ecoFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--series-1)" stopOpacity={0.35} />
-                  <stop offset="100%" stopColor="var(--series-1)" stopOpacity={0.02} />
+                  <stop offset="0%" stopColor="var(--series-2)" stopOpacity={0.35} />
+                  <stop offset="100%" stopColor="var(--series-2)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
               <CartesianGrid vertical={false} />
@@ -106,7 +107,7 @@ export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { r
                   ) : null
                 }
               />
-              <Area type="monotone" dataKey="wallets" name="Wallets" stroke="var(--series-1)" strokeWidth={2} fill="url(#ecoFill)" dot={false} activeDot={{ r: 4, stroke: "var(--surface-1)", strokeWidth: 2 }} />
+              <Area type="monotone" dataKey="wallets" name="Wallets" stroke="var(--series-2)" strokeWidth={2} fill="url(#ecoFill)" dot={false} activeDot={{ r: 4, stroke: "var(--surface-1)", strokeWidth: 2 }} />
             </AreaChart>
           </ResponsiveContainer>
         </div>

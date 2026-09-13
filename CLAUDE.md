@@ -360,6 +360,20 @@ Owner asked for unique holders, with 24h and 1-week change, for "stocks + Backpa
 
 **Ops:** `HOLDERSCAN_PLAN=advanced` (cadences + pacing), `HOLDERSCAN_RETENTION_DAYS`. Migration `0014_holderscan_profiles.sql` by hand (table, prune + series functions, d1/d3 columns, holder_window redefinition). `/api/health` → `holder_profile` (plan, newest row's headline figures, age — fails past 3× the cadence, days of history, missing routes, last HolderScan error), `holder_snapshots` now names the provider of the newest quote-asset reading, `universe_holders` states the cadence and fails past 2× it when hourly. **First-run checks:** top-10 share is a sane figure (≈17–18%, matching GMGN's 18.1%) — if null, HolderScan answered in raw units and `readHolderProfile` needs a decimals divide; which of the seven routes STONK answers (`stats` avg_time_held / retention and `pnl` are "not available for all tokens"); the tick's `notes.holder_profile`. Budget on Advanced ≈ 4.7M of 15M units a month (STONK 1.3M, universe hourly 2.3M, stock hourly 0.6M, deltas 0.35M); on Standard ≈ 190K of 200K.
 
+## 6i — Redesign "the ledger, tightened" (applied 2026-09-13, from the Design Scoping Questions handoff)
+
+Same tokens, same components where they worked; changes are IA, density and provenance patterns. Spec files: `Downloads/Design Scoping Questions/*.dc.html` (Rationale.dc.html is the written spec; Mobile.dc.html the 390px pass).
+
+- **Nav** (`lib/nav.ts`, `components/Nav.tsx`): four items — `$STONK` · `Platform ▾` (Overview, Flywheel) · `Ecosystem ▾` (Tokens & yield, Pairs, Launches, Rewards, Holders) · `About`. Dropdowns open on hover/focus; below lg a panel with groups as headings, 44px rows, Buy first below sm. `SectionStrip` (38px, under the ticker) lists the siblings of a grouped page. `LiveRefresh` is a bordered pill ("25s" on phones).
+- **Ticker**: eight segments max; LAST BURN is one segment (`amount · $ · ago`); the market-hours note is an amber chip on the SPYx segment.
+- **Scorecard** (`lib/scorecard.ts`, `components/Scorecard.tsx` — client, `components/TallyBar.tsx`): compact cells (label + pill, 24px value, `.src` always rendered), 5 columns at xl / 4 lg / 3 md / 2 phones. Hover, focus or tap opens a popover (detail · threshold from `RULES` · method →); "Show all details" (persisted, `lib/prefs.ts`) renders it inline. A down provider gives a dashed **provider-down row** with the missing cells named, `N unscored` in the group summary, dashed placeholder segments in the tally and a What-to-watch item — absence is a state, not a gap. Tally segments fade colour over 400ms (off under reduced motion).
+- **Method strip** (`components/MethodStrip.tsx`): hairline · one bold sentence · "How this is computed" expander · optional status · "Method →" to the /about anchor. Used on Holder base (the hourly charts live behind it), /tokens, /holders and token-detail rewards. Never a footer.
+- **Tables**: `# ` and the identity column are sticky (`.st1`/`.st2`); priority-3 columns carry `.p3` and hide under Columns: Essential (`ColumnsSwitch`, `html[data-cols]`), the default below md.
+- **Canonical homes**: revenue split + cumulative revenue → /platform (launch-activity tiles replace the buyback feed there); estimated buybacks/day + cumulative buyback spend + 25-row feed → /flywheel; per-day payouts with the four nested tiles → /rewards; home keeps an 8-row burn list beside the estimate. /holders opens with the three-population diagram (`components/Populations.tsx`: series-1 on-chain, series-7 HolderScan, series-2 StonkFun-paid) and the swatch travels with every figure. Token-detail "Backing" is a small `dl`, never JSON. /about has a sticky anchor TOC.
+- Home hero on phones: price first (44px), title 32px, Buy full-width 44px; Foundation restacks (88px ring).
+
+---
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.

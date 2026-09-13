@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { getRevenue, getRevenueHistory, getStats, getTokens } from "@/lib/api";
 import { cumulative, fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
-import { KpiTile, Section } from "@/components/ui";
+import { KpiTile, PageHeader, Section } from "@/components/ui";
 import { CountBarChart, CumulativeChart, RevenueChart, ShareBar } from "@/components/charts";
-import { getRevenuePace } from "@/lib/db";
+import { getLaunchVelocity, getRevenuePace } from "@/lib/db";
 import TokenTable from "@/components/TokenTable";
-import BuybackFeed from "@/components/BuybackFeed";
 
 export const dynamic = "force-dynamic";
 
@@ -13,13 +12,14 @@ export const metadata = { title: "Platform" };
 
 export default async function PlatformPage() {
   const now = nowMs();
-  const [stats, revenue, history, topVol, topMc, pace] = await Promise.all([
+  const [stats, revenue, history, topVol, topMc, pace, vel] = await Promise.all([
     getStats(),
     getRevenue(),
     getRevenueHistory(),
     getTokens({ sort: "volume", pageSize: 10 }),
     getTokens({ sort: "marketCap", pageSize: 10 }),
     getRevenuePace(48).catch(() => null),
+    getLaunchVelocity(24).catch(() => null),
   ]);
 
   const s = stats.data;
@@ -53,28 +53,23 @@ export default async function PlatformPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Platform overview</h1>
-          <p className="text-sm text-muted mt-0.5">
-            StonkFun launchpad on Solana mainnet · StonkFun snapshot {timeAgo(stats.meta.generatedAt, now)}
-          </p>
-        </div>
-      </div>
+      <PageHeader title="Platform overview" sub={<>StonkFun launchpad on Solana mainnet · <span className="num">StonkFun snapshot {timeAgo(stats.meta.generatedAt, now)}</span></>}>
+        <Link href="/flywheel" className="num text-xs text-secondary hover:text-primary">Buybacks, burns and the live feed → Flywheel</Link>
+      </PageHeader>
 
       <div className="kpis">
         <KpiTile label="Total market cap" value={fmtUsd(s.tokens.totalMarketCapUsd)} sub={<Link href="/launches" className="hover:text-primary">{fmtNum(s.tokens.total)} live tokens · {fmtNum(s.tokens.graduated)} graduated →</Link>} />
         <KpiTile label="24h volume" value={fmtUsd(s.tokens.totalVolume24hUsd)} sub={`${fmtNum(s.tokens.rewardLaunches)} reward-mode launches`} />
         <KpiTile label="Revenue (7d)" value={fmtUsd(rev7)} delta={rev7Delta} sub="vs prior 7d" />
         <KpiTile label="Revenue today (UTC)" value={fmtUsd(today?.dailyRevenue)} sub={`${utcHoursElapsed.toFixed(1)}h in · ${fmtUsd(today?.dailyProtocolRevenue)} to protocol`} />
-        <KpiTile label="Paid to holders today" value={fmtUsd(today?.dailyHoldersRevenue)} sub={<Link href="/flywheel" className="hover:text-primary">{fmtUsd(holders7)} last 7d · notional USD →</Link>} />
+        <KpiTile label="Paid to holders today" value={fmtUsd(today?.dailyHoldersRevenue)} sub={<Link href="/rewards" className="hover:text-primary">{fmtUsd(holders7)} last 7d · notional USD →</Link>} />
         <KpiTile label="Lifetime revenue" value={fmtUsd(s.revenue.totalRevenueUsd)} sub={`since ${history.data.start}`} />
         <KpiTile label="Buybacks (lifetime)" value={fmtUsd(r.revenue.totalBuybackUsd)} sub={`${buybackShare.toFixed(0)}% of revenue · ${fmtNum(r.revenue.buybackCount)} txs`} />
         <KpiTile label="Burned (USD at burn)" value={fmtUsd(s.burns.totalValueUsdAtBurn)} sub={`${fmtNum(s.burns.burnCount)} burns · ${fmtNum(r.burns.mintCount)} mints`} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Revenue pace" className="lg:col-span-1" action={<span className="num text-xs text-muted">stonk.fyi snapshots · 5 min</span>}>
+        <Section title="Revenue pace" className="lg:col-span-1" action={<span className="num text-[11px] text-muted">rolling · UTC · 5 min</span>}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
             <dt className="text-muted">Last hour</dt><dd className="num text-right">{pace?.lastHour != null ? fmtUsd(pace.lastHour) : <span className="text-muted">collecting</span>}</dd>
             <dt className="text-muted">Last 6h</dt><dd className="num text-right">{pace?.last6h != null ? fmtUsd(pace.last6h) : <span className="text-muted">collecting</span>}</dd>
@@ -86,46 +81,48 @@ export default async function PlatformPage() {
             </dd>
             <dt className="text-muted">At last-6h pace</dt><dd className="num text-right">{paceFrom6h != null ? fmtUsd(paceFrom6h) : <span className="text-muted">collecting</span>} <span className="text-muted">/ 24h</span></dd>
           </dl>
-          <div className="text-xs text-muted mt-3">
-            &quot;Today&quot; is StonkFun&apos;s UTC day, {utcHoursElapsed.toFixed(1)}h in, extrapolated flat. The last-6h figure is the flywheel&apos;s current speed; they diverge when
-            activity is ramping or fading.
-          </div>
+          <p className="text-xs text-muted mt-3.5 leading-relaxed">&quot;On pace&quot; scales today&apos;s fees so far ({utcHoursElapsed.toFixed(1)}h) to 24h; it swings early in the UTC day. The last-6h figure is the flywheel&apos;s current speed.</p>
         </Section>
-        <Section title="Hourly fee revenue, last 48h" className="lg:col-span-2" action={<span className="num text-xs text-muted">UTC · stonk.fyi snapshots · 5 min</span>}>
+        <Section title="Hourly fee revenue, last 48h" className="lg:col-span-2" action={<span className="num text-[11px] text-muted">stonk.fyi snapshots · hourly · 5 min</span>}>
           {pace && pace.hourly.length >= 2 ? (
             <CountBarChart data={pace.hourly} name="Revenue" fmt="usd" tick="hour" height={220} />
           ) : (
-            <div className="h-[220px] flex items-center justify-center text-sm text-muted">Collecting: hourly bars appear after the first two hours of snapshots.</div>
+            <div className="h-[220px] rounded-md border border-dashed border-border-strong flex flex-col items-center justify-center text-center gap-1.5"><span className="state collecting">collecting</span><span className="text-[13px] text-secondary">Hourly bars appear after the first two hours of snapshots.</span></div>
           )}
         </Section>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Daily fee revenue (USD)" className="lg:col-span-2" action={<Link href="/flywheel" className="text-xs text-muted hover:text-primary">Flywheel →</Link>}>
-          <RevenueChart data={revenueSeries} />
+        <Section title="Daily fee revenue (USD)" className="lg:col-span-2" action={<span className="num text-[11px] text-muted">daily · UTC · 5 min</span>}>
+          <RevenueChart data={revenueSeries} height={240} />
         </Section>
-        <Section title="Cumulative revenue">
-          <CumulativeChart data={cumRevenue} height={260} />
+        <Section title="Cumulative revenue" action={<span className="num text-[11px] text-muted">since {history.data.start}</span>}>
+          <CumulativeChart data={cumRevenue} height={240} />
         </Section>
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-4">
-        <Section title="Burn value by source">
+      <div className="grid lg:grid-cols-2 gap-4">
+        <Section title="Burn value by source" action={<span className="num text-[11px] text-muted">lifetime · USD at burn</span>}>
           <ShareBar data={burnShare} />
-          <div className="mt-3 text-xs text-muted">
-            Buyback burns dominate; flywheel and reward burns are the top-token buy-and-burn program and transfer-tax sweeps.
+          <p className="mt-3 text-xs text-muted leading-relaxed">&quot;Buyback&quot; is the protocol&apos;s fee sweep; &quot;flywheel&quot;, &quot;reward&quot; and &quot;auto&quot; are per-token mechanisms; &quot;kickstart&quot; was the launch allocation.</p>
+        </Section>
+        <Section title="Launch activity" action={<Link href="/launches" className="num text-[11px] text-secondary hover:text-primary">Launches →</Link>}>
+          <div className="kpis !border-b-0 !pb-0">
+            {vel
+              ? <KpiTile label="Launches / hour" value={fmtNum(vel.perHour, 1)} sub={`${fmtNum(vel.launches)} over ${vel.hours.toFixed(0)}h`} />
+              : <KpiTile label="Launches / hour" value="—" sub="needs stonk.fyi snapshots" />}
+            <KpiTile label="Graduated" value={fmtNum(s.tokens.graduated)} sub={`${((s.tokens.graduated / Math.max(1, s.tokens.total)) * 100).toFixed(1)}% of live tokens`} />
+            <KpiTile label="Reward mode" value={fmtNum(s.tokens.rewardLaunches)} sub={`of ${fmtNum(s.tokens.total)} live`} />
+            <KpiTile label="About to graduate" value={fmtNum(s.tokens.aboutToGraduate)} sub={<Link href="/pairs" className="hover:text-primary">≥ {fmtUsd(Number(s.config.aboutToGraduateMarketCapUsd))} · Pairs →</Link>} />
           </div>
         </Section>
-        <Section title="Recent buybacks" className="lg:col-span-2" action={<span className="text-xs text-muted num">last {timeAgo(r.revenue.lastBuybackAt, now)}</span>}>
-          <BuybackFeed buybacks={r.recentBuybacks} now={now} limit={8} />
-        </Section>
       </div>
 
-      <div className="grid xl:grid-cols-2 gap-4">
-        <Section title="Top by 24h volume" action={<Link href="/tokens?sort=volume" className="text-xs text-muted hover:text-primary">All tokens →</Link>}>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <Section title="Top by 24h volume" action={<Link href="/tokens?sort=volume" className="num text-[11px] text-secondary hover:text-primary">All tokens →</Link>}>
           <TokenTable tokens={topVol.data.tokens} now={now} compact />
         </Section>
-        <Section title="Top by market cap" action={<Link href="/tokens?sort=marketCap" className="text-xs text-muted hover:text-primary">All tokens →</Link>}>
+        <Section title="Top by market cap" action={<Link href="/tokens?sort=marketCap" className="num text-[11px] text-secondary hover:text-primary">All tokens →</Link>}>
           <TokenTable tokens={topMc.data.tokens} now={now} compact />
         </Section>
       </div>

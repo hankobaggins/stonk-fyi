@@ -8,6 +8,8 @@ import UniverseTable, { type UniverseRowView } from "@/components/UniverseTable"
 import { COIN_CENSUS_EVERY_H, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 
 import { Empty, PageHeader, Section } from "@/components/ui";
+import Populations, { Swatch } from "@/components/Populations";
+import MethodStrip from "@/components/MethodStrip";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Holders across the StonkFun ecosystem" };
@@ -46,25 +48,37 @@ export default async function HoldersPage() {
   const growth = u.coinDeltas ? { ts: u.coinDeltas.ts, coins: u.coinDeltas.coins, holdersNow: u.coinDeltas.holdersNow, d7: u.coinDeltas.d7, d14: u.coinDeltas.d14, d30: u.coinDeltas.d30, slotsTotal } : null;
   const uReadAt = u.rows.map((r) => r.readAt).filter(Boolean).sort().pop() ?? null;
 
+  // The three populations on one scale. On-chain and HolderScan are per-asset counts summed over the universe (a
+  // wallet holding two assets counts twice, so "token accounts"); StonkFun-paid is the census's de-duplicated figure.
+  const onchainRows = u.rows.filter((r) => r.onchain !== null);
+  const hsRows = u.rows.filter((r) => r.holders !== null);
+  const pops = [
+    { key: "onchain" as const, value: onchainRows.length ? onchainRows.reduce((a, r) => a + (r.onchain ?? 0), 0) : null, floor: true, detail: `token accounts · ${onchainRows.length} assets`, src: `Helius · census every ${WALLET_CENSUS_EVERY_H}h`, def: "Every account with a non-zero balance of the quote asset, whoever they are. A floor: the census stops at a page limit." },
+    { key: "holderscan" as const, value: hsRows.length ? hsRows.reduce((a, r) => a + (r.holders ?? 0), 0) : null, detail: `holder-slots · ${hsRows.length} tracked assets`, src: `HolderScan · ${UNIVERSE_EVERY_H === 1 ? "hourly" : "daily"}`, def: "The provider's de-duplicated count per asset, only for the assets it tracks. Lower than on-chain by construction." },
+    { key: "paid" as const, value: latestRun?.wallets ?? null, detail: "unique wallets", src: `StonkFun rewards · census every ${COIN_CENSUS_EVERY_H}h`, def: "Wallets that received at least one reward payout. The only figure that says something about StonkFun itself." },
+  ];
+
   return (
     <div className="space-y-5">
       <PageHeader
         title="Holders across the StonkFun ecosystem"
         sub={`Every quote asset with a StonkFun reward coin launched against it — ${u.rows.length} assets in ${cats.length} categories — with its holder count, the wallets StonkFun pays it to, and how both move.`}
       >
-        <div className="text-right text-xs text-secondary num space-y-0.5">
-          <div><span className="pill up">unique holders</span></div>
-          <div>Market snapshot: {dmy(u.generatedAt)} · {hhmm(u.generatedAt)}</div>
-          {uReadAt && <div>Newest HolderScan reading {timeAgo(uReadAt, now)}</div>}
+        <div className="num flex flex-col items-end gap-1.5 text-[11px] text-muted whitespace-nowrap">
+          <span className="pill up">unique holders</span>
+          <span>Market snapshot: {dmy(u.generatedAt)} · {hhmm(u.generatedAt)}</span>
+          {uReadAt && <span>Newest HolderScan reading {timeAgo(uReadAt, now)}</span>}
         </div>
       </PageHeader>
+
+      {u.status !== "no-db" && u.status !== "db-error" && <Populations pops={pops} />}
 
       {u.status === "no-db" && <Empty>This page needs the site&apos;s holder readings and census runs (Postgres), which this deployment does not have.</Empty>}
       {u.status === "db-error" && <Empty>The universe readings could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → universe_holders and coin_census.</Empty>}
 
       <Section
-        title="Wallets holding a StonkFun reward coin"
-        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `every ${COIN_CENSUS_EVERY_H}h`}</span>}
+        title={<><Swatch p="paid" lg />Wallets holding a StonkFun reward coin</>}
+        action={<span className="num text-[11px] text-muted">Helius on-chain · stonk.fyi census · {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `every ${COIN_CENSUS_EVERY_H}h`}</span>}
       >
         {u.census.status === "ok" || growth ? (
           <EcosystemWallets runs={u.census.status === "ok" ? u.census.runs : []} growth={growth} now={now} everyH={COIN_CENSUS_EVERY_H} />
@@ -75,21 +89,24 @@ export default async function HoldersPage() {
               : "The census could not be read just now."}
           </Empty>
         )}
-        <p className="mt-3 text-secondary text-[13px] leading-relaxed">
-          This is the ecosystem&apos;s holder base: each of these wallets holds a reward-mode coin and is paid that coin&apos;s quote asset on every payout, so every one of them is a holder StonkFun created or keeps for some project&apos;s token. One wallet holding several coins counts once. The census covers the largest coins up to a fixed budget and says how much of the ledger that is; the true figure is at least this large. Program-owned accounts (pool vaults) are counted like any owner.
-        </p>
+        <MethodStrip lead="Each of these wallets holds a reward-mode coin and is paid that coin's quote asset on every payout. A wallet is counted once no matter how many coins it holds." href="/about#holders">
+          <div className="method-body">
+            <p>This is the ecosystem&apos;s holder base: every one of these wallets is a holder StonkFun created or keeps for some project&apos;s token. The census de-duplicates across all covered coins.</p>
+            <p>The census covers the largest coins up to a fixed budget and says how much of the ledger that is; the true figure is at least this large. Program-owned accounts (pool vaults) are counted like any owner.</p>
+          </div>
+        </MethodStrip>
       </Section>
 
       {cats.length > 0 && (
-        <div className="kpis">
+        <div className="kpis cols-5">
           {cats.map((c) => (
             <div key={c.key} className="kpi min-w-0">
               <div className="label">{c.label}</div>
-              <div className="mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight">{c.wallets === null ? <span className="text-base text-muted">{latestRun ? "not covered" : "—"}</span> : fmtNum(c.wallets)}</div>
+              <div className={`mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight ${c.wallets === null ? "text-muted" : ""}`}>{c.wallets === null ? <span className="text-base">{latestRun ? "not covered" : "—"}</span> : fmtNum(c.wallets)}</div>
               <div className="mt-1.5 text-xs text-secondary num space-y-0.5">
-                <div>
-                  StonkFun wallets
-                  {c.walletsD1 !== null && <span className={c.walletsD1 > 0 ? " text-up" : c.walletsD1 < 0 ? " text-down" : ""}> {signed(c.walletsD1)} 24h</span>}
+                <div className="flex items-center gap-1.5">
+                  <Swatch p="paid" />StonkFun wallets
+                  {c.walletsD1 !== null && <span className={c.walletsD1 > 0 ? "text-up" : c.walletsD1 < 0 ? "text-down" : ""}>{signed(c.walletsD1)} 24h</span>}
                 </div>
                 <div className="text-muted">{fmtNum(c.assets)} quote asset{c.assets === 1 ? "" : "s"} · {fmtNum(c.coins)} coin{c.coins === 1 ? "" : "s"} · {fmtNum(c.slots)} holder-slots</div>
               </div>
@@ -99,21 +116,24 @@ export default async function HoldersPage() {
       )}
 
       <Section
-        title="Wallets holding a stock token"
-        action={<span className="num text-xs text-muted">Helius on-chain · stonk.fyi census · every {WALLET_CENSUS_EVERY_H}h</span>}
+        title={<><Swatch p="onchain" lg />Wallets holding a stock token</>}
+        action={<span className="num text-[11px] text-muted">Helius on-chain · stonk.fyi census · every {WALLET_CENSUS_EVERY_H}h</span>}
       >
         {census.status === "no-db" && <Empty>This block needs the site&apos;s census runs (Postgres), which this deployment does not have.</Empty>}
         {census.status === "db-error" && <Empty>The census could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → wallet_census.</Empty>}
         {census.status === "empty" && <Empty>No census run stored yet. The worker counts every wallet holding any of the {census.quoteAssets} stock quote assets every {WALLET_CENSUS_EVERY_H} hours; the first run appears here, the 24h change after a day, 7d after six, 30d after 24.</Empty>}
         {census.status === "ok" && <WalletCensus runs={census.runs} latest={census.latest} quoteAssets={census.quoteAssets} now={now} />}
-        <p className="mt-3 text-secondary text-[13px] leading-relaxed">
-          The other side of the tokenized-stock market: one wallet = one owner address with a non-zero balance of any selected stock quote asset (xStocks, Backpack, pre-stocks, Tessera), counted directly from token accounts on Solana; a wallet holding several counts once. Holding the stock token itself, not a StonkFun coin — so this is a different population from the reward-coin headline above, and neither contains the other. The per-asset figures are the &ldquo;On-chain&rdquo; column in the table.
-        </p>
+        <MethodStrip lead="One wallet = one owner address with a balance of any selected stock asset, counted from token accounts on Solana. Holding the stock, not a StonkFun coin: a different population from the headline above." href="/about#holders">
+          <div className="method-body">
+            <p>The other side of the tokenized-stock market: every owner address with a non-zero balance of any selected stock quote asset (xStocks, Backpack, pre-stocks, Tessera); a wallet holding several counts once. Any issuer subset can be selected above.</p>
+            <p>Neither population contains the other. The per-asset figures are the &ldquo;On-chain&rdquo; column in the table below; a &ldquo;≥&rdquo; marks an asset with more token accounts than one run reads.</p>
+          </div>
+        </MethodStrip>
       </Section>
 
       <Section
         title={`${u.rows.length} quote assets`}
-        action={<span className="num text-xs text-muted">HolderScan · {UNIVERSE_EVERY_H === 1 ? "hourly" : UNIVERSE_EVERY_H >= 24 ? "daily" : `every ${UNIVERSE_EVERY_H}h`} · Helius on-chain · every {WALLET_CENSUS_EVERY_H}h · reward-coin census · {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `every ${COIN_CENSUS_EVERY_H}h`}</span>}
+        action={<span className="num text-[11px] text-muted">click a column to sort · HolderScan · {UNIVERSE_EVERY_H === 1 ? "hourly" : UNIVERSE_EVERY_H >= 24 ? "daily" : `every ${UNIVERSE_EVERY_H}h`} · Helius · {WALLET_CENSUS_EVERY_H}h · StonkFun census · {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `${COIN_CENSUS_EVERY_H}h`}</span>}
       >
         {u.readCount === 0 && u.census.status !== "ok" && (
           <Empty>
@@ -121,18 +141,20 @@ export default async function HoldersPage() {
           </Empty>
         )}
         <UniverseTable rows={uRows} categories={cats.map((c) => ({ key: c.key, label: c.label }))} now={now} />
-        <div className="mt-4 pt-4 border-t border-border text-sm space-y-1.5 leading-relaxed">
-          <p className="font-medium">Per project: three counts of one asset&apos;s wallets — its holders (HolderScan), its holders counted on-chain by this site, and how many of them hold a StonkFun coin that pays them the asset.</p>
-          <p className="text-secondary text-[13px]">Holders: HolderScan&apos;s count of wallets with any balance of the asset, on any venue, read {UNIVERSE_EVERY_H === 1 ? "every hour" : "once a day"}{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. On-chain: this site&apos;s own count of owner addresses with a non-zero balance of the asset, from token accounts via Helius every {WALLET_CENSUS_EVERY_H} hours{u.onchainCount ? ` (${u.onchainCount} of ${u.rows.length} assets)` : ""}; a &ldquo;≥&rdquo; marks an asset with more token accounts than one run reads, so its figure is a floor — the two holder columns count the same thing two ways and should agree within dust. StonkFun wallets: this site&apos;s {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `${COIN_CENSUS_EVERY_H}-hourly`} on-chain census of wallets holding a reward coin quoted in the asset, de-duplicated within the asset; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget, so its figure is a floor. StonkFun share divides the second by the first: TTWO at 75% means three in four TTWO holders hold a StonkFun coin that pays them TTWO. A small &ldquo;HS&rdquo; after a change figure means it is HolderScan&apos;s own change for that window{u.deltaCount ? ` (${u.deltaCount} assets today)` : ""}; this site&apos;s own readings replace it once they cover the window (a 24h figure is only borrowed from a delta read in the last 36 hours). Holder-slots is StonkFun&apos;s own reward-eligible count summed over the asset&apos;s coins (one slot per coin per wallet). The category tiles are de-duplicated within each category; adding them up over-counts wallets that hold coins on several categories — the headline above is the only cross-category figure.</p>
-          <div className="flex flex-wrap justify-between gap-2 pt-1 text-xs text-muted num">
-            <span>Sources: HolderScan · Helius on-chain · StonkFun rewards ledger · StonkFun pairs</span>
-            <span>A change column shows once readings cover 80% of its window; empty columns are hidden until then</span>
+        <MethodStrip
+          lead="On-chain counts are floors; HolderScan counts are that provider's; StonkFun wallets are the wallets paid at least once. Three counts of one asset's wallets, never summed."
+          note={<><sup>HS</sup> = change borrowed from HolderScan until the census has history{u.deltaCount ? ` (${u.deltaCount} assets today)` : ""}</>}
+          href="/about#holders"
+        >
+          <div className="method-body">
+            <p><Swatch p="holderscan" /> Holders is HolderScan&apos;s de-duplicated count of wallets with any balance of the asset, on any venue, read {UNIVERSE_EVERY_H === 1 ? "every hour" : "once a day"}{u.readCount < u.rows.length ? ` (${u.readCount} of ${u.rows.length} assets have a reading; the rest are not tracked by HolderScan yet)` : ""}. <Swatch p="onchain" /> On-chain is this site&apos;s own count of owner addresses with a non-zero balance, from token accounts via Helius every {WALLET_CENSUS_EVERY_H} hours{u.onchainCount ? ` (${u.onchainCount} of ${u.rows.length} assets)` : ""}; it scans the largest accounts first and stops at a page limit, so a &ldquo;≥&rdquo; marks a floor. The two count the same thing two ways and should agree within dust.</p>
+            <p><Swatch p="paid" /> StonkFun wallets are the distinct wallets that received at least one reward payout in the asset, from the {COIN_CENSUS_EVERY_H >= 24 ? "daily" : `${COIN_CENSUS_EVERY_H}-hourly`} census; a &ldquo;+&rdquo; marks an asset whose smaller coins fall outside the census budget. StonkFun share = StonkFun wallets ÷ holders: TTWO at 75% means three in four TTWO holders hold a StonkFun coin that pays them TTWO. Change cells compare the newest reading to the one nearest the window start and show once readings cover 80% of the window; until then a StonkFun-wallet change may borrow HolderScan&apos;s direction, marked HS. Holder-slots is StonkFun&apos;s reward-eligible count summed over the asset&apos;s coins. Category tiles are de-duplicated within each category; adding them up over-counts wallets on several categories — the headline is the only cross-category figure.</p>
           </div>
-        </div>
+        </MethodStrip>
       </Section>
 
-      <p className="text-xs text-muted">
-        Method on <Link href="/about#holders" className="underline underline-offset-2 hover:text-primary">the About page</Link>. Not financial advice.
+      <p className="num text-xs text-muted">
+        Definitions and known gaps → <Link href="/about#holders" className="text-secondary hover:text-primary">About · Holders across the ecosystem</Link>
       </p>
     </div>
   );

@@ -6,6 +6,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import Nav from "@/components/Nav";
 import Ticker from "@/components/Ticker";
+import SectionStrip from "@/components/SectionStrip";
 import BuybackToasts from "@/components/BuybackToasts";
 import AlertsToggle from "@/components/AlertsToggle";
 import WalletLink from "@/components/WalletLink";
@@ -43,16 +44,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full flex flex-col">
         <Nav burnedPct={d?.supply.burnedPct ?? 0} />
         {d && <Ticker d={d} />}
+        <SectionStrip />
         <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-6">{children}</main>
         <footer className="border-t border-border mt-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 text-xs text-muted flex flex-wrap gap-x-4 gap-y-1">
-            <span><span className="text-secondary">stonk.fyi</span> is unofficial and not affiliated with StonkFun. Data: StonkFun public API, Raydium, CoinGecko.</span>
-            <span>USD figures are StonkFun&apos;s own pricing; burn amounts and tx signatures are on-chain.</span>
-            <span>Not financial advice.</span>
-            <Link href="/about" className="hover:text-primary underline underline-offset-2">Methodology &amp; sources</Link>
-            <a href={X_URL} target="_blank" rel="noopener noreferrer" className="hover:text-primary underline underline-offset-2">@{X_HANDLE} on X</a>
-            <WalletLink />
-            <AlertsToggle />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-6 text-xs text-muted flex flex-wrap items-start justify-between gap-x-8 gap-y-2.5">
+            <div className="flex flex-wrap gap-x-4 gap-y-1 leading-relaxed flex-[1_1_420px] min-w-0">
+              <span><span className="text-secondary">stonk.fyi</span> is unofficial and not affiliated with StonkFun. Data: StonkFun public API, Raydium, CoinGecko.</span>
+              <span>USD figures are StonkFun&apos;s own pricing; burn amounts and tx signatures are on-chain.</span>
+              <span className="text-secondary">Not financial advice.</span>
+            </div>
+            <div className="num flex flex-wrap gap-x-4 gap-y-1 whitespace-nowrap">
+              <Link href="/about" className="text-secondary hover:text-primary underline underline-offset-2">Methodology &amp; sources</Link>
+              <a href={X_URL} target="_blank" rel="noopener noreferrer" className="text-secondary hover:text-primary">@{X_HANDLE} ↗</a>
+              <WalletLink />
+              <AlertsToggle />
+            </div>
           </div>
         </footer>
         <BuybackToasts />

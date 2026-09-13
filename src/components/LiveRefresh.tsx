@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-// Re-renders the current server component tree on an interval so the page
-// always shows fresh API data without a full reload.
+// The refresh pill: a bordered button with the live dot and "updated Ns ago" (just "Ns" on phones). Re-renders
+// the server component tree on an interval so the page always shows fresh API data without a full reload.
 export default function LiveRefresh({ intervalMs = 60_000 }: { intervalMs?: number }) {
   const router = useRouter();
   const lastRef = useRef<number | null>(null);
@@ -33,11 +33,11 @@ export default function LiveRefresh({ intervalMs = 60_000 }: { intervalMs?: numb
         lastRef.current = Date.now();
         setSecs(0);
       }}
-      className="flex items-center gap-2 text-xs text-muted hover:text-primary"
-      title={`Page refreshes every ${Math.round(intervalMs / 1000)}s; each figure shows its own upstream cache window next to its source. Click to refresh now.`}
+      className="inline-flex items-center gap-2 min-h-8 px-2.5 rounded-md border border-border text-secondary hover:text-primary"
+      title={`Refreshes every ${Math.round(intervalMs / 1000)}s · click to refresh now. Each figure shows its own upstream cache window next to its source.`}
     >
       <span className="live-dot" />
-      <span className="num">updated {secs}s ago</span>
+      <span className="num text-xs"><span className="hidden sm:inline">updated </span>{secs}s<span className="hidden sm:inline"> ago</span></span>
     </button>
   );
 }

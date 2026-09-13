@@ -5,12 +5,13 @@ import { fmtNum, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
 import { getMutedServer, isMuted, setMuted, subscribeMuted } from "@/lib/alerts";
 import type { ProtocolEvent } from "@/app/api/buybacks/route";
 
-type Toast = { id: string; events: ProtocolEvent[]; at: number; replay?: boolean };
+type Toast = { id: string; events: ProtocolEvent[]; batches: number; at: number; replay?: boolean; explain: boolean };
 
 const POLL_MS = 20_000;
 const TTL_MS = 9_000;
-const MAX_VISIBLE = 3;
+const MAX_VISIBLE = 2;
 const REPLAY_WINDOW_MS = 5 * 60_000;
+const EXPLAIN_EVERY_MS = 5 * 60_000;
 
 // Buybacks arrive as a batch (one buy per fee token in the same second, one shared burn tx),
 // so events are grouped by burn signature, falling back to a 5s window by time.
@@ -23,17 +24,32 @@ function groupBatches(events: ProtocolEvent[]): ProtocolEvent[][] {
   return groups;
 }
 
-// Shows a toast each time the protocol buys back or burns STONK. Polls /api/buybacks, seeds the
-// seen-set on first load (replaying only the newest batch if it is under five minutes old),
-// then announces new events. A batch collapses into one toast so a sweep never floods the screen.
+// Shows a toast when the protocol buys back or burns STONK. Polls /api/buybacks, seeds the seen-set on first
+// load (replaying only the newest batch if it is under five minutes old), then announces new events. Toasts
+// coalesce (redesign 2026-09-13, Rationale §7): everything within one poll becomes one toast of the same kind —
+// summed value, "+N more in this sweep" — the explanatory sentence renders on the first toast in five minutes
+// only, and the stack holds two.
 export default function BuybackToasts() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const muted = useSyncExternalStore(subscribeMuted, isMuted, getMutedServer);
   const seen = useRef<Set<string> | null>(null);
   const paused = useRef(false);
+  const lastExplain = useRef(0);
 
   useEffect(() => {
     let alive = true;
+    const explainNow = () => {
+      const now = Date.now();
+      if (now - lastExplain.current < EXPLAIN_EVERY_MS) return false;
+      lastExplain.current = now;
+      return true;
+    };
+    // Same-kind batches from one poll fold into one toast; the first batch's txs are the links.
+    const coalesce = (batches: ProtocolEvent[][], replay = false): Toast[] =>
+      (["buyback", "burn"] as const)
+        .map((kind) => batches.filter((b) => b[0].kind === kind))
+        .filter((bs) => bs.length)
+        .map((bs) => ({ id: bs[0][0].id, events: bs.flat(), batches: bs.length, at: Date.now(), replay, explain: explainNow() }));
     async function poll() {
       if (document.visibilityState !== "visible") return;
       try {
@@ -45,15 +61,15 @@ export default function BuybackToasts() {
           seen.current = new Set(body.events.map((e) => e.id));
           const latest = groupBatches(body.events)[0];
           if (latest && Date.now() - Date.parse(latest[0].at) < REPLAY_WINDOW_MS && !isMuted()) {
-            setToasts([{ id: latest[0].id, events: latest, at: Date.now(), replay: true }]);
+            setToasts(coalesce([latest], true));
           }
           return;
         }
         const fresh = body.events.filter((e) => !seen.current!.has(e.id));
         for (const e of fresh) seen.current.add(e.id);
         if (fresh.length && !isMuted()) {
-          const batches = groupBatches(fresh).map((events): Toast => ({ id: events[0].id, events, at: Date.now() }));
-          setToasts((prev) => [...batches, ...prev].slice(0, MAX_VISIBLE));
+          const next = coalesce(groupBatches(fresh));
+          setToasts((prev) => [...next, ...prev].slice(0, MAX_VISIBLE));
         }
       } catch {
         /* network blip; next poll retries */
@@ -97,29 +113,34 @@ export default function BuybackToasts() {
         const symbols = [...new Set(t.events.map((e) => e.symbol))];
         const title = isBuyback
           ? `${n === 1 ? "Protocol buyback" : `${n} protocol buybacks`}${burned ? " · burned" : ""}`
-          : `Protocol burn · ${first.source}`;
+          : `${t.batches === 1 ? "Protocol burn" : `${t.batches} protocol burns`} · ${first.source}`;
         return (
           <div key={t.id} className="toast">
-            <div className="flex items-start justify-between gap-3">
-              <div className="label">{title}{t.replay ? ` · ${timeAgo(first.at)}` : ""}</div>
-              <button type="button" onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))} className="text-muted hover:text-primary leading-none -mt-0.5" aria-label="Dismiss">×</button>
+            <div className="flex items-baseline justify-between gap-3">
+              <div className="label">{title}{t.replay ? <span className="text-muted"> · {timeAgo(first.at)}</span> : null}</div>
+              <div className="flex gap-2.5 num">
+                <button type="button" onClick={() => { setMuted(true); setToasts([]); }} className="text-[11px] text-muted hover:text-primary">mute</button>
+                <button type="button" onClick={() => setToasts((prev) => prev.filter((x) => x.id !== t.id))} className="text-[13px] text-muted hover:text-primary leading-none" aria-label="Dismiss">×</button>
+              </div>
             </div>
-            <div className="num text-lg font-medium mt-1.5 leading-tight">
-              {fmtNum(stonk)} STONK <span className="text-secondary text-sm">{isBuyback ? "for" : "burned ·"} {fmtUsd(usd)}</span>
+            <div className="num text-lg font-medium tracking-tight mt-1.5 mb-1 leading-tight">
+              {fmtNum(stonk)} STONK {isBuyback ? "for" : "burned ·"} {fmtUsd(usd)}
             </div>
-            <div className="text-xs text-secondary mt-1">
-              {isBuyback
-                ? n === 1
-                  ? <>Spent {fmtNum(first.spentTokens, 4)} {first.symbol} from platform fees.</>
-                  : <>Fees in {symbols.slice(0, 4).join(", ")}{symbols.length > 4 ? ` and ${symbols.length - 4} more` : ""} swept into STONK.</>
-                : first.source === "quote-revenue"
-                  ? <>Fee revenue collected in STONK from STONK-quoted pools, burned directly.</>
-                  : <>STONK burned by the protocol&apos;s {first.source} program.</>}
-            </div>
+            {t.explain && (
+              <div className="text-xs text-secondary leading-snug">
+                {isBuyback
+                  ? n === 1
+                    ? <>Spent {fmtNum(first.spentTokens, 4)} {first.symbol} from platform fees.</>
+                    : <>Fees in {symbols.slice(0, 3).join(", ")}{symbols.length > 3 ? ` and ${symbols.length - 3} more` : ""} swept into STONK.</>
+                  : first.source === "quote-revenue"
+                    ? <>Fee revenue collected in STONK from STONK-quoted pools, burned directly.</>
+                    : <>STONK burned by the protocol&apos;s {first.source} program.</>}
+              </div>
+            )}
             <div className="flex items-center gap-3 mt-2 num text-[11px]">
-              {isBuyback && <a href={`https://solscan.io/tx/${first.id}`} target="_blank" rel="noreferrer" className="src">buy {shortAddr(first.id, 4)}</a>}
-              {first.burnSignature && <a href={`https://solscan.io/tx/${first.burnSignature}`} target="_blank" rel="noreferrer" className="src">burn {shortAddr(first.burnSignature, 4)}</a>}
-              <button type="button" onClick={() => { setMuted(true); setToasts([]); }} className="ml-auto text-muted hover:text-primary">mute</button>
+              {isBuyback && <a href={`https://solscan.io/tx/${first.id}`} target="_blank" rel="noreferrer" className="text-muted hover:text-accent">buy {shortAddr(first.id, 4)} ↗</a>}
+              {first.burnSignature && <a href={`https://solscan.io/tx/${first.burnSignature}`} target="_blank" rel="noreferrer" className="text-muted hover:text-accent">burn {shortAddr(first.burnSignature, 4)} ↗</a>}
+              {t.batches > 1 && <span className="ml-auto text-muted">+{t.batches - 1} more in this sweep</span>}
             </div>
           </div>
         );

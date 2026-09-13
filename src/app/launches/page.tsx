@@ -42,7 +42,7 @@ export default async function LaunchesPage() {
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Launches" sub={`${fmtNum(launches.data.pagination.total)} launches on the ledger · graduation at ${fmtUsd(Number(s.config.graduationMarketCapUsd))} market cap`} />
+      <PageHeader title="Launches" sub={<><span className="num">{fmtNum(launches.data.pagination.total)}</span> launches on the ledger · graduation at <span className="num">{fmtUsd(Number(s.config.graduationMarketCapUsd))}</span> market cap</>} />
 
       <div className="kpis">
         {vel ? (
@@ -56,16 +56,16 @@ export default async function LaunchesPage() {
       </div>
 
       <div className="grid lg:grid-cols-3 gap-4">
-        <Section title={vel ? "Launches per hour, last 24h" : `Launches per hour, newest ${n} tokens`} className="lg:col-span-2" action={<span className="num text-xs text-muted">{vel ? "UTC · stonk.fyi snapshots · 5 min" : "estimate"}</span>}>
-          <CountBarChart data={velocity} name="Launches" tick="hour" />
+        <Section title={vel ? "Launches per hour, last 24h" : `Launches per hour, newest ${n} tokens`} className="lg:col-span-2" action={<span className="num text-[11px] text-muted">{vel ? "stonk.fyi snapshots · hourly · 5 min" : "estimate"}</span>}>
+          <CountBarChart data={velocity} name="Launches" tick="hour" height={220} />
         </Section>
-        <div className="space-y-4">
-          <Section title="Mode (last 50)"><ShareBar data={modeSplit} fmt="count" /></Section>
-          <Section title="Launchpad (last 50)"><ShareBar data={padSplit} fmt="count" /></Section>
+        <div className="grid gap-4 content-start">
+          <Section title="Mode" action={<span className="num text-[11px] text-muted">last 50</span>}><ShareBar data={modeSplit} fmt="count" /></Section>
+          <Section title="Launchpad" action={<span className="num text-[11px] text-muted">last 50</span>}><ShareBar data={padSplit} fmt="count" /></Section>
         </div>
       </div>
 
-      <Section title="Launch ledger (newest first)">
+      <Section title="Launch ledger" action={<span className="num text-[11px] text-muted">newest first · {rows.length} rows · StonkFun · 30s</span>}>
         <div className="table-wrap">
           <table className="data">
             <thead>
@@ -76,8 +76,8 @@ export default async function LaunchesPage() {
                 <th>Mode</th>
                 <th>Launchpad</th>
                 <th className="r">Start MC</th>
-                <th>Creator</th>
-                <th className="r">Trade</th>
+                <th className="r">Creator</th>
+                <th className="r"></th>
               </tr>
             </thead>
             <tbody>
@@ -89,11 +89,11 @@ export default async function LaunchesPage() {
                       <span className="font-medium">{l.symbol}</span> <span className="text-muted text-xs">{l.name}</span>
                     </TokenLink>
                   </td>
-                  <td>{l.quote.symbol}</td>
+                  <td className="text-secondary">{l.quote.symbol}</td>
                   <td><ModePill mode={l.mode} bps={l.transferFee?.bps} /></td>
                   <td className="text-secondary">{l.launchpad}</td>
                   <td className="r num">{fmtUsd(l.startMarketCapUsd)}</td>
-                  <td>{l.creator ? <ExplorerLink addr={l.creator} label={shortAddr(l.creator)} /> : "—"}</td>
+                  <td className="r">{l.creator ? <ExplorerLink addr={l.creator} label={`${shortAddr(l.creator)} ↗`} /> : "—"}</td>
                   <td className="r"><TradeLink mint={l.mint} /></td>
                 </tr>
               ))}

@@ -27,11 +27,11 @@ export function Delta({ value, digits = 1 }: { value?: number | null; digits?: n
   );
 }
 
-export function Section({ title, action, children, className = "" }: { title: string; action?: ReactNode; children: ReactNode; className?: string }) {
+export function Section({ title, action, children, className = "", id }: { title: ReactNode; action?: ReactNode; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={`card p-4 ${className}`}>
-      <div className="flex items-center justify-between gap-4 mb-3">
-        <h2 className="text-[13px] font-semibold">{title}</h2>
+    <section id={id} className={`card p-4 ${id ? "anchor" : ""} ${className}`}>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 mb-3">
+        <h2 className="text-[13px] font-semibold flex items-center gap-2">{title}</h2>
         {action}
       </div>
       {children}
@@ -44,7 +44,7 @@ export function PageHeader({ title, sub, children }: { title: string; sub?: Reac
     <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 mb-5 pb-4 border-b border-border">
       <div className="min-w-0 max-w-3xl">
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-        {sub && <p className="text-sm text-muted mt-0.5">{sub}</p>}
+        {sub && <p className="text-[13px] text-muted mt-1.5 max-w-[80ch]">{sub}</p>}
       </div>
       {/* Trailing block keeps to the right edge even when the header wraps onto two lines. */}
       {children && <div className="ml-auto shrink-0">{children}</div>}

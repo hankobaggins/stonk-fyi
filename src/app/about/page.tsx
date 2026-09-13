@@ -73,12 +73,43 @@ const CADENCE: [string, string, string][] = [
   ["Social card (link preview)", "rendered live; its URL changes every 5 min so link scrapers, which cache by URL, fetch a new render", "5 min"],
 ];
 
+const TOC: [string, string][] = [
+  ["what", "What this is"],
+  ["token", "The token"],
+  ["sources", "Data sources"],
+  ["fresh", "How fresh is this?"],
+  ["scored", "What is scored"],
+  ["projection", "The projection"],
+  ["yield", "Holder-fee APR"],
+  ["holderbase", "The $STONK holder base"],
+  ["holders", "Holders across the ecosystem"],
+  ["unknown", "What this site does not know"],
+];
+
+const SOURCES: [string, string][] = [
+  ["StonkFun API", "Platform stats, revenue and buyback history, token list and market data, burn ledger, launches, pairs, rewards. The ledger of record and the source of every USD figure on the site; its pricing feed is not independently verified here. Burn amounts and transaction signatures are on-chain and link to Solscan."],
+  ["Raydium", "Reserves, TVL and 24h volume of the main STONK/SPYx pool. Used for pool depth, net flow, and the projection's quote-side depth."],
+  ["HolderScan", "$STONK's holder profile — holder count with HolderScan's own 1h to 30d changes, holders by value held and by size tier, the median position, hold time and retention, the hold-time class of the 1,000 largest wallets, aggregate break-even and PnL — and the holder count of every quote asset on the Holders page. Read by this site's worker and stored; pages show the stored readings."],
+  ["GMGN", "Top-10 concentration, wallet tags (smart money, KOL, whales), buy and sell volume across every pool STONK trades in, contract and LP checks, and an independent USD price from STONK's largest pool by liquidity. Optional; its cells read \"provider down\" when it is unavailable."],
+  ["Jupiter", "Current USD prices for the ~250 quote assets reward coins pay in. Used on the Rewards page and on each reward coin's token page to value payouts, which StonkFun reports in native units."],
+  ["CoinGecko", "90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when it is unavailable."],
+];
+
+// Long-form reading page (redesign 2026-09-13): a sticky "On this page" column at ≥ lg, a chip row above the
+// article below it; every section has an anchor that clears the sticky chrome.
 export default function AboutPage() {
   return (
-    <div className="space-y-6 max-w-3xl">
-      <PageHeader title="Methodology & data sources" sub={`What every number on ${SITE_NAME} means, where it comes from, and what this site does not know.`} />
+    <div className="grid lg:grid-cols-[200px_minmax(0,48rem)] gap-x-10 gap-y-5 lg:justify-center">
+      <nav className="lg:sticky lg:top-[112px] lg:self-start flex flex-wrap lg:flex-col gap-1.5 lg:gap-0.5 text-[12.5px] lg:pt-1" aria-label="On this page">
+        <div className="label basis-full lg:basis-auto lg:mb-2">On this page</div>
+        {TOC.map(([id, label]) => (
+          <a key={id} href={`#${id}`} className="px-2.5 py-1.5 lg:py-1 rounded border border-border lg:border-0 lg:border-l-2 lg:rounded-none text-secondary hover:text-primary lg:hover:border-l-border-strong whitespace-nowrap">{label}</a>
+        ))}
+      </nav>
+      <article className="space-y-4">
+      <PageHeader title="Methodology & data sources" sub="What is measured, where it comes from, how fresh it is, and what this site does not know." />
 
-      <Section title="What this is">
+      <Section title="What this is" id="what">
         <div className="text-sm text-secondary space-y-3 leading-relaxed">
           <p>
             {SITE_NAME} tracks <span className="text-primary">$STONK</span>, the platform token of the StonkFun launchpad on Solana. Every metric is
@@ -92,7 +123,7 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section title="The token">
+      <Section title="The token" id="token">
         <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-xs [&_dd]:break-words [&_dd]:min-w-0 [&_a]:break-all">
           <dt className="text-muted">Mint</dt><dd><ExplorerLink addr={STONK_MINT} kind="token" /></dd>
           <dt className="text-muted">Main pool</dt><dd><ExplorerLink addr={STONK_POOL} /> <span className="text-muted">Raydium CLMM, STONK / SPYx, 1% fee</span></dd>
@@ -101,43 +132,13 @@ export default function AboutPage() {
         </dl>
       </Section>
 
-      <Section title="Data sources">
-        <div className="text-sm text-secondary space-y-3 leading-relaxed">
-          <p>
-            <span className="text-primary">StonkFun public API</span> (<code className="font-mono text-xs">stonkfun.xyz/api/public/v1</code>): platform
-            stats, revenue and buyback history, token list and market data, burn ledger, launches, pairs, rewards. This is the source of every USD figure
-            on the site. StonkFun&apos;s pricing feed is not independently verified here; treat dollar values as StonkFun&apos;s numbers. Burn amounts and
-            transaction signatures are on-chain and link to Solscan.
-          </p>
-          <p>
-            <span className="text-primary">Raydium</span> (<code className="font-mono text-xs">api-v3.raydium.io</code>): reserves, TVL and 24h volume of
-            the main STONK/SPYx pool. Used for pool depth, net flow, and the projection&apos;s quote-side depth.
-          </p>
-          <p>
-            <span className="text-primary">HolderScan</span> (<code className="font-mono text-xs">api.holderscan.com</code>): $STONK&apos;s holder profile — holder
-            count with HolderScan&apos;s own 1h to 30d changes, holders by value held and by size tier, the median position, average hold time and retention,
-            the hold-time class of the 1,000 largest wallets and their supply, the top holders list, aggregate break-even price and PnL — and the holder
-            count of every quote asset on the Holders page. Read by this site&apos;s worker and stored; pages show the stored readings.
-          </p>
-          <p>
-            <span className="text-primary">GMGN</span> (<code className="font-mono text-xs">openapi.gmgn.ai</code>): top-10 concentration,
-            wallet tags (smart money, KOL, whales), buy and sell volume across every pool STONK trades in, contract and LP checks, and an
-            independent USD price from STONK&apos;s largest pool by liquidity. Shown under the price as a spread against StonkFun&apos;s figure.
-            Optional; the &quot;Holders &amp; flow&quot; section is absent when GMGN is unavailable.
-          </p>
-          <p>
-            <span className="text-primary">Jupiter</span> (<code className="font-mono text-xs">lite-api.jup.ag/price/v3</code>): current USD prices for the ~250
-            quote assets reward coins pay in. Used on the Rewards page and on each reward coin&apos;s token page to value payouts, which StonkFun reports in native units. Marked to
-            current prices, so it differs from StonkFun&apos;s USD-at-payout daily totals.
-          </p>
-          <p>
-            <span className="text-primary">CoinGecko</span>: 90-day USD price history for the price chart. Best-effort; the chart shows a placeholder when
-            it is unavailable.
-          </p>
-        </div>
+      <Section title="Data sources" id="sources">
+        <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2.5 text-[13px] text-secondary leading-relaxed">
+          {SOURCES.map(([name, text]) => (<Fragment key={name}><dt className="num text-primary text-[12.5px] whitespace-nowrap">{name}</dt><dd>{text}</dd></Fragment>))}
+        </dl>
       </Section>
 
-      <Section title="How fresh is this?">
+      <Section title="How fresh is this?" id="fresh">
         <p className="text-sm text-secondary leading-relaxed mb-3">
           Every page re-renders itself every <span className="num text-primary">60 seconds</span> (the &quot;updated Ns ago&quot; counter in the nav). Each
           figure&apos;s source line shows how long the site caches that upstream, so a number can be up to that much older than the counter. StonkFun&apos;s own
@@ -149,7 +150,7 @@ export default function AboutPage() {
             <tbody>
               {CADENCE.map(([what, src, every]) => (
                 <tr key={what}>
-                  <td className="text-primary">{what}</td>
+                  <td className="font-sans text-primary !whitespace-normal">{what}</td>
                   <td className="text-secondary !whitespace-normal">{src}</td>
                   <td className="r num">{every}</td>
                 </tr>
@@ -159,7 +160,7 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section title="What is scored, and what is not">
+      <Section title="What is scored, and what is not" id="scored">
         <div className="text-sm text-secondary space-y-3 leading-relaxed mb-4">
           <p>
             Only quantities that can objectively move both ways are scored. Facts that can only move in one direction are shown in the
@@ -182,12 +183,12 @@ export default function AboutPage() {
             <tbody>
               {INDICATORS.map((g) => (
                 <Fragment key={g.group}>
-                  <tr><td colSpan={3} className="text-[11px] uppercase tracking-wide text-muted !py-2">{g.group}</td></tr>
+                  <tr className="bg-surface-2/60"><td colSpan={3} className="font-sans text-primary font-semibold !py-2">{g.group}</td></tr>
                   {g.rows.map(([label, how, when]) => (
                     <tr key={label}>
-                      <td className="text-primary">{label}</td>
+                      <td className="font-sans text-primary">{label}</td>
                       <td className="!whitespace-normal text-secondary">{how}</td>
-                      <td className="num">{when}</td>
+                      <td className="text-secondary">{when}</td>
                     </tr>
                   ))}
                 </Fragment>
@@ -197,7 +198,7 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <div id="projection" className="scroll-mt-20" /><Section title="The projection">
+      <Section title="The projection" id="projection">
         <div className="text-sm text-secondary space-y-3 leading-relaxed">
           <p>
             The flywheel projection on the $STONK page models one thing: what revenue-funded buybacks alone do to price over a horizon. It brackets
@@ -213,21 +214,21 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <div id="yield" className="scroll-mt-20" /><Section title="Holder-fee APR">
+      <Section title="Holder-fee APR" id="yield">
         <div className="text-sm text-secondary space-y-2 leading-relaxed">
           <p>The <Link href="/tokens" className="underline underline-offset-2 hover:text-primary">Tokens page</Link> shows a realized APR beside every tracked reward-mode coin (<Link href="/tokens?mode=reward&by=apr3" className="underline underline-offset-2 hover:text-primary">sort the reward coins by it</Link>): tokens paid to holders over a window (from this site&apos;s 5-minute readings of StonkFun&apos;s lifetime payout figure per coin) × the quote asset&apos;s USD price now, divided by the coin&apos;s market cap now, annualized by the hours the window actually covers. The 24h column uses the last day of payouts; the 3d column averages over 72 hours. A window is shown once readings cover at least 80% of it, and coins need 72 hours of trading history to be listed.</p>
           <p>It is deliberately not volume × fee rate. Volume-based estimates depend on assumptions about eligible balances, operating fees and which pools count; payouts are what happened. The trade-off is lag: a coin that started paying an hour ago shows nothing until its window fills. Market cap as the denominator understates a holder&apos;s own yield, since pool and program balances are not paid.</p>
         </div>
       </Section>
 
-      <div id="holderbase" className="scroll-mt-20" /><Section title="The $STONK holder base">
+      <Section title="The $STONK holder base" id="holderbase">
         <div className="text-sm text-secondary space-y-2 leading-relaxed">
           <p>The Holder base block on the $STONK page and the four HolderScan cells in the scorecard come from HolderScan&apos;s profile of the mint, read by this site&apos;s worker (every tick on HolderScan&apos;s Advanced plan, every six hours on Standard) and stored, so the page shows a reading and its age rather than calling HolderScan on every visit. <span className="text-primary">Holders</span> is every wallet with a STONK balance on any venue; the 1h, 24h, 7d and 30d changes are HolderScan&apos;s own. <span className="text-primary">Average per holder</span> is StonkFun&apos;s market cap divided by that count — the stake each wallet would hold if every holder held the same; since a few large wallets and the pools pull it up, the <span className="text-primary">median position</span> (HolderScan&apos;s, in STONK, valued at StonkFun&apos;s price) is the typical holder. <span className="text-primary">Holders over $10 … $1M</span> and the shrimp-to-whale tiers are HolderScan&apos;s at its valuation at read time; their 24h changes are between this site&apos;s readings. <span className="text-primary">Hold-time classes</span> (diamond, gold, silver, bronze, wood, new) and the supply held by each cover the 1,000 largest wallets, FIFO. <span className="text-primary">Break-even</span> and <span className="text-primary">PnL</span> are HolderScan&apos;s FIFO aggregates in USD. Top-10 and top-100 share are Σ of HolderScan&apos;s top holders&apos; balances ÷ circulating supply, pools included.</p>
           <p>Scored cells: holder growth (HolderScan&apos;s 24h change), holders over $1K (24h change between readings, once ~19h exist) and diamond-hands share; price vs break-even is context, because a holder base in profit is both healthy and a source of sell pressure. The thresholds are first guesses on one day of data (2026-09-12) and will be revisited as the readings accumulate.</p>
         </div>
       </Section>
 
-      <div id="holders" className="scroll-mt-20" /><Section title="Holders across the ecosystem">
+      <Section title="Holders across the ecosystem" id="holders">
         <div className="text-sm text-secondary space-y-2 leading-relaxed">
           <p>The <Link href="/holders" className="underline underline-offset-2 hover:text-primary">Holders page</Link> starts from the whole universe of quote assets: every pair StonkFun lists that has at least one reward-mode coin launched against it, in every category (tokenized stocks, pre-IPO, crypto, stablecoins, SOL, leverage, collectibles — about 320 assets). Two figures per asset, from two providers, never added together. <span className="text-primary">Holders</span> is HolderScan&apos;s count of wallets with any balance of the asset on any venue, read every hour on HolderScan&apos;s Advanced plan (once a day on Standard); assets HolderScan does not track show no reading. <span className="text-primary">StonkFun wallets</span> is this site&apos;s own daily on-chain census: for the largest reward coins by holder count (up to a fixed page budget, so the figure is a floor and the page says what share of StonkFun&apos;s holder-slots it covers), every wallet with a balance, read from token accounts via Helius and de-duplicated by owner — overall, per category and per quote asset. No address is stored, only counts. A wallet in that census holds a coin that pays it the quote asset on every payout, which is why it is the headline: it is the set of holders the ecosystem creates or keeps for other projects&apos; tokens. Share is StonkFun wallets ÷ holders for the same asset.</p>
           <p>The 24h, 7d and 30d columns are the difference between the newest reading and the newest reading at or before the window start, shown once readings cover at least 80% of the window (two daily readings for 24h, about six days for 7d, 24 for 30d). Holder readings are kept for 60 days; census runs indefinitely (a few hundred rows a day).</p>
@@ -235,7 +236,7 @@ export default function AboutPage() {
         </div>
       </Section>
 
-      <Section title="What this site does not know">
+      <Section title="What this site does not know" id="unknown">
         <ul className="text-sm text-secondary space-y-2 leading-relaxed list-disc pl-5">
           <li>STONK has no USD market of its own. Its USD price is the pool ratio × SPYx&apos;s USD price, so it carries S&amp;P 500 beta, and SPYx has no live reference price outside US market hours, which lets the USD figure drift over weekends and gap at Monday open.</li>
           <li>Burn rate is a spot rate from the most recent ~25 burn events (roughly one to two hours). It swings with platform activity.</li>
@@ -246,9 +247,10 @@ export default function AboutPage() {
         </ul>
       </Section>
 
-      <p className="text-xs text-muted">
-        Questions about a number? Every tile shows its source. Start at <Link href="/" className="underline underline-offset-2 hover:text-primary">the $STONK page</Link>.
+      <p className="num text-xs text-muted">
+        Built from public data. Every tile shows its source; start at <Link href="/" className="text-secondary hover:text-primary">the $STONK page</Link>. Corrections: @stonk_fyi on X.
       </p>
+      </article>
     </div>
   );
 }

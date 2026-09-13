@@ -26,8 +26,8 @@ export function AprCol({ c, max, cls, why }: { c: AprCell; max: number; cls: str
   const w = max > 0 ? Math.max(2, (c.apr / max) * 100) : 0;
   return (
     <span className="flex items-center gap-3 justify-end" title={`${fmtUsd(c.usd)} paid over ${c.hours.toFixed(1)}h · ${hhmm(c.from)} → ${hhmm(c.to)}`}>
-      <span className="aprbar w-20 sm:w-28 shrink-0"><i className={cls} style={{ width: `${w}%` }} /></span>
-      <span className={`num text-[14px] font-medium w-16 text-right ${cls}`}>{fmtApr(c.apr)}</span>
+      <span className="aprbar w-[72px] shrink-0"><i className={cls} style={{ width: `${w}%` }} /></span>
+      <span className="num text-[13px] font-medium min-w-[52px] text-right">{fmtApr(c.apr)}</span>
     </span>
   );
 }
@@ -77,12 +77,13 @@ export function sortTokens(tokens: Token[], apr: Record<string, TokenApr> | unde
   });
 }
 
-function Th({ k, sort, right = false, children, sub }: { k: SortKey; sort?: TableSort; right?: boolean; children: ReactNode; sub?: ReactNode }) {
-  if (!sort) return <th className={right ? "r" : ""}>{children}{sub}</th>;
+function Th({ k, sort, right = false, p3 = false, children, sub }: { k: SortKey; sort?: TableSort; right?: boolean; p3?: boolean; children: ReactNode; sub?: ReactNode }) {
+  const cls = `${right ? "r" : ""} ${p3 ? "p3" : ""}`;
+  if (!sort) return <th className={cls}>{children}{sub}</th>;
   const active = sort.key === k;
   const next = active ? (sort.dir === "desc" ? "asc" : "desc") : DEFAULT_DIR[k];
   return (
-    <th className={right ? "r" : ""} aria-sort={active ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}>
+    <th className={cls} aria-sort={active ? (sort.dir === "desc" ? "descending" : "ascending") : "none"}>
       <Link href={sort.href(k, next)} className={`hover:text-primary ${active ? "text-primary" : ""}`}>
         {children}
         <span className="inline-block w-3 text-[9px]">{active ? (sort.dir === "desc" ? " ▼" : " ▲") : ""}</span>
@@ -98,13 +99,15 @@ function Th({ k, sort, right = false, children, sub }: { k: SortKey; sort?: Tabl
 export default function TokenTable({ tokens, startRank = 1, now, compact = false, apr, sort, holders }: { tokens: Token[]; startRank?: number; now: number; compact?: boolean; apr?: Record<string, TokenApr>; sort?: TableSort; holders?: Record<string, number> }) {
   const max1 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d1?.apr ?? 0)) : 0;
   const max3 = apr ? Math.max(0, ...tokens.map((t) => apr[t.mint]?.d3?.apr ?? 0)) : 0;
+  // The full table pins # and Token while the rest scrolls inside .table-wrap; compact tables are narrow enough.
+  const sticky = !compact;
   return (
     <div className="table-wrap">
       <table className="data">
         <thead>
           <tr>
-            <th className="r">#</th>
-            <th>Token</th>
+            <th className={`r ${sticky ? "st1" : ""}`}>#</th>
+            <th className={sticky ? "st2 min-w-[140px] sm:min-w-[200px]" : ""}>Token</th>
             <th>Pair</th>
             <Th k="price" sort={sort} right>Price</Th>
             <Th k="chg" sort={sort} right>24h</Th>
@@ -112,25 +115,25 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
             <Th k="vol" sort={sort} right>24h volume</Th>
             {apr && (
               <>
-                <Th k="apr1" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">from the last 24h of payouts</span></>}>24h-based APR</Th>
                 <Th k="apr3" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">average over the last 72h</span></>}>3d-based APR</Th>
+                <Th k="apr1" sort={sort} right p3 sub={<><br /><span className="normal-case tracking-normal text-[10px]">from the last 24h of payouts</span></>}>24h-based APR</Th>
               </>
             )}
             {!compact && holders && (
               <>
-                <Th k="holders" sort={sort} right>Holders</Th>
-                <Th k="avg" sort={sort} right sub={<><br /><span className="normal-case tracking-normal text-[10px]">market cap ÷ holders</span></>}>Avg per holder</Th>
+                <Th k="holders" sort={sort} right p3>Holders</Th>
+                <Th k="avg" sort={sort} right p3 sub={<><br /><span className="normal-case tracking-normal text-[10px]">market cap ÷ holders</span></>}>Avg per holder</Th>
               </>
             )}
             {!compact && (
               <>
-                <Th k="ratio" sort={sort} right>Vol / MC</Th>
-                <th>Buy</th>
+                <Th k="ratio" sort={sort} right p3>Vol / MC</Th>
+                <th className="r"></th>
                 <th>Status</th>
                 <Th k="age" sort={sort} right>Age</Th>
               </>
             )}
-            {compact && <th className="r">Trade</th>}
+            {compact && <th className="r"></th>}
           </tr>
         </thead>
         <tbody>
@@ -141,8 +144,8 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
             const a = apr?.[t.mint];
             return (
               <tr key={t.mint}>
-                <td className="r text-muted num">{String(startRank + i).padStart(2, "0")}</td>
-                <td>
+                <td className={`r text-muted num ${sticky ? "st1" : ""}`}>{String(startRank + i).padStart(2, "0")}</td>
+                <td className={sticky ? "st2" : ""}>
                   <TokenLink mint={t.mint}>
                     <span className="flex items-center gap-2.5">
                       <TokenIcon src={img} symbol={t.symbol} size={24} />
@@ -165,20 +168,20 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                 <td className="r num">{fmtUsd(m.volume24hUsd, { compact: true })}</td>
                 {apr && (
                   <>
-                    <td className="r"><AprCol c={a?.d1 ?? null} max={max1} cls="apr1" why={a?.why ?? null} /></td>
                     <td className="r"><AprCol c={a?.d3 ?? null} max={max3} cls="apr3" why={a?.why ?? null} /></td>
+                    <td className="r p3"><AprCol c={a?.d1 ?? null} max={max1} cls="apr1" why={a?.why ?? null} /></td>
                   </>
                 )}
                 {!compact && holders && (
                   <>
-                    <td className="r num">{holders[t.mint] ? fmtNum(holders[t.mint]) : <span className="text-muted text-xs">{t.mode === "reward" ? "—" : "standard"}</span>}</td>
-                    <td className="r num">{avgPerHolder(t, holders) !== null ? fmtUsd(avgPerHolder(t, holders)) : <span className="text-muted text-xs">—</span>}</td>
+                    <td className="r num p3">{holders[t.mint] ? fmtNum(holders[t.mint]) : <span className="text-muted text-xs">{t.mode === "reward" ? "—" : "standard"}</span>}</td>
+                    <td className="r num p3">{avgPerHolder(t, holders) !== null ? fmtUsd(avgPerHolder(t, holders)) : <span className="text-muted text-xs">—</span>}</td>
                   </>
                 )}
                 {!compact && (
                   <>
-                    <td className="r num text-secondary">{ratio !== undefined ? `${ratio.toFixed(2)}×` : "—"}</td>
-                    <td><TradeLink mint={t.mint} /></td>
+                    <td className="r num text-secondary p3">{ratio !== undefined ? `${ratio.toFixed(2)}×` : "—"}</td>
+                    <td className="r"><TradeLink mint={t.mint} /></td>
                     <td><StatusPill status={t.status} progress={t.graduationProgress} /></td>
                     <td className="r text-muted num">{timeAgo(t.createdAt, now)}</td>
                   </>

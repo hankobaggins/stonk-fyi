@@ -3,8 +3,9 @@ import { STONK_INITIAL_SUPPLY } from "@/lib/stonk";
 import { fmtNum, fmtUsd, timeAgo } from "@/lib/format";
 import BurnRing from "./BurnRing";
 
-// The facts that can only move one way. They are not scored: a signal that cannot turn is not a
-// signal, it is the floor the scorecard sits on. The burn ring is the site mark at full size.
+// The facts that can only move one way. They are not scored: a signal that cannot turn is not a signal, it is the
+// floor the scorecard sits on. The burn ring is the site mark at full size (128px; 88px on phones, where the ring
+// and title share a row and the ledger and checklist sit side by side beneath).
 export default function Foundation({ d, now }: { d: StonkData; now: number }) {
   const s = d.supply;
   const g = d.gmgn;
@@ -15,13 +16,21 @@ export default function Foundation({ d, now }: { d: StonkData; now: number }) {
     { label: "Liquidity burned", ok: g ? g.security.lpBurned : null, note: g?.security.lpBurnedPct ? `${g.security.lpBurnedPct.toFixed(0)}% of LP tokens burned` : "LP tokens burned" },
     { label: "No transfer tax", ok: g ? g.security.buyTax === 0 && g.security.sellTax === 0 : null, note: "0% buy, 0% sell" },
   ];
+  const pct = `${s.burnedPct.toFixed(2)}%`;
   return (
-    <section className="border-y border-border py-6 grid grid-cols-1 md:grid-cols-[auto_1fr_1fr] gap-x-8 gap-y-5 items-center">
-      <div className="flex items-center gap-5">
-        <div className="relative shrink-0">
-          <BurnRing pct={s.burnedPct} size={128} width={14} stroke="var(--surface-2)" track="var(--series-2)" label={`${s.burnedPct.toFixed(2)}% of supply burned`} />
+    <section className="border-y border-border py-5 md:py-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[auto_1fr_1fr] gap-x-8 gap-y-4 md:items-center">
+      <div className="flex items-center gap-4 md:gap-5 sm:col-span-2 md:col-span-1">
+        <div className="relative shrink-0 md:hidden">
+          <BurnRing pct={s.burnedPct} size={88} width={10} stroke="var(--surface-2)" track="var(--series-2)" label={`${pct} of supply burned`} />
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-            <div className="num text-[22px] font-medium leading-none">{s.burnedPct.toFixed(2)}%</div>
+            <div className="num text-[16px] font-medium leading-none">{pct}</div>
+            <div className="label mt-1 text-[9px]">burned</div>
+          </div>
+        </div>
+        <div className="relative shrink-0 hidden md:block">
+          <BurnRing pct={s.burnedPct} size={128} width={14} stroke="var(--surface-2)" track="var(--series-2)" label={`${pct} of supply burned`} />
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+            <div className="num text-[22px] font-medium leading-none">{pct}</div>
             <div className="label mt-1.5">burned</div>
           </div>
         </div>
@@ -42,10 +51,10 @@ export default function Foundation({ d, now }: { d: StonkData; now: number }) {
 
       <ul className="grid gap-1.5 text-xs self-center">
         {checks.map((c) => (
-          <li key={c.label} className="flex items-baseline gap-2.5">
+          <li key={c.label} className="flex items-baseline gap-2.5 min-w-0">
             <span className={`num shrink-0 ${c.ok === null ? "text-muted" : c.ok ? "text-up" : "text-caution"}`}>{c.ok === null ? "·" : c.ok ? "✓" : "✗"}</span>
             <span className="text-primary">{c.label}</span>
-            <span className="text-muted num truncate">{c.ok === null ? "unverified (GMGN offline)" : c.note}</span>
+            <span className="text-muted num truncate ml-auto">{c.ok === null ? "unverified · GMGN offline" : c.note}</span>
           </li>
         ))}
       </ul>

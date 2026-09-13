@@ -1,9 +1,9 @@
-import Link from "next/link";
 import type { HolderHistory } from "@/lib/stonk-holders";
 import { profileChange, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
 import { fmtNum, fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import { KpiTile, Section } from "./ui";
 import { SeriesAreaChart, ShareBar } from "./charts";
+import MethodStrip from "./MethodStrip";
 
 // The $STONK holder base from HolderScan's profile (CLAUDE.md §6h): who holds, how much, for how long, at what
 // cost. Everything here is read by the worker and stored; the page never calls HolderScan. Dollar figures are
@@ -50,7 +50,7 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
   return (
     <Section
       title="Holder base"
-      action={<span className="num text-xs text-muted">HolderScan · {cadence} · read {timeAgo(p.ts, now)} · <a href={`${HOLDERSCAN_URL}${mint}`} target="_blank" rel="noreferrer" className="hover:text-primary">HolderScan ↗</a></span>}
+      action={<span className="num text-[11px] text-muted">HolderScan · {cadence} · read {timeAgo(p.ts, now)} · <a href={`${HOLDERSCAN_URL}${mint}`} target="_blank" rel="noreferrer" className="hover:text-primary">HolderScan ↗</a></span>}
     >
       <div className="kpis">
         <KpiTile
@@ -75,9 +75,9 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
         />
       </div>
 
-      <div className="grid lg:grid-cols-3 gap-6 mt-5">
+      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
         <div>
-          <div className="label mb-2">By value held · HolderScan valuation</div>
+          <div className="label mb-2">By value held</div>
           {b ? (
             <table className="data w-full">
               <thead><tr><th>Holders</th><th className="r">Wallets</th><th className="r">Share</th><th className="r">24h</th></tr></thead>
@@ -130,24 +130,31 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
         </dl>
       </div>
 
-      {series.length > 1 && (
-        <div className={`grid ${series1k.length > 1 ? "lg:grid-cols-2" : ""} gap-4 mt-6`}>
-          <div>
-            <div className="flex items-baseline justify-between mb-1"><div className="label">Holders</div><span className="num text-xs text-muted">hourly · {spanDays < 1 ? `${(spanDays * 24).toFixed(0)}h` : `${spanDays.toFixed(0)}d`} of readings</span></div>
-            <SeriesAreaChart data={series} name="Holders" fmt="count" height={200} series={0} />
-          </div>
-          {series1k.length > 1 && (
-            <div>
-              <div className="flex items-baseline justify-between mb-1"><div className="label">Holders over $1K</div><span className="num text-xs text-muted">hourly</span></div>
-              <SeriesAreaChart data={series1k} name="Holders over $1K" fmt="count" height={200} series={2} />
-            </div>
-          )}
+      <MethodStrip
+        lead={<>Counts are HolderScan&apos;s; average per holder is StonkFun&apos;s market cap ÷ that count, which a few large wallets pull up.</>}
+        note={series.length > 1 ? "· includes the hourly charts" : undefined}
+        href="/about#holderbase"
+      >
+        <div className="method-body !grid-cols-1">
+          <p className="max-w-[90ch]">
+            HolderScan counts every wallet with a STONK balance on any venue and values it at its own price at read time; the median position is the typical holder. Hold-time classes and their supply cover the 1,000 largest wallets only; PnL is HolderScan&apos;s FIFO estimate. Top-wallet shares include pools. When a field is missing on a read it is listed in amber next to the numbers, never silently dropped.
+          </p>
         </div>
-      )}
-
-      <p className="text-xs text-muted mt-4">
-        HolderScan counts every wallet with a STONK balance on any venue and values it at its own price at read time; average per holder is StonkFun&apos;s market cap divided by that count, which a few large wallets pull up — the median position is the typical holder. Hold-time classes and their supply cover the 1,000 largest wallets only; PnL is HolderScan&apos;s FIFO estimate. Top-wallet shares include pools. <Link href="/about#holderbase" className="underline underline-offset-2 hover:text-primary">Method →</Link>
-      </p>
+        {series.length > 1 && (
+          <div className={`grid ${series1k.length > 1 ? "md:grid-cols-2" : ""} gap-4 mt-3`}>
+            <div>
+              <div className="flex items-baseline justify-between mb-1.5"><div className="label">Holders</div><span className="num text-[11px] text-muted">hourly · {spanDays < 1 ? `${(spanDays * 24).toFixed(0)}h` : `${spanDays.toFixed(0)}d`} of readings</span></div>
+              <SeriesAreaChart data={series} name="Holders" fmt="count" height={160} series={2} />
+            </div>
+            {series1k.length > 1 && (
+              <div>
+                <div className="flex items-baseline justify-between mb-1.5"><div className="label">Holders over $1K</div><span className="num text-[11px] text-muted">hourly</span></div>
+                <SeriesAreaChart data={series1k} name="Holders over $1K" fmt="count" height={160} series={2} />
+              </div>
+            )}
+          </div>
+        )}
+      </MethodStrip>
     </Section>
   );
 }

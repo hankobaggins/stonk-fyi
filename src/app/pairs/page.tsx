@@ -7,7 +7,7 @@ import { HBarChart, ShareBar } from "@/components/charts";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Pairs" };
 
-type Agg = { key: string; label: string; category?: string; tokens: number; volume: number; mcap: number; graduated: number; topSymbol?: string; topMcap: number };
+type Agg = { key: string; label: string; category?: string; tokens: number; volume: number; mcap: number; graduated: number; topSymbol?: string; topMint?: string; topMcap: number };
 
 export default async function PairsPage() {
   // Aggregate the top 300 tokens by volume — this captures effectively all active volume.
@@ -24,6 +24,7 @@ export default async function PairsPage() {
     if ((t.market?.marketCapUsd ?? 0) > a.topMcap) {
       a.topMcap = t.market?.marketCapUsd ?? 0;
       a.topSymbol = t.symbol;
+      a.topMint = t.mint;
     }
     map.set(key, a);
   };
@@ -35,24 +36,25 @@ export default async function PairsPage() {
   const cats = [...byCategory.values()].sort((a, b) => b.volume - a.volume);
   const totalVol = tokens.reduce((s, t) => s + (t.market?.volume24hUsd ?? 0), 0);
 
+  const maxShare = quotes[0]?.volume ?? 0;
   const top8 = quotes.slice(0, 8);
   const otherVol = quotes.slice(8).reduce((s, q) => s + q.volume, 0);
   const shareData = [...top8.map((q) => ({ name: q.label, value: q.volume })), ...(otherVol > 0 ? [{ name: "Other", value: otherVol }] : [])];
 
   return (
     <div className="space-y-5">
-      <PageHeader title="Pairs" sub={`What StonkFun tokens are priced against · top ${tokens.length} tokens by volume · ${fmtUsd(totalVol)} 24h volume`} />
+      <PageHeader title="Pairs" sub={<>What StonkFun tokens are priced against · top {tokens.length} tokens by volume · <span className="num">{fmtUsd(totalVol)} 24h volume</span></>} />
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <Section title="24h volume share by quote asset">
+        <Section title="24h volume share by quote asset" action={<span className="num text-[11px] text-muted">StonkFun market data · 30s</span>}>
           <ShareBar data={shareData} />
         </Section>
-        <Section title="24h volume by pair category">
+        <Section title="24h volume by pair category" action={<span className="num text-[11px] text-muted">fixed category order</span>}>
           <HBarChart data={cats.map((c) => ({ name: c.label, value: c.volume }))} valueLabel="24h volume" />
         </Section>
       </div>
 
-      <Section title="Quote assets">
+      <Section title="Quote assets" action={<span className="num text-[11px] text-muted">click a quote to filter Tokens · 30s</span>}>
         <div className="table-wrap">
           <table className="data">
             <thead>
@@ -79,17 +81,22 @@ export default async function PairsPage() {
                   <td className="r num">{q.tokens}</td>
                   <td className="r num">{q.graduated}</td>
                   <td className="r num">{fmtUsd(q.volume)}</td>
-                  <td className="r num text-secondary">{totalVol ? `${((q.volume / totalVol) * 100).toFixed(1)}%` : "—"}</td>
+                  <td className="r num">
+                    <span className="inline-flex items-center gap-2 justify-end">
+                      <span className="aprbar w-[60px] !h-1.5 shrink-0"><i style={{ width: `${maxShare ? (q.volume / maxShare) * 100 : 0}%`, background: "var(--series-1)" }} /></span>
+                      <span className="min-w-[44px] text-right">{totalVol ? `${((q.volume / totalVol) * 100).toFixed(1)}%` : "—"}</span>
+                    </span>
+                  </td>
                   <td className="r num">{fmtUsd(q.mcap)}</td>
-                  <td className="text-secondary">
-                    {q.topSymbol} <span className="text-muted num">({fmtUsd(q.topMcap)})</span>
+                  <td>
+                    {q.topMint ? <Link href={`/tokens/${q.topMint}`} className="hover:text-accent">{q.topSymbol}</Link> : q.topSymbol} <span className="text-muted num text-[11px]">{fmtUsd(q.topMcap)}</span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <div className="text-xs text-muted mt-3">{fmtNum(quotes.length)} distinct quote assets among the top {tokens.length} tokens.</div>
+        <p className="num text-xs text-muted mt-3">{fmtNum(quotes.length)} distinct quote assets among the top {tokens.length} tokens. Categories follow the issuer, not the chain.</p>
       </Section>
     </div>
   );

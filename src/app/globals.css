@@ -28,6 +28,7 @@
   --series-7: #9085e9;
   --series-8: #e66767;
   --grid: #1c2d34;
+  --shadow-toast: 0 12px 32px rgba(0, 0, 0, 0.45);
 }
 
 @theme inline {
@@ -79,7 +80,11 @@ body {
 }
 
 /* Scorecard indicator cell: 3px state stripe on the left edge + a state pill (two encodings). */
-.ind { position: relative; background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px 14px 18px; min-width: 0; }
+.ind { position: relative; background: var(--surface-1); border: 1px solid var(--border); border-radius: 6px; padding: 12px 14px 12px 16px; min-width: 0; display: flex; flex-direction: column; outline: none; z-index: 1; }
+.ind:focus-visible { border-color: var(--border-strong); }
+.ind.open { z-index: 5; }
+/* The sentence behind the number: one hover/focus/tap away, full cell width, never covers the source line. */
+.ind .popover { position: absolute; left: -1px; right: -1px; top: calc(100% + 6px); background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 10px 12px; box-shadow: var(--shadow-toast); z-index: 30; display: flex; flex-direction: column; gap: 6px; }
 .ind::before { content: ""; position: absolute; left: 0; top: 10px; bottom: 10px; width: 3px; border-radius: 0 2px 2px 0; background: var(--up); }
 .ind.neutral::before { background: var(--neutral); }
 .ind.bear::before { background: var(--caution); }
@@ -100,7 +105,8 @@ body {
 
 /* Tally bar: one segment per indicator, in scorecard order. */
 .segs { display: flex; gap: 3px; height: 12px; }
-.segs > i { flex: 1; border-radius: 2px; background: var(--up); }
+.segs > i { flex: 1; border-radius: 2px; background: var(--up); transition: background-color 400ms ease, border-color 400ms ease; }
+@media (prefers-reduced-motion: reduce) { .segs > i { transition: none; } }
 .segs > i.neutral { background: var(--neutral); }
 .segs > i.bear { background: var(--caution); }
 .segs > i.info, .segs > i.collecting { background: transparent; border: 1px dashed var(--border-strong); }
@@ -121,6 +127,15 @@ table.data td { padding: 9px 10px; border-bottom: 1px solid var(--border); white
 table.data tr:last-child td { border-bottom: 0; }
 table.data tbody tr:hover { background: var(--surface-2); }
 table.data td.r, table.data th.r { text-align: right; }
+/* Sticky first two columns (# and Token / Quote asset) so a row stays identifiable while it scrolls inside .table-wrap. */
+table.data .st1, table.data .st2 { position: sticky; background: var(--surface-1); }
+table.data .st1 { left: 0; z-index: 2; width: 36px; min-width: 36px; }
+table.data .st2 { left: 36px; z-index: 2; box-shadow: 8px 0 8px -8px rgba(0, 0, 0, 0.6); }
+table.data thead .st1, table.data thead .st2 { z-index: 3; }
+table.data tbody tr:hover .st1, table.data tbody tr:hover .st2 { background: var(--surface-2); }
+/* Column priority: .p3 columns show only in the Full column set. Essential is the default below md. */
+html[data-cols="essential"] table.data .p3 { display: none; }
+@media (max-width: 767px) { html:not([data-cols="full"]) table.data .p3 { display: none; } }
 
 .pill {
   display: inline-flex; align-items: center; gap: 4px;
@@ -132,7 +147,7 @@ table.data td.r, table.data th.r { text-align: right; }
 
 .filterbar a, .filterbar button {
   font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
-  color: var(--text-secondary); background: var(--surface-1);
+  color: var(--text-secondary); background: var(--surface-1); font-family: var(--font-sans); cursor: pointer;
 }
 .filterbar a[aria-current="true"], .filterbar button[aria-current="true"] { background: var(--surface-2); color: var(--text-primary); border-color: var(--border-strong); }
 .filterbar a:hover, .filterbar button:hover { color: var(--text-primary); }
@@ -173,3 +188,46 @@ table.data th button { font: inherit; color: inherit; letter-spacing: inherit; t
 .aprbar > i.apr3 { background: var(--series-4); }
 span.apr1 { color: var(--series-3); }
 span.apr3 { color: var(--series-4); }
+
+/* Method strip (redesign 2026-09-13, Rationale §4): hairline above, one bold sentence, "How this is computed"
+   toggle, optional status, "Method →" anchor. The expanded prose stays inside the same card, never a footer. */
+.method { border-top: 1px solid var(--border); margin-top: 12px; padding-top: 10px; display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; font-size: 12.5px; }
+.method > strong { font-weight: 600; }
+.method .toggle { background: none; border: 0; padding: 0; font: inherit; color: var(--text-secondary); cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.method .toggle:hover { color: var(--text-primary); }
+.method-body { margin-top: 8px; display: grid; gap: 8px 32px; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+@media (min-width: 768px) { .method-body { grid-template-columns: 1fr 1fr; } }
+.method-body p { margin: 0; }
+
+/* Provider-down row: replaces a vanished scorecard group. Absence is a state, not a gap. */
+.provider-down { border: 1px dashed var(--border-strong); border-radius: 6px; padding: 14px 18px; display: flex; align-items: baseline; gap: 6px 14px; flex-wrap: wrap; font-size: 13px; color: var(--text-secondary); }
+
+/* Section strip under the ticker on grouped pages: the second nav level, always visible. */
+.strip { height: 38px; display: flex; align-items: center; gap: 4px; font-size: 12.5px; overflow-x: auto; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.strip a { padding: 4px 9px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; color: var(--text-secondary); }
+.strip a:hover { color: var(--text-primary); }
+.strip a[aria-current="page"] { color: var(--text-primary); background: var(--surface-2); font-weight: 500; }
+
+/* Nav dropdown (Platform ▾ / Ecosystem ▾). */
+.menu { position: absolute; top: 100%; left: 0; margin-top: 6px; min-width: 200px; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 6px; box-shadow: var(--shadow-toast); display: flex; flex-direction: column; gap: 2px; z-index: 30; }
+.menu a { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 7px 10px; border-radius: 4px; font-size: 13px; color: var(--text-secondary); }
+.menu a:hover, .menu a[aria-current="page"] { background: var(--surface-1); color: var(--text-primary); }
+
+/* KPI row variant: five across on large screens (category tiles on /holders). */
+@media (min-width: 1024px) {
+  .kpis.cols-5 { grid-template-columns: repeat(5, 1fr); }
+  .kpis.cols-5 > .kpi:nth-child(4n+1) { border-left: 1px solid var(--border); padding-left: 18px; }
+  .kpis.cols-5 > .kpi:nth-child(5n+1) { border-left: 0; padding-left: 0; }
+}
+
+/* Swatch: the population / series marker that travels with the number (8px square, 2px radius). */
+.sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; vertical-align: -1px; }
+.sw.lg { width: 10px; height: 10px; }
+
+/* Bordered secondary link (token-detail header actions). */
+.btn-ghost { display: inline-flex; align-items: center; font-size: 12px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; color: var(--text-secondary); white-space: nowrap; }
+.btn-ghost:hover { color: var(--text-primary); }
+
+/* Scroll anchors clear the sticky nav + ticker (+ strip). */
+[id].anchor { scroll-margin-top: 112px; }

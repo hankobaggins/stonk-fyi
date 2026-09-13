@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import TokenIcon from "./TokenIcon";
 import { TradeLink } from "./BuyButton";
 import { fmtNum, timeAgo } from "@/lib/format";
+import { Swatch } from "./Populations";
 
 // Every quote asset with at least one reward coin, in every category. Three wallet counts per row, kept in
 // separate columns: HolderScan's holder count (any balance, any venue), this site's own on-chain count of
@@ -77,10 +78,10 @@ function sortValue(r: UniverseRowView, k: SortKey): number | string | null {
   }
 }
 
-function Th({ k, sort, onSort, right = false, title, children }: { k: SortKey; sort: { key: SortKey; desc: boolean }; onSort: (k: SortKey) => void; right?: boolean; title?: string; children: ReactNode }) {
+function Th({ k, sort, onSort, right = false, p3 = false, cls = "", title, children }: { k: SortKey; sort: { key: SortKey; desc: boolean }; onSort: (k: SortKey) => void; right?: boolean; p3?: boolean; cls?: string; title?: string; children: ReactNode }) {
   const active = sort.key === k;
   return (
-    <th className={right ? "r" : ""} aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"} title={title}>
+    <th className={`${right ? "r" : ""} ${p3 ? "p3" : ""} ${cls}`} aria-sort={active ? (sort.desc ? "descending" : "ascending") : "none"} title={title}>
       <button type="button" onClick={() => onSort(k)} className={`uppercase tracking-[0.06em] hover:text-primary ${active ? "text-primary" : ""}`}>
         {children}
         <span className="inline-block w-3 text-[9px]">{active ? (sort.desc ? " ▼" : " ▲") : ""}</span>
@@ -149,35 +150,35 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
             </button>
           ))}
         </div>
-        <span className="text-xs text-muted num ml-auto">{shown.length} quote assets · click a column to sort</span>
+        <span className="text-xs text-muted num ml-auto">{shown.length} quote assets</span>
       </div>
       {pending.length > 0 && <p className="mb-3 text-xs text-muted num">Change columns appear as daily readings accumulate: {pending.join(" · ")}.</p>}
       <div className="table-wrap">
         <table className="data">
           <thead>
             <tr>
-              <th className="r">#</th>
-              <Th k="symbol" sort={sort} onSort={toggle}>Quote asset</Th>
+              <th className="r st1">#</th>
+              <Th k="symbol" sort={sort} onSort={toggle} cls="st2 min-w-[140px] sm:min-w-[180px]">Quote asset</Th>
               <Th k="category" sort={sort} onSort={toggle}>Category</Th>
-              <Th k="holders" sort={sort} onSort={toggle} right title="HolderScan holder count (any balance, any venue)">Holders</Th>
+              <Th k="holders" sort={sort} onSort={toggle} right title="HolderScan holder count (any balance, any venue)"><Swatch p="holderscan" /> Holders</Th>
               {avail.d1 && <Th k="d1" sort={sort} onSort={toggle} right>24h</Th>}
-              {avail.d7 && <Th k="d7" sort={sort} onSort={toggle} right>7d</Th>}
-              {avail.d30 && <Th k="d30" sort={sort} onSort={toggle} right>30d</Th>}
-              {avail.onchain && <Th k="onchain" sort={sort} onSort={toggle} right title="Owner addresses with a non-zero balance of the asset, counted from token accounts via Helius (stonk.fyi census); ≥ marks a floor">On-chain</Th>}
+              {avail.d7 && <Th k="d7" sort={sort} onSort={toggle} right p3>7d</Th>}
+              {avail.d30 && <Th k="d30" sort={sort} onSort={toggle} right p3>30d</Th>}
+              {avail.onchain && <Th k="onchain" sort={sort} onSort={toggle} right title="Owner addresses with a non-zero balance of the asset, counted from token accounts via Helius (stonk.fyi census); ≥ marks a floor"><Swatch p="onchain" /> On-chain</Th>}
               {avail.onchainD1 && <Th k="onchainD1" sort={sort} onSort={toggle} right>24h</Th>}
-              <Th k="paid" sort={sort} onSort={toggle} right title="Wallets holding a StonkFun reward coin that pays this asset (stonk.fyi census, lower bound)">StonkFun wallets</Th>
+              <Th k="paid" sort={sort} onSort={toggle} right title="Wallets holding a StonkFun reward coin that pays this asset (stonk.fyi census, lower bound)"><Swatch p="paid" /> StonkFun wallets</Th>
               {avail.paidD1 && <Th k="paidD1" sort={sort} onSort={toggle} right>24h</Th>}
               <Th k="share" sort={sort} onSort={toggle} right title="StonkFun wallets ÷ holders: the fraction of this asset's holders that hold a StonkFun coin paying them the asset">StonkFun share</Th>
-              <Th k="coins" sort={sort} onSort={toggle} right title="Reward coins launched against this asset">Coins</Th>
-              <th className="r">Read</th>
-              <th className="r">Trade</th>
+              <Th k="coins" sort={sort} onSort={toggle} right p3 title="Reward coins launched against this asset">Coins</Th>
+              <th className="r p3">Read</th>
+              <th className="r p3"></th>
             </tr>
           </thead>
           <tbody>
             {shown.map((r, i) => (
               <tr key={r.mint}>
-                <td className="r text-muted num">{String(i + 1).padStart(2, "0")}</td>
-                <td>
+                <td className="r text-muted num st1">{String(i + 1).padStart(2, "0")}</td>
+                <td className="st2">
                   <a href={`https://holderscan.com/token/${r.mint}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-accent">
                     <TokenIcon src={r.logoUrl} symbol={r.symbol} size={20} />
                     <span className="font-medium text-[14px]">{r.symbol}</span>
@@ -187,8 +188,8 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
                 <td className="text-secondary text-xs">{r.categoryLabel}</td>
                 <td className="r num text-[14px]">{r.holders === null ? <span className="text-muted text-xs">no reading</span> : fmtNum(r.holders)}</td>
                 {avail.d1 && <td className="r"><ChangeCell c={r.d1} hint="no second reading for this asset yet" /></td>}
-                {avail.d7 && <td className="r"><ChangeCell c={r.d7} hint="no 7-day history for this asset yet (HolderScan has none; this site's readings cover it in about 6 days)" /></td>}
-                {avail.d30 && <td className="r"><ChangeCell c={r.d30} hint="no 30-day history for this asset yet" /></td>}
+                {avail.d7 && <td className="r p3"><ChangeCell c={r.d7} hint="no 7-day history for this asset yet (HolderScan has none; this site's readings cover it in about 6 days)" /></td>}
+                {avail.d30 && <td className="r p3"><ChangeCell c={r.d30} hint="no 30-day history for this asset yet" /></td>}
                 {avail.onchain && (
                   <td className="r num text-[14px]" title={r.onchainAt ? `${r.onchainTruncated ? "more token accounts than one run reads — a floor · " : ""}counted ${timeAgo(r.onchainAt, now)}` : undefined}>
                     {r.onchain === null ? <span className="text-muted text-xs">—</span> : <>{r.onchainTruncated ? <span className="text-muted text-xs">≥ </span> : null}{fmtNum(r.onchain)}</>}
@@ -200,9 +201,9 @@ export default function UniverseTable({ rows, categories, now }: { rows: Univers
                 </td>
                 {avail.paidD1 && <td className="r num">{r.paidD1 === null ? <span className="text-muted text-xs">—</span> : <span className={`text-[14px] ${r.paidD1 > 0 ? "text-up" : r.paidD1 < 0 ? "text-down" : "text-muted"}`}>{signed(r.paidD1)}</span>}</td>}
                 <td className="r num text-[14px]">{r.share === null ? <span className="text-muted">—</span> : `${(r.share * 100).toFixed(r.share < 0.01 ? 2 : 1)}%`}</td>
-                <td className="r num text-secondary text-xs">{fmtNum(r.coins)}</td>
-                <td className="r num text-muted text-xs">{r.readAt ? timeAgo(r.readAt, now) : "—"}</td>
-                <td className="r"><TradeLink mint={r.mint} /></td>
+                <td className="r num text-secondary text-xs p3">{fmtNum(r.coins)}</td>
+                <td className="r num text-muted text-xs p3">{r.readAt ? timeAgo(r.readAt, now) : "—"}</td>
+                <td className="r p3"><TradeLink mint={r.mint} /></td>
               </tr>
             ))}
           </tbody>

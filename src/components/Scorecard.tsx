@@ -1,103 +1,130 @@
-import type { Indicator, Signal } from "@/lib/stonk";
+"use client";
 
-const STATE: Record<Signal, string> = { bull: "bullish", neutral: "neutral", bear: "caution", info: "context" };
+import Link from "next/link";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { readPref, subscribePrefs, writePref } from "@/lib/prefs";
+import type { Indicator } from "@/lib/stonk";
+import { type Cell as CellData, type CellState, groupViews, RULES, STATE_WORD, stateOf } from "@/lib/scorecard";
 
-const GROUPS: { keys: Indicator["group"][]; title: string; blurb: string }[] = [
-  { keys: ["flywheel"], title: "Flywheel", blurb: "Fees → buybacks → burns. Rises and falls with launchpad activity." },
-  { keys: ["demand"], title: "Demand", blurb: "Who is buying STONK, and how deep the market is." },
-  { keys: ["holders"], title: "Holders & flow", blurb: "Holder base via HolderScan; order flow and wallet tags via GMGN." },
-  { keys: ["platform", "valuation"], title: "Platform & valuation", blurb: "The fee source, and what the price pays for it." },
-];
+const EXPAND_KEY = "stonk.fyi:scorecard-details";
 
-// An indicator that is still accumulating data (net flow before 12h of snapshots) is shown as
-// "collecting", not as context: it will be scored, it just isn't yet.
-function stateOf(i: Indicator): Signal | "collecting" {
-  return i.signal === "info" && i.value === "collecting" ? "collecting" : i.signal;
+export function StatePill({ signal, text }: { signal: CellState; text?: string }) {
+  return <span className={`state ${signal}`}>{text ?? STATE_WORD[signal]}</span>;
 }
 
-export function StatePill({ signal, text }: { signal: Signal | "collecting"; text?: string }) {
-  return <span className={`state ${signal}`}>{text ?? (signal === "collecting" ? "collecting" : STATE[signal])}</span>;
-}
-
-// Per-group summary for the section header, e.g. "2 bullish · 1 neutral · 1 collecting".
-function groupSummary(items: Indicator[]): string {
-  const counts = new Map<string, number>();
-  for (const i of items) {
-    const s = stateOf(i);
-    const k = s === "collecting" ? "collecting" : STATE[s];
-    counts.set(k, (counts.get(k) ?? 0) + 1);
-  }
-  return ["bullish", "neutral", "caution", "context", "collecting"].filter((k) => counts.has(k)).map((k) => `${counts.get(k)} ${k}`).join(" · ");
-}
-
-export function TallyBar({ indicators }: { indicators: Indicator[] }) {
-  const bull = indicators.filter((i) => i.signal === "bull").length;
-  const scored = indicators.filter((i) => i.signal !== "info").length;
-  return (
-    <div className="border-y border-border py-4 grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-4 md:gap-6 items-center">
-      <div className="num text-[30px] leading-none font-medium tracking-tight">
-        {bull}<span className="text-sm text-muted ml-1.5 font-normal">/ {scored} scored bullish</span>
-      </div>
-      <div className="segs" role="img" aria-label={`${bull} of ${scored} scored indicators bullish; ${indicators.length - scored} unscored`}>
-        {indicators.map((i) => <i key={i.key} className={stateOf(i)} title={`${i.label}: ${i.value}`} />)}
-      </div>
-      <div className="flex gap-4 num text-[11px] text-muted whitespace-nowrap">
-        <span><i className="inline-block w-2 h-2 rounded-[2px] mr-1.5 align-[-1px] bg-up" />bullish</span>
-        <span><i className="inline-block w-2 h-2 rounded-[2px] mr-1.5 align-[-1px] bg-neutral" />neutral</span>
-        <span><i className="inline-block w-2 h-2 rounded-[2px] mr-1.5 align-[-1px] bg-caution" />caution</span>
-        <span><i className="inline-block w-2 h-2 rounded-[2px] mr-1.5 align-[-1px] border border-dashed border-border-strong" />unscored</span>
-      </div>
-    </div>
-  );
-}
-
-function Cell({ i }: { i: Indicator }) {
+// Compact indicator cell (redesign 2026-09-13, Rationale §3, option a): the grid reads as value + state; the
+// sentence is one hover, focus or tap away; the source line never leaves the cell. "Show all details" renders
+// the sentence inline in every cell and disables the popover.
+function Cell({ i, open, inline, onOpen, onClose }: { i: CellData; open: boolean; inline: boolean; onOpen: () => void; onClose: () => void }) {
   const s = stateOf(i);
+  const rule = RULES[i.key];
+  const showPop = open && !inline;
   return (
-    <div className={`ind ${s}`}>
-      <div className="flex items-start justify-between gap-2.5">
-        <div className="label">{i.label}</div>
+    <div
+      className={`ind ${s} ${showPop ? "open" : ""}`}
+      tabIndex={0}
+      onMouseEnter={onOpen}
+      onMouseLeave={onClose}
+      onFocus={onOpen}
+      onBlur={onClose}
+      onPointerDown={(e) => { if (e.pointerType === "touch" && !(e.target as HTMLElement).closest("a")) { e.preventDefault(); if (open) onClose(); else onOpen(); } }}
+      aria-describedby={showPop ? `pop-${i.key}` : undefined}
+    >
+      <div className="flex items-start justify-between gap-2 min-h-[22px]">
+        <div className="label leading-[1.3]">{i.label}</div>
         <StatePill signal={s} />
       </div>
-      <div className={`num text-2xl leading-tight font-medium tracking-tight mt-2.5 mb-1.5 ${s === "collecting" ? "text-muted" : ""}`}>{s === "collecting" ? "—" : i.value}</div>
-      <div className="text-[12.5px] text-secondary leading-snug">{i.detail}</div>
-      {i.source && <div className="mt-2 src">{i.source}</div>}
+      <div className={`num text-[20px] md:text-2xl leading-[1.2] font-medium tracking-tight mt-2.5 mb-2 ${s === "collecting" ? "text-muted" : ""}`}>{s === "collecting" ? "—" : i.value}</div>
+      {inline && i.detail && <div className="text-[12.5px] text-secondary leading-snug mb-2">{i.detail}</div>}
+      {inline && rule && <div className="num text-[11px] text-muted mb-2">{rule}</div>}
+      <div className="src mt-auto min-h-[14px]">{i.source ?? ""}</div>
+      {showPop && (i.detail || rule) && (
+        <div className="popover" role="tooltip" id={`pop-${i.key}`}>
+          {i.detail && <div className="text-[12.5px] text-primary leading-[1.4]">{i.detail}</div>}
+          <div className="flex justify-between gap-3 num text-[11px]">
+            <span className="text-muted">{rule ?? ""}</span>
+            <Link href="/about#scored" className="text-secondary hover:text-primary whitespace-nowrap" onClick={(e) => e.stopPropagation()}>method →</Link>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function Scorecard({ indicators, watch }: { indicators: Indicator[]; watch: { label: string; detail: string }[] }) {
-  return (
-    <div>
-      {GROUPS.map((g) => {
-        const items = indicators.filter((i) => g.keys.includes(i.group));
-        if (!items.length) return null;
-        const cols = items.length === 1 ? "md:grid-cols-2 xl:grid-cols-3" : items.length === 2 ? "md:grid-cols-2 xl:grid-cols-2" : "md:grid-cols-2 xl:grid-cols-3";
-        return (
-          <section key={g.title} className="pt-7 pb-1">
-            <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1 mb-3.5">
-              <h3 className="text-[15px] font-semibold tracking-tight">{g.title}</h3>
-              <p className="text-[13px] text-muted">{g.blurb}</p>
-              <span className="ml-auto num text-xs text-muted">{groupSummary(items)}</span>
-            </div>
-            <div className={`grid ${cols} gap-3`}>
-              {items.map((i) => <Cell key={i.key} i={i} />)}
-            </div>
-          </section>
-        );
-      })}
+  const [open, setOpen] = useState<string | null>(null);
+  // The toggle persists per browser (external store, so hydration never disagrees).
+  const expandAll = useSyncExternalStore(subscribePrefs, () => readPref(EXPAND_KEY) === "1", () => false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(null); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  const toggleAll = () => {
+    setOpen(null);
+    writePref(EXPAND_KEY, expandAll ? "0" : "1");
+  };
 
-      <div className="watch mt-5 p-4 sm:px-5 grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-5 gap-y-2">
+  const groups = groupViews(indicators);
+  const unscored = groups.reduce((a, g) => a + g.missing.length, 0);
+  const downProviders = [...new Set(groups.flatMap((g) => g.providers))];
+
+  return (
+    <section>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1">
+          <h2 className="text-[15px] font-semibold tracking-tight">Scorecard</h2>
+          <span className="text-[13px] text-muted">Hover a cell for the sentence behind the number. Sources stay visible.</span>
+        </div>
+        <button
+          type="button"
+          onClick={toggleAll}
+          aria-pressed={expandAll}
+          className={`text-xs px-2.5 py-1.5 rounded-md border border-border hover:text-primary ${expandAll ? "bg-surface-2 text-primary" : "bg-surface-1 text-secondary"}`}
+        >
+          {expandAll ? "Hide details" : "Show all details"}
+        </button>
+      </div>
+
+      {groups.map((g) => (
+        <section key={g.title} className="pt-5">
+          <div className="flex flex-wrap items-baseline gap-x-3.5 gap-y-1 mb-3">
+            <h3 className="text-[15px] font-semibold tracking-tight">{g.title}</h3>
+            <p className="text-[13px] text-muted">{g.blurb}</p>
+            <span className="ml-auto num text-xs text-muted">{g.summary}</span>
+          </div>
+          {g.cells.length > 0 && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-stretch">
+              {g.cells.map((i) => (
+                <Cell key={i.key} i={i} open={open === i.key} inline={expandAll} onOpen={() => setOpen(i.key)} onClose={() => setOpen((o) => (o === i.key ? null : o))} />
+              ))}
+            </div>
+          )}
+          {g.missing.length > 0 && (
+            <div className={`provider-down ${g.cells.length ? "mt-3" : ""}`}>
+              <StatePill signal="collecting" text="provider down" />
+              <span>
+                {g.providers.join(" and ")} didn&apos;t answer on this read. {g.missing.length === 1 ? "One indicator is" : `${g.missing.length} indicators are`} unscored until {g.providers.length > 1 ? "they do" : "it does"}:{" "}
+                <span className="text-muted">{g.missing.map((m) => m.label).join(" · ")}</span>.
+              </span>
+              <span className="ml-auto num text-[11px] text-muted">{g.providers.join(" · ")} · retry every 5 min</span>
+            </div>
+          )}
+        </section>
+      ))}
+
+      <div className="watch mt-5 px-4 sm:px-[18px] py-3.5 grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-x-6 gap-y-1.5 items-start">
         <div className="label text-caution pt-0.5">What to watch</div>
-        <ul className="grid md:grid-cols-2 gap-x-6 gap-y-2.5 text-[13px] text-secondary">
+        <ul className="grid md:grid-cols-2 gap-x-6 gap-y-2 text-[13px] leading-[1.45] text-secondary">
           {watch.filter((w) => w.detail).map((w) => (
-            <li key={w.label} className="flex gap-2">
-              <span className="text-caution shrink-0">–</span>
-              <span><span className="text-primary font-medium">{w.label}.</span> {w.detail}</span>
-            </li>
+            <li key={w.label}><strong className="text-primary font-semibold">{w.label}.</strong> {w.detail}</li>
           ))}
+          {unscored > 0 && (
+            <li><strong className="text-primary font-semibold">{unscored === 1 ? "One indicator" : `${unscored} indicators`} unscored.</strong> {downProviders.join(" and ")} didn&apos;t answer on this read; the tally counts only what was verified.</li>
+          )}
         </ul>
       </div>
-    </div>
+    </section>
   );
 }
