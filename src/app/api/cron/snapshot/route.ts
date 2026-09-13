@@ -4,6 +4,7 @@ import { getDb, pruneRewardSnapshots } from "@/lib/db";
 import { runAthAlert } from "@/lib/ath-alerts";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { runBurnMilestone } from "@/lib/burn-milestones";
+import { runVelocityAlert } from "@/lib/velocity-alerts";
 import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
@@ -20,7 +21,7 @@ import type { Token } from "@/lib/types";
 //   GET /api/cron/snapshot            -> platform stats, revenue, buybacks, launches, revenue_daily, STONK + top 100 tokens by volume
 //   GET /api/cron/snapshot?hourly=1   -> same, but top 500 tokens
 //   GET /api/cron/snapshot?full=1     -> walks the entire token list, then prunes non-STONK snapshots older than 30 days
-//   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert steps record but never post to X
+//   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert / velocity_alert steps record but never post to X
 //   ...&census=1 | &census=coins      -> kick off the quote-asset / reward-coin census now (/api/cron/census)
 //   ...&universe=1                    -> run the daily HolderScan universe_holders step now
 //   ...&deltas=1                      -> run the HolderScan universe_deltas step (7/14/30-day changes) now
@@ -248,6 +249,28 @@ export async function GET(req: Request) {
       supplyBurnedPct: d.supply.burnedPct,
     }, { dry });
     if (r.status) notes.ath_alert = `#${r.id} ${r.status} at $${Math.round(r.marketCapUsd ?? 0).toLocaleString("en-US")}`;
+    return r.created;
+  });
+
+  await step("velocity_alert", async () => {
+    // Burn velocity (rolling 4h, % of supply a day) crossing above the bullish line (0.3%/day) from a re-armed
+    // state → /velocity-card/{id} posted to X, at most once per cooldown; falling below the re-arm level writes
+    // a cool row. First run seeds the current state and posts nothing. See src/lib/velocity-alerts.ts.
+    const d = await getStonkData();
+    const b = d.burnRate;
+    const r = await runVelocityAlert(db, {
+      pctDay: b?.pctSupplyPerDay ?? null,
+      estimate: b?.estimate ?? false,
+      windowHours: b?.windowHours ?? null,
+      windowTokens: b ? b.tokensPerHour * b.windowHours : null,
+      windowUsd: b ? b.usdPerHour * b.windowHours : null,
+      windowBurns: b?.sample ?? null,
+      tokensPerHour: b?.tokensPerHour ?? null,
+      supplyBurnedPct: d.supply.burnedPct,
+      priceUsd: d.token.market?.priceUsd ?? null,
+      marketCapUsd: d.token.market?.marketCapUsd ?? null,
+    }, { dry });
+    if (r.status) notes.velocity_alert = `${r.id ? `#${r.id} ` : ""}${r.status}${r.pctDay !== undefined ? ` at ${r.pctDay.toFixed(2)}%/day` : ""}`;
     return r.created;
   });
 

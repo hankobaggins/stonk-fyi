@@ -5,6 +5,7 @@ import { getDb, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
+import { lastVelocityPost, lastVelocityRow, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT } from "@/lib/velocity-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
@@ -196,6 +197,17 @@ export async function GET() {
       const bar = `bar $${Math.round(high.market_cap_usd).toLocaleString("en-US")} (${high.status}, ${high.source}) at ${high.ts}`;
       const last = post ? `last post #${post.id} ${post.status} at ${post.ts}` : "no post yet";
       return `market-cap ATH · ${mode} · cooldown ${ATH_ALERT_COOLDOWN_MIN} min · ${bar} · ${last}`;
+    }),
+    run("velocity_alerts", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const [row, post] = await Promise.all([lastVelocityRow(db), lastVelocityPost(db)]); // throws if migration 0016 is missing
+      const mode = process.env.SOCIALBU_TOKEN && process.env.SOCIALBU_ACCOUNT_ID ? "posting" : "dry-run";
+      const rules = `hot above ${VELOCITY_ALERT_THRESHOLD_PCT}%/day, re-arm below ${VELOCITY_ALERT_REARM_PCT}, cooldown ${VELOCITY_ALERT_COOLDOWN_MIN} min`;
+      if (!row) return `burn velocity → X · ${mode} · ${rules} · not seeded yet (first tick seeds the current state)`;
+      const state = `${row.state} since ${row.ts} (${row.pct_day.toFixed(2)}%/day, ${row.status})`;
+      const last = post ? `last flip #${post.id} ${post.status} at ${post.ts}` : "no hot flip yet";
+      return `burn velocity → X · ${mode} · ${rules} · ${state} · ${last}`;
     }),
   ]);
 

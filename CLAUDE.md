@@ -53,6 +53,8 @@ src/app/                    routes
   ath-card/route.tsx        1200×1200 PNG for an all-time-high post (headline = StonkFun's peakMarketCapUsd, plus where it stands now,
                             24h change, peak vs launch, supply burned). Card itself is the pure `lib/ath-card.tsx`, rendered live; nothing stored
   ath-card/[id]/route.tsx   the same card from a stored `ath_alerts` row (what the worker's ath_alert step posts, §6d); seeded/quiet rows 404
+  velocity-card/[id]/route.tsx  1200×1200 PNG for a "burns are heating up" post from a stored `velocity_alerts` row (§6i; /velocity-card/preview
+                            renders the live rate). Card is the pure `lib/velocity-card.tsx`; seeded / cooled / quiet rows 404
   milestone-card/[id]/route.tsx  1200×1200 PNG for a burn milestone (id = whole percent, e.g. /milestone-card/14; /milestone-card/preview
                             renders the current level live). Card is the pure `lib/milestone-card.tsx`; the worker step is §6c
   buyback-card/route.tsx    1200×1200 PNG: top 5 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
@@ -94,6 +96,7 @@ src/components/
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
 src/lib/burn-milestones.ts, milestone-math.ts   burn-milestone worker step (§6c) and its pure math (scripts/burn-milestone-check.ts)
 src/lib/ath-alerts.ts, ath-math.ts   all-time-high worker step (§6d) and its pure math (scripts/ath-alert-check.ts)
+src/lib/velocity-alerts.ts, velocity-math.ts   burn-velocity "heating up" worker step (§6i), its state machine + tweet text (scripts/velocity-alert-check.ts)
 supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
 supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste into the SQL editor by hand
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
@@ -108,6 +111,7 @@ supabase/migrations/0014_holderscan_profiles.sql   holderscan_snapshots + series
 supabase/migrations/0015_universe_census.sql   wallet_mint_counts.truncated (§6f whole-universe census) — paste by hand
 supabase/migrations/0009_holder_snapshots.sql   holder_snapshots + holder_window(win_hours, mints) + holder_snapshots_prune() (§6e) — paste by hand
 supabase/migrations/0008_ath_alerts.sql   ath_alerts table (§6d) — paste into the SQL editor by hand
+supabase/migrations/0016_velocity_alerts.sql   velocity_alerts table (§6i) — paste into the SQL editor by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
@@ -213,7 +217,7 @@ All in `src/lib/stonk.ts` → `indicators[]`. Thresholds are deliberately simple
 
 ## 6. Phase 2 — snapshot worker (running in production)
 
-`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), ~~`holders`~~ (retired 2026-09-13, §6e), `wallet_census` (every 6 h on the :45 tick or `?census=1`, §6f), `holder_profile` (STONK's HolderScan profile → `holderscan_snapshots`, §6h; every tick on the Advanced plan, every 6 h on Standard), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
+`GET /api/cron/snapshot` (auth: `Authorization: Bearer $CRON_SECRET`). Steps, each isolated so one failure doesn't stop the others: `platform` (stats+revenue → `platform_snapshots`, recent buybacks → `buybacks`), `revenue_daily`, `launches`, `stonk_burns` (→ `token_burns`), `burn_alert` (§6a), `burn_milestone` (§6c), `ath_alert` (§6d), `velocity_alert` (§6i), `pool` (Raydium reserves → `pool_snapshots`), `rewards` (lifetime `distributedTokens` for the `YIELD_TRACKED`=200 largest reward coins by market cap → `reward_snapshots`, ~200 rows a tick; feeds `/yield`; in full mode also prunes untracked coins and readings older than 14 days), ~~`holders`~~ (retired 2026-09-13, §6e), `wallet_census` (every 6 h on the :45 tick or `?census=1`, §6f), `holder_profile` (STONK's HolderScan profile → `holderscan_snapshots`, §6h; every tick on the Advanced plan, every 6 h on Standard), `gmgn` (holder count, concentration, wallet tags, buy/sell volume → `gmgn_snapshots`; 0 rows when `GMGN_API_KEY` is unset), `tokens` (→ `tokens` + `token_snapshots`), and in full mode `prune`.
 
 **Cadence is tiered to fit Supabase's 500 MB free tier** (the naive "every active token every 5 min" was ~1.7M rows/day and would have filled it in days):
 
@@ -374,6 +378,26 @@ Same tokens, same components where they worked; changes are IA, density and prov
 
 ---
 
+## 6i — Burn velocity "heating up" alerts → X (added 2026-09-13)
+
+**Rule (owner's ask 2026-09-13):** when the scorecard's burn-velocity indicator turns green — the rolling 4h burn rate (§9, `BURN_RATE_WINDOW_H`) crossing above **0.3% of supply a day**, the same line as the `burnrate` cell — post a "burns are heating up" card to X. Runs as the `velocity_alert` step of every tick, after `ath_alert`, on the same `getStonkData()` read (`d.burnRate`).
+
+**Why it is edge-triggered with hysteresis:** a 4h rate that hovers at 0.29 / 0.31 would flip the cell every tick. The rail therefore keeps a state (`hot` / `cool`) in `velocity_alerts` and only writes rows on transitions: `cool → hot` when the rate goes above `VELOCITY_ALERT_THRESHOLD_PCT` (0.3), `hot → cool` only once it has fallen below `VELOCITY_ALERT_REARM_PCT` (0.2 — the re-arm level, deliberately below the threshold). Posting is also throttled to one per `VELOCITY_ALERT_COOLDOWN_MIN` (240 = the window itself; a hot flip inside the cooldown is recorded as `quiet` and still needs a cool-down before the next post). Cool flips are recorded (`cooled`) but never posted — the ledger keeps both directions so the story is honest; only the way up is announced (owner asked for the green flip only; a "cooled off" post would be a one-line addition). Pure math in `lib/velocity-math.ts` (`evaluateVelocity`, `stateFor`, `buildVelocityText`), checked by `scripts/velocity-alert-check.ts`.
+
+**Pipeline (`src/lib/velocity-alerts.ts` → `runVelocityAlert`)**
+1. Skip when `burnRate.estimate` is true (no burn ledger → API-tail estimate; never post on an estimate). No burns in the window = velocity 0.
+2. `lastVelocityRow()` (newest transition = current state) and `lastVelocityPost()` (newest posted / pending / dry_run / quiet row, for the cooldown). **Empty table → seed** one row with the current state (`seeded hot` or `seeded cool`), post nothing — going live while already green never posts a stale "heating up".
+3. Insert the transition row with `prev_id` = the row it followed (**unique index on `prev_id`: a concurrent tick that read the same last row fails on insert instead of double-posting**), carrying the previous reading (`prev_pct_day`, `prev_ts` — the "up from" figure), the window (hours, tokens, USD at burn, burn count, tokens/hour), supply burned %, price, market cap, and the rules in force (`threshold_pct`, `rearm_pct`).
+4. `card_url = https://stonk.fyi/velocity-card/{id}`, then `postCardToX()` (shared with §6a/§6c/§6d). Status `posted` / `failed` / `dry_run` as in §6a.
+
+**Card** (`lib/velocity-card.tsx`, square): the rate as the headline in the bull colour (`▲ 0.34 %/day`; the colour follows the state, never hard-coded), "$STONK burns are heating up.", the window line (tokens · USD at StonkFun pricing · burns), a gauge with the re-arm and bullish ticks and the previous reading as a grey mark, then 2×2: up from (previous reading + how long ago), burned per hour, supply burned with "next 1% in ~N days at this pace", annualized % of supply. Tweet (`buildVelocityText`): two plain sentences, no links — `$STONK burns are heating up: 0.34% of supply a day over the last 4 hours (12.31M tokens, about $1.91M at StonkFun pricing, 41 burns).` / `Up from 0.18%/day 3h 20m ago. 13.62% of supply is now gone; at this pace 14% is ~1.1 days away.` Offline sample render: `Claude outputs/render-velocity-card-sample.tsx` (copy to the repo root, `npx tsx --tsconfig tsconfig.json`; sample PNG beside it).
+
+**Ops**
+- Same env as §6a (`SOCIALBU_TOKEN`, `SOCIALBU_ACCOUNT_ID`); unset or `?dry=1` → `dry_run` rows with a card URL, nothing posted. `VELOCITY_ALERT_THRESHOLD_PCT` / `VELOCITY_ALERT_REARM_PCT` / `VELOCITY_ALERT_COOLDOWN_MIN` optional; if the threshold ever changes, change the `burnrate` indicator's 0.3 in `lib/stonk.ts` and /about with it — they must stay the same line.
+- **Migration `0016_velocity_alerts.sql` must be pasted into the SQL editor by hand**; until then the step fails (isolated) and `/api/health` → `velocity_alerts` reports the error. The first tick after that seeds; check the health note says `seeded hot` / `seeded cool` at a sane rate before trusting the feature.
+- `/api/health` → `velocity_alerts`: mode, the rules, current state since when (rate, status), last hot flip. Tick response `notes.velocity_alert` says `#12 posted at 0.34%/day` (or `seeded cool` / `cooled` / `quiet` / `dry_run`).
+- Re-post by hand: `/velocity-card/{id}` is reproducible from the row; `/velocity-card/preview` shows the live rate whatever the state.
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -383,7 +407,7 @@ Same tokens, same components where they worked; changes are IA, density and prov
 5. **Public-site polish:** ~~OG image / social card, `robots.txt`, sitemap, `/about` page, mobile pass, favicon, visual redesign (ledger concept)~~ done. Remaining: analytics (Vercel Web Analytics is one click in the dashboard).
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
 7. **Holders (§6e, §6f, §6g, §6h):** HolderScan profiles shipped 2026-09-12 (§6h) — next on that rail: profile the largest reward coins too (the table is keyed by mint), a "holders added, 7d" ranking from HolderScan's deltas, revisit the diamond / $1K thresholds after a month. The ecosystem view shipped 2026-09-12 (§6g); once a week of daily readings exists, add the per-asset "holders added, 7d" ranking and a "StonkFun wallets vs holders" chart per asset. Earlier ask — holder count by quote asset over time (`wallet_mint_counts` is accumulating it; build the per-asset chart). Then per-asset sparklines in the table and a "holders added, 7d" ranking.
-8. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. Next on the same rail: indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
+8. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. ~~Burn velocity turning green~~ done 2026-09-13, §6i (the first indicator-flip post; the same state-machine shape fits any other cell). Next on the same rail: other indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 
@@ -403,6 +427,7 @@ HELIUS_PLAN=free|developer                             # §6g: paid = 100 ms DAS
 HOLDERSCAN_API_KEY, COIN_CENSUS_MAX_PAGES=1100         # universe holders + reward-coin census (§6g); HOLDERSCAN_GAP_MS, UNIVERSE_DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, COIN_DELTAS_TOP=250 optional
 HOLDERSCAN_PLAN=standard|advanced                      # §6h: advanced = STONK profile every tick, universe + stock counts hourly, deltas daily, 100 ms pacing; HOLDERSCAN_RETENTION_DAYS=90
 ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
+VELOCITY_ALERT_THRESHOLD_PCT=0.3, VELOCITY_ALERT_REARM_PCT=0.2, VELOCITY_ALERT_COOLDOWN_MIN=240   # "burns are heating up" posts (§6i)
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 ```
 
