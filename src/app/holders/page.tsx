@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { CATEGORY_ORDER, categoryLabel, getUniverseTable, UNIVERSE_EVERY_H } from "@/lib/universe";
+import { CATEGORY_ORDER, categoryLabel, getUniverseTable, UNIVERSE_EVERY_H, type UniverseRow } from "@/lib/universe";
 import { fmtNum, nowMs, timeAgo } from "@/lib/format";
 import { resolveImage } from "@/lib/api";
-import WalletCensus from "@/components/WalletCensus";
+import WalletCensus, { type StockHsView } from "@/components/WalletCensus";
+import { STOCK_CATEGORIES } from "@/lib/holders";
 import EcosystemWallets from "@/components/EcosystemWallets";
+import TopCoins from "@/components/TopCoins";
+import { COIN_PROFILES_EVERY_H, getCoinProfiles, TOP_COINS_SHOWN } from "@/lib/coin-profiles";
 import UniverseTable, { type UniverseRowView } from "@/components/UniverseTable";
 import { COIN_CENSUS_EVERY_H, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 
@@ -20,7 +23,7 @@ const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
 
 export default async function HoldersPage() {
   const now = nowMs();
-  const [u, census] = await Promise.all([getUniverseTable(), getWalletCensus()]);
+  const [u, census, top] = await Promise.all([getUniverseTable(), getWalletCensus(), getCoinProfiles(TOP_COINS_SHOWN)]);
 
   // ---- the whole universe (§6g) ----
   const uRows: UniverseRowView[] = u.rows.map((r) => ({ ...r, logoUrl: resolveImage(r.logoUrl) }));
@@ -45,8 +48,21 @@ export default async function HoldersPage() {
   });
   const latestRun = u.census.latest;
   const slotsTotal = u.rows.reduce((a, r) => a + r.slots, 0);
-  const growth = u.coinDeltas ? { ts: u.coinDeltas.ts, coins: u.coinDeltas.coins, holdersNow: u.coinDeltas.holdersNow, d7: u.coinDeltas.d7, d14: u.coinDeltas.d14, d30: u.coinDeltas.d30, slotsTotal } : null;
+  const growth = u.coinDeltas ? { ts: u.coinDeltas.ts, coins: u.coinDeltas.coins, holdersNow: u.coinDeltas.holdersNow, d1: now - Date.parse(u.coinDeltas.ts) < 36 * 3.6e6 ? u.coinDeltas.d1 : null, d7: u.coinDeltas.d7, d14: u.coinDeltas.d14, d30: u.coinDeltas.d30, slotsTotal } : null;
   const uReadAt = u.rows.map((r) => r.readAt).filter(Boolean).sort().pop() ?? null;
+
+  // HolderScan's own deltas summed per stock issuer (bit = index in STOCK_CATEGORIES, as the census masks): the
+  // stock-token block's 7d / 30d backfill until its own runs cover the window. Holder-slots per asset, not wallets.
+  const stockHs: StockHsView[] = STOCK_CATEGORIES.map((cat, i) => {
+    const rows = u.rows.filter((r) => r.category === cat);
+    const tracked = rows.filter((r) => r.hs);
+    const sum = (pick: (h: NonNullable<UniverseRow["hs"]>) => number | null) => {
+      const vals = tracked.map((r) => pick(r.hs!)).filter((v): v is number => typeof v === "number");
+      return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+    };
+    const holders = tracked.reduce((a, r) => a + (r.holders ?? 0), 0);
+    return { bit: 1 << i, assets: rows.length, tracked: tracked.length, holders, d1: sum((h) => h.d1), d7: sum((h) => h.d7), d30: sum((h) => h.d30), ts: tracked.map((r) => r.hs!.ts).sort().pop() ?? null };
+  });
 
   // The three populations on one scale. On-chain and HolderScan are per-asset counts summed over the universe (a
   // wallet holding two assets counts twice, so "token accounts"); StonkFun-paid is the census's de-duplicated figure.
@@ -116,13 +132,33 @@ export default async function HoldersPage() {
       )}
 
       <Section
+        title={<><Swatch p="holderscan" lg />Top {TOP_COINS_SHOWN} coins by market cap: holders over time</>}
+        action={<span className="num text-[11px] text-muted">HolderScan · {COIN_PROFILES_EVERY_H === 1 ? "hourly" : `every ${COIN_PROFILES_EVERY_H}h`}{top.newestAt ? ` · read ${timeAgo(top.newestAt, now)}` : ""}</span>}
+      >
+        {top.status === "no-db" && <Empty>This block needs the site&apos;s stored HolderScan readings (Postgres), which this deployment does not have.</Empty>}
+        {top.status === "db-error" && <Empty>The coin profiles could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → coin_profiles.</Empty>}
+        {top.status === "collecting" && <Empty>Collecting: no HolderScan reading stored for the current top {TOP_COINS_SHOWN} yet. The worker reads them {COIN_PROFILES_EVERY_H === 1 ? "every hour on the :25 tick" : `every ${COIN_PROFILES_EVERY_H} hours from 00:25 UTC`}; the 24h, 7d and 30d columns come from HolderScan&apos;s own history, so they show from the first read.</Empty>}
+        {top.status === "ok" && <TopCoins rows={top.rows} now={now} everyH={COIN_PROFILES_EVERY_H} />}
+        <MethodStrip
+          lead="The ten largest launched coins right now, ranked by StonkFun market cap, with HolderScan's holder count and its own 24h / 7d / 30d change — backdated from the first read — and the average time current holders have held."
+          note={top.readCount < top.rows.length && top.status === "ok" ? `${top.rows.length - top.readCount} of ${top.rows.length} without a reading yet` : undefined}
+          href="/about#holders"
+        >
+          <div className="method-body">
+            <p><Swatch p="holderscan" /> Holders is HolderScan&apos;s de-duplicated count of wallets with any balance, read {COIN_PROFILES_EVERY_H === 1 ? "every hour" : `every ${COIN_PROFILES_EVERY_H} hours`} for the largest coins by market cap (STONK has its own holder base on the home page). The change columns are HolderScan&apos;s own deltas as of that reading — percent against the count at the window start — so they do not wait for this site&apos;s history; a coin younger than a window shows &ldquo;—&rdquo;. Avg hold is HolderScan&apos;s average time held by current holders (n/a where it has not profiled the coin). The sparkline is this site&apos;s own hourly readings over the last 7 days and fills in as they accumulate. <Swatch p="paid" /> StonkFun-paid is StonkFun&apos;s reward-eligible holder count, live, for reward-mode coins only.</p>
+            <p>The set is live: a coin that climbs into the top {TOP_COINS_SHOWN} between reads shows &ldquo;next read in …&rdquo; until the worker has profiled it (it reads the top {COIN_PROFILES_EVERY_H === 1 ? "20" : "10"}, so this is rare).</p>
+          </div>
+        </MethodStrip>
+      </Section>
+
+      <Section
         title={<><Swatch p="onchain" lg />Wallets holding a stock token</>}
         action={<span className="num text-[11px] text-muted">Helius on-chain · stonk.fyi census · every {WALLET_CENSUS_EVERY_H}h</span>}
       >
         {census.status === "no-db" && <Empty>This block needs the site&apos;s census runs (Postgres), which this deployment does not have.</Empty>}
         {census.status === "db-error" && <Empty>The census could not be read just now. Check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → wallet_census.</Empty>}
         {census.status === "empty" && <Empty>No census run stored yet. The worker counts every wallet holding any of the {census.quoteAssets} stock quote assets every {WALLET_CENSUS_EVERY_H} hours; the first run appears here, the 24h change after a day, 7d after six, 30d after 24.</Empty>}
-        {census.status === "ok" && <WalletCensus runs={census.runs} latest={census.latest} quoteAssets={census.quoteAssets} now={now} />}
+        {census.status === "ok" && <WalletCensus runs={census.runs} latest={census.latest} quoteAssets={census.quoteAssets} now={now} hs={stockHs} />}
         <MethodStrip lead="One wallet = one owner address with a balance of any selected stock asset, counted from token accounts on Solana. Holding the stock, not a StonkFun coin: a different population from the headline above." href="/about#holders">
           <div className="method-body">
             <p>The other side of the tokenized-stock market: every owner address with a non-zero balance of any selected stock quote asset (xStocks, Backpack, pre-stocks, Tessera); a wallet holding several counts once. Any issuer subset can be selected above.</p>

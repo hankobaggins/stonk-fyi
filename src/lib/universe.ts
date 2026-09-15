@@ -140,7 +140,11 @@ export async function runUniverseDeltas(db: SupabaseClient, ts: string): Promise
 
 // ---------- reward-coin deltas (HolderScan, per coin) ----------
 
-export const COIN_DELTAS_TOP = Math.max(10, Number(process.env.COIN_DELTAS_TOP ?? 250));
+// 250 on Standard (~37K units a run at 20 each, every 4 days); 600 on Advanced (~12K units a day of 15M, ~60 s of paced calls
+// inside the 02:15 tick next to the universe steps) so the
+// backdated "holders added" figure covers more of the holder base (the smaller coins are the ones HolderScan
+// tends not to track, so coverage grows slower than the count).
+export const COIN_DELTAS_TOP = Math.max(10, Number(process.env.COIN_DELTAS_TOP ?? (HOLDERSCAN_ADVANCED ? 600 : 250)));
 
 export type CoinDeltasStepResult = { rows: number; failed: number; skipped: boolean; firstError: string | null; slotsCovered: number; slotsTotal: number };
 
@@ -408,6 +412,7 @@ export type UniverseRow = {
   d1: Change;
   d7: Change;
   d30: Change;
+  hs: { ts: string; d1: number | null; d7: number | null; d30: number | null } | null; // HolderScan's own deltas, raw (for the census blocks' backfill)
   paid: number | null; // census: distinct wallets holding any covered coin quoted in it
   paidD1: number | null; // vs the run ≥24h earlier
   paidCoins: number | null; // covered coins
@@ -463,6 +468,7 @@ export async function getUniverseTable(): Promise<UniverseTable> {
       d1: change(w24?.get(a.mint), 24) ?? (d1Fresh ? deltaChange(dl.d1, holders, 1, dl.ts) : null),
       d7: change(w168?.get(a.mint), 168) ?? deltaChange(deltas?.get(a.mint)?.d7, holders, 7, deltas?.get(a.mint)?.ts ?? generatedAt),
       d30: change(w720?.get(a.mint), 720) ?? deltaChange(deltas?.get(a.mint)?.d30, holders, 30, deltas?.get(a.mint)?.ts ?? generatedAt),
+      hs: dl ? { ts: dl.ts, d1: d1Fresh ? dl.d1 : null, d7: dl.d7, d30: dl.d30 } : null,
       paid: q?.wallets ?? null,
       paidD1: q && p ? q.wallets - p.wallets : null,
       paidCoins: q?.coins ?? null,

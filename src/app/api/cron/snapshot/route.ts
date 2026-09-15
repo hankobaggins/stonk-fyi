@@ -13,6 +13,7 @@ import { censusDue, coinCensusDue } from "@/lib/wallets";
 import { deltasDue, pruneUniverseHolders, runCoinDeltas, runUniverseDeltas, runUniverseHolders, universeDue } from "@/lib/universe";
 import { SITE_URL } from "@/lib/site";
 import { profileDue, PROFILE_EVERY_MIN, pruneHolderProfiles, runHolderProfile } from "@/lib/stonk-holders";
+import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, coinProfilesDue, runCoinProfiles } from "@/lib/coin-profiles";
 import { HOLDERSCAN_ADVANCED } from "@/lib/holderscan";
 import type { Token } from "@/lib/types";
 
@@ -26,6 +27,7 @@ import type { Token } from "@/lib/types";
 //   ...&universe=1                    -> run the daily HolderScan universe_holders step now
 //   ...&deltas=1                      -> run the HolderScan universe_deltas step (7/14/30-day changes) now
 //   ...&coindeltas=1[&top=N]          -> run the HolderScan coin_deltas step (per reward coin) now
+//   ...&coinprofiles=1                -> run the HolderScan coin_profiles step (top coins by market cap, §6j) now
 //   ...&profile=1                     -> read the STONK HolderScan profile now (holder_profile step, §6h)
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
@@ -91,6 +93,7 @@ export async function GET(req: Request) {
   const coinDeltas = params.get("coindeltas") === "1";
   const coinDeltasTop = Number(params.get("top")) || undefined;
   const profile = params.get("profile") === "1";
+  const coinProfiles = params.get("coinprofiles") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -409,6 +412,20 @@ export async function GET(req: Request) {
         return 0;
       }
       notes.holder_profile = `${r.holders} holders${r.errors.length ? ` · missing: ${r.errors.join("; ")}` : ""} (every ${PROFILE_EVERY_MIN} min)`;
+      return r.rows;
+    });
+  }
+  // Top coins by market cap (§6j): HolderScan holder count + own deltas + hold time for the COIN_PROFILES_TOP largest
+  // launched coins → holderscan_snapshots. Hourly on the :25 tick on Advanced (≈ 5 s of paced calls), every 12 h on
+  // Standard, or ?coinprofiles=1. Feeds the /holders "top 10 coins" table.
+  if (coinProfiles || (!hourly && !full && coinProfilesDue(ts))) {
+    await step("coin_profiles", async () => {
+      const r = await runCoinProfiles(db, ts);
+      if (r.skipped) {
+        notes.coin_profiles = `skipped: ${r.firstError}`;
+        return 0;
+      }
+      notes.coin_profiles = `${r.read} of ${COIN_PROFILES_TOP} top coins profiled${r.failed ? `, ${r.failed} not tracked by HolderScan (${r.firstError})` : ""}${r.missingStats ? `, ${r.missingStats} without hold time` : ""} (every ${COIN_PROFILES_EVERY_H}h)`;
       return r.rows;
     });
   }

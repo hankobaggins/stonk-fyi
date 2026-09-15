@@ -23,7 +23,7 @@ const nextRun = (at: number, now: number) => {
 };
 const fmtTs = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export type CoinGrowth = { ts: string; coins: number; holdersNow: number; d7: number; d14: number; d30: number; slotsTotal: number };
+export type CoinGrowth = { ts: string; coins: number; holdersNow: number; d1: number | null; d7: number; d14: number; d30: number; slotsTotal: number };
 
 export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { runs: CensusPoint[]; growth: CoinGrowth | null; now: number; everyH?: number }) {
   const series = runs.map((r) => ({ ts: Date.parse(r.ts), wallets: r.wallets }));
@@ -56,23 +56,32 @@ export default function EcosystemWallets({ runs, growth, now, everyH = 24 }: { r
         </div>
         {WINDOWS.map((w) => {
           const c = change(w.h);
-          const cls = !c ? "text-muted" : c.abs > 0 ? "text-up" : c.abs < 0 ? "text-down" : "text-muted";
+          // Until the census covers the window, HolderScan's own change over the coins it tracks stands in
+          // (holder-slots, marked HS) — the only backdated figure that exists; never a fake de-duplicated one.
+          const hs = !c && growth ? (w.h === 24 ? growth.d1 : w.h === 168 ? growth.d7 : growth.d30) : null;
+          const hsPct = hs !== null && growth && growth.holdersNow - hs > 0 ? (hs / (growth.holdersNow - hs)) * 100 : null;
+          const val = c ? c.abs : hs;
+          const cls = val === null ? "text-muted" : val > 0 ? "text-up" : val < 0 ? "text-down" : "text-muted";
           return (
             <div key={w.h} className="kpi min-w-0">
               <div className="label">{w.label} change</div>
-              <div className={`mt-2 text-[30px] leading-tight font-medium num truncate tracking-tight ${cls}`}>{c ? signed(c.abs) : <span className="text-base text-muted">from {from(w.h)}</span>}</div>
-              <div className="mt-1.5 text-xs text-secondary num">{c ? <>{c.pct !== null ? `${c.pct > 0 ? "+" : ""}${c.pct.toFixed(2)}%` : "—"} · vs {fmtTs(c.at)}</> : `first census ${firstTs ? fmtTs(firstTs) : "pending"}; the ${w.label} change needs history that far back`}</div>
+              <div className={`mt-2 text-[30px] leading-tight font-medium num truncate tracking-tight ${cls}`}>
+                {c ? signed(c.abs) : hs !== null ? <span title={`HolderScan's own ${w.label} change summed over the ${fmtNum(growth!.coins)} StonkFun coins it tracks, in holder-slots (a wallet holding two coins counts twice). The census's own figure takes over from ${from(w.h)}.`}>{signed(hs)}<span className="text-muted text-[13px] align-super"> HS</span></span> : <span className="text-base text-muted">from {from(w.h)}</span>}
+              </div>
+              <div className="mt-1.5 text-xs text-secondary num">
+                {c ? <>{c.pct !== null ? `${c.pct > 0 ? "+" : ""}${c.pct.toFixed(2)}%` : "—"} · vs {fmtTs(c.at)}</>
+                  : hs !== null ? <>{hsPct !== null ? `${hsPct > 0 ? "+" : ""}${hsPct.toFixed(2)}%` : "—"} · holder-slots, HolderScan · own census from {from(w.h)}</>
+                  : `first census ${firstTs ? fmtTs(firstTs) : "pending"}; the ${w.label} change needs history that far back`}
+              </div>
             </div>
           );
         })}
       </div>
 
       {growth && (
-        <p className="mt-4 pt-3 border-t border-border text-xs text-muted num leading-relaxed" title="HolderScan's per-coin holder history, summed over the StonkFun coins it tracks. Holder-slots: a wallet holding two coins counts twice. Direction only — the de-duplicated count above is the base.">
-          <span className="text-secondary">Direction, until the census has its own history:</span> <i className="sw mr-1" style={{ background: "var(--series-7)" }} aria-hidden="true" />HolderScan tracks {fmtNum(growth.coins)} of these coins ({((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots) and has them at {fmtNum(growth.holdersNow)} holder-slots,{" "}
-          <span className={growth.d7 > 0 ? "text-up" : growth.d7 < 0 ? "text-down" : ""}>{signed(growth.d7)}</span> over 7d ·{" "}
-          <span className={growth.d14 > 0 ? "text-up" : growth.d14 < 0 ? "text-down" : ""}>{signed(growth.d14)}</span> 14d ·{" "}
-          <span className={growth.d30 > 0 ? "text-up" : growth.d30 < 0 ? "text-down" : ""}>{signed(growth.d30)}</span> 30d. Slots, not wallets; read {timeAgo(growth.ts, now)}.
+        <p className="mt-4 pt-3 border-t border-border text-xs text-muted num leading-relaxed">
+          <span className="text-secondary"><sup>HS</sup> = HolderScan&apos;s own change,</span> <i className="sw mr-1" style={{ background: "var(--series-7)" }} aria-hidden="true" />summed over the {fmtNum(growth.coins)} StonkFun coins it tracks ({((growth.holdersNow / Math.max(1, growth.slotsTotal)) * 100).toFixed(0)}% of holder-slots, {fmtNum(growth.holdersNow)} holder-slots now; 14d{" "}
+          <span className={growth.d14 > 0 ? "text-up" : growth.d14 < 0 ? "text-down" : ""}>{signed(growth.d14)}</span>). Slots, not wallets — a wallet holding two coins counts twice — so it is the direction and rough size of the change, not the change in the de-duplicated count above, which takes over once the census has history that far back. Read {timeAgo(growth.ts, now)}.
         </p>
       )}
 

@@ -13,6 +13,7 @@ import { COIN_CENSUS_EVERY_H, COIN_CENSUS_MAX_PAGES, getWalletCensus, QUOTE_CENS
 import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, getMintCounts, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
 import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/lib/holderscan";
 import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
+import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, getCoinProfiles, TOP_COINS_SHOWN } from "@/lib/coin-profiles";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -148,6 +149,20 @@ export async function GET() {
       const ageMin = (Date.now() - Date.parse(p.ts)) / 60000;
       const note = `${key} · ${p.holders} holders, ${p.breakdowns ? `${p.breakdowns.over1k} over $1K` : "no breakdown"}, top-10 ${p.top10Share !== null ? `${(p.top10Share * 100).toFixed(1)}%` : "n/a"}, break-even ${p.pnl?.breakEvenPrice ?? "n/a"} · read ${ageMin.toFixed(0)} min ago, ${(h.hoursOfHistory / 24).toFixed(1)} days of history, ${h.series.length} hourly points${p.errors.length ? ` · missing: ${p.errors.join("; ")}` : ""}`;
       if (ageMin > PROFILE_EVERY_MIN * 3 + 10) throw new Error(`${note} — holder_profile step stalled`);
+      return note;
+    }),
+    run("coin_profiles", async () => {
+      // §6j: HolderScan profiles of the top coins by market cap — the /holders table's own read.
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const t = await getCoinProfiles(TOP_COINS_SHOWN);
+      if (t.status === "db-error") throw new Error("holderscan_snapshots unreadable (migration 0014 applied?)");
+      if (!t.newestAt) return `no top-coin profile stored yet (top ${COIN_PROFILES_TOP} every ${COIN_PROFILES_EVERY_H}h on the :25 tick, or ?coinprofiles=1)${lastHolderscanError ? ` · last HolderScan error: ${lastHolderscanError}` : ""}`;
+      const ageH = (Date.now() - Date.parse(t.newestAt)) / 3.6e6;
+      const withHold = t.rows.filter((r) => r.avgHoldSec !== null).length;
+      const spark = Math.max(0, ...t.rows.map((r) => r.series.length));
+      const note = `${t.readCount} of ${t.rows.length} top coins have a reading (${withHold} with hold time), newest ${ageH.toFixed(1)}h ago, up to ${spark} hourly points · top: ${t.rows.slice(0, 3).map((r) => `${r.symbol} ${r.holders ?? "—"}`).join(", ")}`;
+      if (ageH > COIN_PROFILES_EVERY_H * 3 + 0.5) throw new Error(`${note} — coin_profiles step stalled (every ${COIN_PROFILES_EVERY_H}h)`);
       return note;
     }),
     run("coin_deltas", async () => {

@@ -9,6 +9,9 @@ import { fmtNum, timeAgo } from "@/lib/format";
 // combination of issuers is answered client-side without another query.
 
 export type CensusRunView = { ts: string; hist: number[] };
+// HolderScan's own change per issuer (bit as ISSUERS), summed over the issuer's quote assets it tracks: the backfill
+// for a window the census does not cover yet. Holder-slots (one per asset per wallet), never the de-duplicated count.
+export type StockHsView = { bit: number; assets: number; tracked: number; holders: number; d1: number | null; d7: number | null; d30: number | null; ts: string | null };
 export type CensusMetaView = { ts: string; mintsOk: number; mintsFailed: number; accounts: number; firstError: string | null; durationMs: number | null };
 
 const ISSUERS = [
@@ -33,7 +36,7 @@ const count = (hist: number[], subset: number) => hist.reduce((a, w, mask) => a 
 const signed = (n: number) => (n > 0 ? `+${fmtNum(n)}` : fmtNum(n));
 const fmtTs = (t: number) => new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 
-export default function WalletCensus({ runs, latest, quoteAssets, now }: { runs: CensusRunView[]; latest: CensusMetaView | null; quoteAssets: number; now: number }) {
+export default function WalletCensus({ runs, latest, quoteAssets, now, hs = [] }: { runs: CensusRunView[]; latest: CensusMetaView | null; quoteAssets: number; now: number; hs?: StockHsView[] }) {
   const [subset, setSubset] = useState(15);
   const toggle = (bit: number) => setSubset((s) => (s === bit ? s : s ^ bit)); // never empty
 
@@ -51,6 +54,16 @@ export default function WalletCensus({ runs, latest, quoteAssets, now }: { runs:
     const abs = last.wallets - base.wallets;
     return { abs, pct: base.wallets > 0 ? (abs / base.wallets) * 100 : null, at: base.ts };
   };
+  // HolderScan backfill for the selected issuers: sum of the issuers' deltas; null when no selected issuer has one.
+  const hsSel = hs.filter((h) => (h.bit & subset) !== 0);
+  const hsSum = (pick: (h: StockHsView) => number | null) => {
+    const vals = hsSel.map(pick).filter((v): v is number => typeof v === "number");
+    return vals.length ? vals.reduce((a, b) => a + b, 0) : null;
+  };
+  const hsHolders = hsSel.reduce((a, h) => a + h.holders, 0);
+  const hsTracked = hsSel.reduce((a, h) => a + h.tracked, 0);
+  const hsAssets = hsSel.reduce((a, h) => a + h.assets, 0);
+  const hsTs = hsSel.map((h) => h.ts).filter((t): t is string => !!t).sort().pop() ?? null;
 
   return (
     <div>
@@ -79,12 +92,21 @@ export default function WalletCensus({ runs, latest, quoteAssets, now }: { runs:
         </div>
         {WINDOWS.map((w) => {
           const c = change(w.h);
-          const cls = !c ? "text-muted" : c.abs > 0 ? "text-up" : c.abs < 0 ? "text-down" : "text-muted";
+          const hsAbs = !c ? hsSum((h) => (w.h === 24 ? h.d1 : w.h === 168 ? h.d7 : h.d30)) : null;
+          const hsPct = hsAbs !== null && hsHolders - hsAbs > 0 ? (hsAbs / (hsHolders - hsAbs)) * 100 : null;
+          const val = c ? c.abs : hsAbs;
+          const cls = val === null ? "text-muted" : val > 0 ? "text-up" : val < 0 ? "text-down" : "text-muted";
           return (
             <div key={w.h} className="kpi min-w-0">
               <div className="label">{w.label} change</div>
-              <div className={`mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight ${cls}`}>{c ? signed(c.abs) : <span className="text-base text-muted">from {from(w.h)}</span>}</div>
-              <div className="mt-1.5 text-xs text-secondary num">{c ? <>{c.pct !== null ? `${c.pct > 0 ? "+" : ""}${c.pct.toFixed(2)}%` : "—"} · vs {fmtTs(c.at)} {new Date(c.at).toISOString().slice(11, 16)} UTC</> : `first census ${first ? fmtTs(first.ts) : "pending"}`}</div>
+              <div className={`mt-2 text-[26px] leading-tight font-medium num truncate tracking-tight ${cls}`}>
+                {c ? signed(c.abs) : hsAbs !== null ? <span title={`HolderScan's own ${w.label} change summed over the ${hsTracked} of ${hsAssets} selected stock assets it tracks, in holder-slots (a wallet holding two assets counts twice). The census's own figure takes over from ${from(w.h)}.`}>{signed(hsAbs)}<span className="text-muted text-[12px] align-super"> HS</span></span> : <span className="text-base text-muted">from {from(w.h)}</span>}
+              </div>
+              <div className="mt-1.5 text-xs text-secondary num">
+                {c ? <>{c.pct !== null ? `${c.pct > 0 ? "+" : ""}${c.pct.toFixed(2)}%` : "—"} · vs {fmtTs(c.at)} {new Date(c.at).toISOString().slice(11, 16)} UTC</>
+                  : hsAbs !== null ? <>{hsPct !== null ? `${hsPct > 0 ? "+" : ""}${hsPct.toFixed(2)}%` : "—"} · holder-slots, HolderScan · own census from {from(w.h)}</>
+                  : `first census ${first ? fmtTs(first.ts) : "pending"}`}
+              </div>
             </div>
           );
         })}
@@ -126,6 +148,11 @@ export default function WalletCensus({ runs, latest, quoteAssets, now }: { runs:
         </span>
         <span>Helius on-chain · stonk.fyi census · every few hours</span>
       </div>
+      {hsTracked > 0 && (
+        <p className="mt-3 pt-3 border-t border-border text-xs text-muted num leading-relaxed">
+          <span className="text-secondary"><sup>HS</sup> = HolderScan&apos;s own change,</span> <i className="sw mr-1" style={{ background: "var(--series-7)" }} aria-hidden="true" />summed over the {hsTracked} of {hsAssets} selected stock assets it tracks ({fmtNum(hsHolders)} holder-slots now). Slots, not wallets — a wallet holding two assets counts twice — so it is the direction and rough size, not the change in the de-duplicated count, which takes over once the census has history that far back.{hsTs ? ` Read ${timeAgo(hsTs, now)}.` : ""}
+        </p>
+      )}
     </div>
   );
 }
