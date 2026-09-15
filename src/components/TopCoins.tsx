@@ -82,7 +82,7 @@ export default function TopCoins({ rows, now, everyH }: { rows: CoinProfileRow[]
             <th className="r">30d</th>
             <th className="r">Avg hold</th>
             <th className="r p3"><Swatch p="paid" />StonkFun-paid</th>
-            <th className="p3">7d, hourly</th>
+            <th>7d, hourly</th>
             <th className="r"><span className="sr-only">Trade</span></th>
           </tr>
         </thead>
@@ -116,10 +116,10 @@ export default function TopCoins({ rows, now, everyH }: { rows: CoinProfileRow[]
               <td className="r"><Change abs={r.d7} holders={r.holders} days={7} readAt={r.readAt} /></td>
               <td className="r"><Change abs={r.d30} holders={r.holders} days={30} readAt={r.readAt} hint={r.holders !== null && r.d30 === null ? "younger than the window, or HolderScan gave no 30-day figure" : undefined} /></td>
               <td className="r num" title={r.retention !== null ? `HolderScan: average time held by current holders · retention ${(r.retention * 100).toFixed(0)}%` : "HolderScan: average time held by current holders"}>
-                {r.avgHoldSec !== null ? fmtHold(r.avgHoldSec) : <span className="text-muted text-xs" title="HolderScan has not profiled this coin's hold times">n/a</span>}
+                {r.avgHoldSec !== null ? fmtHold(r.avgHoldSec) : <span className="text-muted text-xs" title="HolderScan has not profiled this coin's hold times yet — it answers null for avg_time_held">not profiled</span>}
               </td>
               <td className="r num p3">{r.paid !== null ? fmtNum(r.paid) : <span className="text-muted text-xs" title="Standard-mode coin: no reward-eligible holder figure">standard</span>}</td>
-              <td className="p3"><Spark pts={r.series} /></td>
+              <td><Spark pts={r.series} /></td>
               <td className="r"><TradeLink mint={r.mint} label="Trade ↗" /></td>
             </tr>
           ))}
