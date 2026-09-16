@@ -167,6 +167,11 @@ table.data th button { font: inherit; color: inherit; letter-spacing: inherit; t
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 
+/* Loading skeleton (loading.tsx): a surface block that breathes. Never carries text. */
+.skeleton { background: var(--surface-2); border-radius: 6px; animation: skeleton-pulse 1.6s ease-in-out infinite; }
+@keyframes skeleton-pulse { 0%, 100% { opacity: .7 } 50% { opacity: .35 } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
 /* Ticker strip under the nav. */
 .ticker { display: flex; gap: 28px; height: 34px; align-items: center; font-family: var(--font-mono); font-size: 12px; color: var(--text-secondary); overflow-x: auto; scrollbar-width: none; font-variant-numeric: tabular-nums; }
 .ticker::-webkit-scrollbar { display: none; }

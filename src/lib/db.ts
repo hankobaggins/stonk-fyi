@@ -2,14 +2,28 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { BurnEvent, PoolFlow } from "./types";
 
+// Every DB read a page depends on is bounded by this (2026-09-16): a Supabase origin that stops
+// answering (Cloudflare 522) held every route for ~20 s before the first byte, because nothing in
+// the request path had a deadline. Page reads use supabase-js's own `db.timeout` with its automatic
+// retries OFF — postgrest-js retries a failed GET three times with 1s/2s/4s backoff, which turned a
+// dead origin into a fixed ~7 s per query even with a per-request abort. Past the deadline the query
+// returns an error, the caller returns null and the page renders its "collecting" / fallback states.
+// The worker routes ask for a longer budget and keep the retries (a 503 while PostgREST reloads its
+// schema cache is exactly what they are for).
+export const DB_PAGE_TIMEOUT_MS = Number(process.env.DB_PAGE_TIMEOUT_MS) || 4_000;
+export const DB_WORKER_TIMEOUT_MS = Number(process.env.DB_WORKER_TIMEOUT_MS) || 120_000;
+
 // Returns null when Supabase isn't configured so the app runs fine as a pure API-poller.
-export function getDb(): SupabaseClient | null {
+export function getDb(opts?: { timeoutMs?: number; retry?: boolean }): SupabaseClient | null {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
+  const worker = opts?.timeoutMs !== undefined && opts.timeoutMs > DB_PAGE_TIMEOUT_MS;
+  return createClient(url, key, {
+    auth: { persistSession: false },
+    db: { timeout: opts?.timeoutMs ?? DB_PAGE_TIMEOUT_MS, retry: opts?.retry ?? worker },
+  });
 }
-
 
 // Net STONK flow through the pool over a window, from recorded reserve snapshots.
 // Positive netStonkIntoPool = more STONK sold into the pool than bought out (net selling).

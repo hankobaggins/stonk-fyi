@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-import { getDb } from "@/lib/db";
+import { DB_WORKER_TIMEOUT_MS, getDb } from "@/lib/db";
 import { runCoinCensus, runWalletCensus } from "@/lib/wallets";
 
 // Wallet census worker (CLAUDE.md §6f). Split out of /api/cron/snapshot on 2026-09-11 because the
@@ -24,7 +24,7 @@ export async function GET(req: Request) {
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const db = getDb();
+  const db = getDb({ timeoutMs: DB_WORKER_TIMEOUT_MS });
   if (!db) return NextResponse.json({ error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set" }, { status: 503 });
   if (!process.env.HELIUS_API_KEY) return NextResponse.json({ error: "HELIUS_API_KEY not set" }, { status: 503 });
 

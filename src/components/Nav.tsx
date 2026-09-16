@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import LiveRefresh from "./LiveRefresh";
 import BurnRing from "./BurnRing";
 import BuyButton from "./BuyButton";
@@ -11,8 +11,9 @@ import { childActive, groupOf, NAV } from "@/lib/nav";
 
 // Sticky 52px bar: mark + wordmark, four nav items (two with hover/focus dropdowns), the refresh pill, the one
 // Buy button. Below lg the items move into a panel under the bar (groups as headings, children indented, 44px
-// rows, Buy first below sm). Escape and the backdrop close everything.
-export default function Nav({ burnedPct }: { burnedPct: number }) {
+// rows, Buy first below sm). Escape and the backdrop close everything. The ring is a slot the layout streams in
+// (Suspense) so the bar paints before STONK's numbers arrive; until then it is an empty ring.
+export default function Nav({ mark }: { mark?: ReactNode }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
   const [menu, setMenu] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function Nav({ burnedPct }: { burnedPct: number }) {
     <header className="sticky top-0 z-20 border-b border-border bg-bg/88 backdrop-blur">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-13 flex items-center gap-4">
         <Link href="/" className="font-semibold tracking-tight flex items-center gap-2.5 shrink-0 text-[15px]">
-          <BurnRing pct={burnedPct} size={18} />
+          {mark ?? <BurnRing pct={0} size={18} />}
           stonk.fyi
           <span className="label border border-border-strong rounded px-1.5 py-1 text-[10px] leading-none font-medium">unofficial</span>
         </Link>

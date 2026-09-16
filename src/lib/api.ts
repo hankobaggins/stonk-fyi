@@ -29,6 +29,10 @@ async function fixture<T>(name: string): Promise<ApiEnvelope<T>> {
   return (mod.default ?? mod) as ApiEnvelope<T>;
 }
 
+// No upstream may hold a render open indefinitely (2026-09-16): a page that waits on a hung
+// provider is a page nobody sees. Past this the fetch rejects and the caller's fallback applies.
+export const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS) || 10_000;
+
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -43,6 +47,7 @@ async function get<T>(path: string, params?: Record<string, string | number | un
   const res = await fetch(url, {
     headers: { accept: "application/json", "user-agent": "stonkfun-dashboard/0.1" },
     next: { revalidate },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
   if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} for ${url.pathname}`);
   return (await res.json()) as ApiEnvelope<T>;
@@ -222,6 +227,7 @@ export async function getStonkPriceHistory(days = 90): Promise<PricePoint[] | nu
     const res = await fetch(url, {
       headers: { accept: "application/json", ...(key ? { "x-cg-demo-api-key": key } : {}) },
       next: { revalidate: 600 },
+      signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
     if (!res.ok) return null;
     const j = (await res.json()) as { prices?: [number, number][]; market_caps?: [number, number][]; total_volumes?: [number, number][] };

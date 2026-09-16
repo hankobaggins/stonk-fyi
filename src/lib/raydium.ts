@@ -1,5 +1,6 @@
 import "server-only";
 import type { PoolInfo } from "./types";
+import { UPSTREAM_TIMEOUT_MS } from "./api";
 
 const USE_FIXTURES = process.env.DATA_SOURCE === "fixture";
 const RAYDIUM_API = process.env.RAYDIUM_API_BASE ?? "https://api-v3.raydium.io";
@@ -15,6 +16,7 @@ export async function getPoolInfo(poolId: string): Promise<PoolInfo | null> {
       const res = await fetch(`${RAYDIUM_API}/pools/info/ids?ids=${poolId}`, {
         headers: { accept: "application/json" },
         next: { revalidate: 60 },
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
       });
       if (!res.ok) return null;
       raw = (await res.json()) as typeof raw;

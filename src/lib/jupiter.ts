@@ -1,4 +1,5 @@
 import "server-only";
+import { UPSTREAM_TIMEOUT_MS } from "./api";
 
 // USD prices for arbitrary Solana mints via Jupiter's public price API (no key, 50 ids per call).
 // Used to value holder rewards, which StonkFun reports only in native quote units. Best-effort:
@@ -12,7 +13,7 @@ export async function getUsdPrices(mints: string[], revalidate = 300): Promise<R
   for (let i = 0; i < uniq.length; i += 50) {
     const ids = uniq.slice(i, i + 50);
     try {
-      const res = await fetch(`${BASE}?ids=${ids.join(",")}`, { headers: { accept: "application/json" }, next: { revalidate } });
+      const res = await fetch(`${BASE}?ids=${ids.join(",")}`, { headers: { accept: "application/json" }, next: { revalidate }, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) });
       if (!res.ok) continue;
       const data = (await res.json()) as Record<string, { usdPrice?: number }>;
       for (const [mint, v] of Object.entries(data ?? {})) if (typeof v?.usdPrice === "number") out[mint] = v.usdPrice;

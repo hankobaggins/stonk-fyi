@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getRevenue, getRevenueHistory, getStats, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
-import { getDb, pruneRewardSnapshots } from "@/lib/db";
+import { DB_WORKER_TIMEOUT_MS, getDb, pruneRewardSnapshots } from "@/lib/db";
 import { runAthAlert } from "@/lib/ath-alerts";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { runBurnMilestone } from "@/lib/burn-milestones";
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
   if (secret && req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
-  const db = getDb();
+  const db = getDb({ timeoutMs: DB_WORKER_TIMEOUT_MS });
   if (!db) return NextResponse.json({ error: "SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set" }, { status: 503 });
 
   const params = new URL(req.url).searchParams;
