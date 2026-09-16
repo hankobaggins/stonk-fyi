@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getRewards, getTokens, STONK_MINT } from "./api";
-import { getDb } from "./db";
+import { getDb, memoDb } from "./db";
 import { getHolderscanDeltas, getHolderscanHolderCount, getHolderscanStats, HOLDERSCAN_ADVANCED, holderscanEnabled } from "./holderscan";
 import type { Token } from "./types";
 
@@ -127,7 +127,7 @@ const SPARK_DAYS = 7;
 
 // The top TOP_COINS_SHOWN coins by market cap right now, each with its newest stored HolderScan profile and its
 // 7-day series. A coin that climbed into the top 10 since the last worker read has no row yet ("next read" on the page).
-export async function getCoinProfiles(n = TOP_COINS_SHOWN): Promise<CoinProfiles> {
+async function getCoinProfilesImpl(n = TOP_COINS_SHOWN): Promise<CoinProfiles> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
   const [coins, rewards] = await Promise.all([getTopCoinsByMcap(n), getRewards().catch(() => null)]);
@@ -216,3 +216,5 @@ export async function getCoinProfiles(n = TOP_COINS_SHOWN): Promise<CoinProfiles
   const newestAt = rows.map((r) => r.readAt).filter((t): t is string => !!t).sort().pop() ?? null;
   return { status: readCount ? "ok" : "collecting", rows, readCount, newestAt, generatedAt };
 }
+
+export const getCoinProfiles = memoDb("getCoinProfiles", 120, getCoinProfilesImpl);

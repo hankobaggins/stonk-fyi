@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
-import { getDb } from "./db";
+import { getDb, memoDb } from "./db";
 import { getMintOwners, HELIUS_PAID } from "./helius";
 import { getStockQuoteAssets, isStockCategory, STOCK_CATEGORIES, type StockCategory } from "./holders";
 import { getUniverse } from "./universe";
@@ -93,7 +93,7 @@ export type CensusRun = { ts: string; hist: number[] }; // hist[mask] = wallets,
 export type CensusMeta = { ts: string; mintsOk: number; mintsFailed: number; accounts: number; firstError: string | null; durationMs: number | null };
 export type CensusSeries = { status: "ok" | "empty" | "no-db" | "db-error"; runs: CensusRun[]; latest: CensusMeta | null; quoteAssets: number };
 
-export async function getWalletCensus(days = WALLET_HISTORY_DAYS): Promise<CensusSeries> {
+async function getWalletCensusImpl(days = WALLET_HISTORY_DAYS): Promise<CensusSeries> {
   const db = getDb();
   const quotes = await getStockQuoteAssets();
   if (!db) return { status: "no-db", runs: [], latest: null, quoteAssets: quotes.length };
@@ -237,3 +237,5 @@ export function coinCensusDue(ts: string): boolean {
   return m >= 15 && m < 20 && d.getUTCHours() % COIN_CENSUS_EVERY_H === 1 % COIN_CENSUS_EVERY_H;
 }
 
+
+export const getWalletCensus = memoDb("getWalletCensus", 120, getWalletCensusImpl);

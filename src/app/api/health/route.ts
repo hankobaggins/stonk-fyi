@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
-import { getDb, getRewardWindows } from "@/lib/db";
+import { DB_BREAKER_MS, dbBreakerOpen, getDb, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
@@ -64,6 +64,7 @@ export async function GET() {
       return `${g.holderCount} holders, price ${g.priceUsd}`;
     }),
     run("supabase", async () => {
+      if (dbBreakerOpen()) throw new Error(`breaker open: a page read failed at the transport level in the last ${DB_BREAKER_MS / 1000}s, page reads are skipped on this instance until it closes`);
       const db = getDb();
       if (!db) return "not configured (optional)";
       const { error, count } = await db.from("platform_snapshots").select("ts", { count: "exact", head: true });

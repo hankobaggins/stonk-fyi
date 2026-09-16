@@ -1,6 +1,6 @@
 import "server-only";
 import { getRewards, getToken, getTokens, STONK_MINT } from "./api";
-import { getDb, getRewardWindows, type RewardWindow } from "./db";
+import { getDb, getRewardWindows, type RewardWindow, memoDb } from "./db";
 import { getUsdPrices } from "./jupiter";
 import type { RewardLaunch, Token } from "./types";
 
@@ -134,7 +134,7 @@ export async function getAprForTokens(tokens: Token[]): Promise<AprLookup> {
   return { status: "ok", byMint, generatedAt };
 }
 
-export async function getYieldTable(): Promise<YieldTable> {
+async function getYieldTableImpl(): Promise<YieldTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
   const cutoff = Date.now() - YIELD_MIN_AGE_HOURS * 3.6e6;
@@ -184,3 +184,5 @@ export async function getYieldTable(): Promise<YieldTable> {
     generatedAt,
   };
 }
+
+export const getYieldTable = memoDb("getYieldTable", 120, getYieldTableImpl);

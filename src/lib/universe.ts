@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
-import { getDb } from "./db";
+import { getDb, memoDb } from "./db";
 import { getHolderscanDeltas, getHolderscanHolderCount, HOLDERSCAN_ADVANCED, holderscanEnabled } from "./holderscan";
 import type { Pair, RewardLaunch } from "./types";
 
@@ -221,7 +221,7 @@ export async function getCoinDeltaTotals(): Promise<CoinDeltaTotals | null> {
 export type CoinHolderDelta = { ts: string; holdersNow: number; d1: number | null; d7: number | null; d14: number | null; d30: number | null };
 
 // Newest HolderScan delta row for one reward coin (token detail page); null when none or on a DB error.
-export async function getCoinHolderDelta(mint: string): Promise<CoinHolderDelta | null> {
+async function getCoinHolderDeltaImpl(mint: string): Promise<CoinHolderDelta | null> {
   const db = getDb();
   if (!db) return null;
   const { data, error } = await db.from("coin_holder_deltas").select("ts, holders_now, d1, d7, d14, d30").eq("mint", mint).order("ts", { ascending: false }).limit(1);
@@ -435,7 +435,7 @@ export type UniverseTable = {
   generatedAt: string;
 };
 
-export async function getUniverseTable(): Promise<UniverseTable> {
+async function getUniverseTableImpl(): Promise<UniverseTable> {
   const generatedAt = new Date().toISOString();
   const db = getDb();
   const [{ assets }, census, deltas, coinDeltas, mintCounts] = await Promise.all([getUniverse(), getCoinCensus(), getLatestDeltas(), getCoinDeltaTotals(), getMintCounts()]);
@@ -494,3 +494,7 @@ export async function getUniverseTable(): Promise<UniverseTable> {
     generatedAt,
   };
 }
+
+export const getUniverseTable = memoDb("getUniverseTable", 120, getUniverseTableImpl);
+
+export const getCoinHolderDelta = memoDb("getCoinHolderDelta", 300, getCoinHolderDeltaImpl);

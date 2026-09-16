@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { getDb } from "./db";
+import { getDb, memoDb } from "./db";
 import {
   getHolderscanBreakdowns, getHolderscanDeltas, getHolderscanPnl, getHolderscanStats, getHolderscanSupplyBreakdown, getHolderscanTopHolders,
   getHolderscanWalletCategories, HOLDERSCAN_ADVANCED, holderscanEnabled,
@@ -179,7 +179,7 @@ const MIN_COVERAGE = 0.8;
 
 // null when the DB is unset, the table is missing (logged) or nothing has been stored yet. DATA_SOURCE=fixture serves
 // src/fixtures/holderscan-stonk.json (a synthetic sample in this shape — the sandbox cannot reach HolderScan) for STONK.
-export async function getHolderHistory(mint: string): Promise<HolderHistory | null> {
+async function getHolderHistoryImpl(mint: string): Promise<HolderHistory | null> {
   if (process.env.DATA_SOURCE === "fixture") {
     if (!mint.startsWith("6GmAFSYs")) return null;
     const mod = await import("@/fixtures/holderscan-stonk.json");
@@ -221,3 +221,5 @@ export function profileChange(a: HolderProfile | null, b: HolderProfile, pick: (
   if (typeof va !== "number" || typeof vb !== "number") return null;
   return { abs: vb - va, pct: va > 0 ? ((vb - va) / va) * 100 : null, hours: (Date.parse(b.ts) - Date.parse(a.ts)) / 3.6e6 };
 }
+
+export const getHolderHistory = memoDb("getHolderHistory", 60, getHolderHistoryImpl);

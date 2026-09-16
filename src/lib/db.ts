@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { BurnEvent, PoolFlow } from "./types";
 
@@ -13,21 +14,67 @@ import type { BurnEvent, PoolFlow } from "./types";
 export const DB_PAGE_TIMEOUT_MS = Number(process.env.DB_PAGE_TIMEOUT_MS) || 4_000;
 export const DB_WORKER_TIMEOUT_MS = Number(process.env.DB_WORKER_TIMEOUT_MS) || 120_000;
 
-// Returns null when Supabase isn't configured so the app runs fine as a pure API-poller.
+// Circuit breaker for page reads (2026-09-16): once a page-side query fails at the transport level (abort,
+// network error, or a gateway 5xx such as Cloudflare's 522), every page-side getDb() answers null for
+// DB_BREAKER_MS instead of letting each of the ~10-40 reads a render makes wait out its own deadline
+// and pile connections onto an instance that is already down. The worker never trips it. A tripped
+// breaker is what a Vercel instance saw, not a verdict on the DB: it re-checks after the window.
+export const DB_BREAKER_MS = Number(process.env.DB_BREAKER_MS) || 30_000;
+// On globalThis: every route is its own bundle with its own module state, and one instance should share the verdict.
+const g = globalThis as typeof globalThis & { __dbDownUntil?: number };
+const GATEWAY_DOWN = new Set([502, 503, 504, 520, 521, 522, 523, 524]);
+export const dbBreakerOpen = () => Date.now() < (g.__dbDownUntil ?? 0);
+function trip(reason: string) {
+  if (!dbBreakerOpen()) console.error(`db breaker tripped for ${DB_BREAKER_MS / 1000}s: ${reason}`);
+  g.__dbDownUntil = Date.now() + DB_BREAKER_MS;
+}
+const observedFetch: typeof fetch = async (input, init) => {
+  try {
+    const res = await fetch(input, init);
+    if (GATEWAY_DOWN.has(res.status)) trip(`HTTP ${res.status}`);
+    return res;
+  } catch (e) {
+    trip((e as Error).name === "TimeoutError" || (e as Error).name === "AbortError" ? "timeout" : (e as Error).message);
+    throw e;
+  }
+};
+
+// Returns null when Supabase isn't configured (the app runs fine as a pure API-poller) — and, for page
+// reads, while the breaker is open.
 export function getDb(opts?: { timeoutMs?: number; retry?: boolean }): SupabaseClient | null {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) return null;
   const worker = opts?.timeoutMs !== undefined && opts.timeoutMs > DB_PAGE_TIMEOUT_MS;
+  if (!worker && dbBreakerOpen()) return null;
   return createClient(url, key, {
     auth: { persistSession: false },
     db: { timeout: opts?.timeoutMs ?? DB_PAGE_TIMEOUT_MS, retry: opts?.retry ?? worker },
+    ...(worker ? {} : { global: { fetch: observedFetch } }),
   });
+}
+
+// Shared cache for page-side DB reads (2026-09-16). supabase-js queries bypass Next's fetch cache, so
+// before this every render of every tab re-ran its reads against Postgres — /holders alone is ~30
+// PostgREST requests (three quote_holder_window RPCs over ~320 mints, ten holderscan_series RPCs, the
+// census tables) and LiveRefresh re-renders each open tab every 60 s: the dashboard showed 1.19M API
+// requests in 24 h on a t3.nano, which is what kept knocking the instance over. The DB only changes
+// when the worker writes (every 5 min at fastest), so a read cached for 60-120 s across every Vercel
+// instance and viewer loses nothing. Results go through JSON (Maps preserved) because the data cache
+// stores serialisable values; a null from a failed read is cached too, which is the right thing during
+// an outage (the page says "collecting" and rechecks after the window).
+const MAP_TAG = "__map__";
+const toJson = (v: unknown) => JSON.stringify(v, (_k, x) => (x instanceof Map ? { [MAP_TAG]: [...x] } : x));
+const fromJson = (s: string) => JSON.parse(s, (_k, x) => (x && typeof x === "object" && Array.isArray(x[MAP_TAG]) ? new Map(x[MAP_TAG]) : x));
+export function memoDb<A extends unknown[], R>(name: string, revalidate: number, fn: (...args: A) => Promise<R>): (...args: A) => Promise<R> {
+  if (process.env.DATA_SOURCE === "fixture") return fn;
+  const cached = unstable_cache(async (...args: A) => toJson(await fn(...args)), ["db-memo", name], { revalidate });
+  return async (...args: A) => fromJson(await cached(...args)) as R;
 }
 
 // Net STONK flow through the pool over a window, from recorded reserve snapshots.
 // Positive netStonkIntoPool = more STONK sold into the pool than bought out (net selling).
-export async function getPoolFlow(poolId: string, hours = 24, stonkPriceUsd?: number): Promise<PoolFlow | null> {
+async function getPoolFlowImpl(poolId: string, hours = 24): Promise<PoolFlow | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
@@ -47,14 +94,14 @@ export async function getPoolFlow(poolId: string, hours = 24, stonkPriceUsd?: nu
     stonkReserveStart: first.stonk_reserve,
     stonkReserveEnd: last.stonk_reserve,
     netStonkIntoPool: net,
-    netStonkUsd: net * (stonkPriceUsd ?? 0),
+    netStonkUsd: 0, // priced by getPoolFlow, outside the cache (the price changes every render; the reserves do not)
     samples: data.length,
   };
 }
 
 // Every recorded burn for a mint inside the trailing window (default 4h), oldest first. The worker
 // upserts the API's ~25-event window every tick, so this is the full ledger once it has run for a while.
-export async function getBurnsSince(mint: string, hours = 4): Promise<BurnEvent[] | null> {
+async function getBurnsSinceImpl(mint: string, hours = 4): Promise<BurnEvent[] | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
@@ -79,7 +126,7 @@ export async function getBurnsSince(mint: string, hours = 4): Promise<BurnEvent[
 export type GmgnHistoryPoint = { ts: string; holderCount: number; priceUsd: number | null };
 
 // Oldest GMGN snapshot inside the window (default 24h) plus the newest, for holder-growth deltas.
-export async function getGmgnHistory(hours = 24): Promise<{ first: GmgnHistoryPoint; last: GmgnHistoryPoint; hours: number } | null> {
+async function getGmgnHistoryImpl(hours = 24): Promise<{ first: GmgnHistoryPoint; last: GmgnHistoryPoint; hours: number } | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
@@ -98,7 +145,7 @@ export type TokenHistoryPoint = { ts: number; price: number | null; marketCap: n
 
 // Recorded market snapshots for one token (5 min for the top 100 by volume, hourly for the top
 // 500, daily for the rest; 30-day retention). Downsampled to at most `maxPoints` for the chart.
-export async function getTokenHistory(mint: string, days = 7, maxPoints = 600): Promise<{ points: TokenHistoryPoint[]; samples: number; from: string; to: string } | null> {
+async function getTokenHistoryImpl(mint: string, days = 7, maxPoints = 600): Promise<{ points: TokenHistoryPoint[]; samples: number; from: string; to: string } | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
@@ -133,7 +180,7 @@ export type RevenuePace = {
 
 // Fee revenue rate from platform_snapshots (total_revenue_usd every 5 min): rolling 1h / 6h / 24h
 // deltas plus hourly buckets for a chart. Lifetime revenue only rises, so deltas are clamped at 0.
-export async function getRevenuePace(hours = 48): Promise<RevenuePace | null> {
+async function getRevenuePaceImpl(hours = 48): Promise<RevenuePace | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
@@ -189,7 +236,7 @@ export type LaunchVelocity = {
 // Launch rate from platform_snapshots (tokens_total every 5 min): the 24h delta and hourly deltas.
 // tokens_total counts tokens with live pools and can dip when pools are removed, so negative
 // hourly deltas are clamped to 0.
-export async function getLaunchVelocity(hours = 24): Promise<LaunchVelocity | null> {
+async function getLaunchVelocityImpl(hours = 24): Promise<LaunchVelocity | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
@@ -218,7 +265,7 @@ export type RewardWindow = { mint: string; quoteMint: string; from: string; to: 
 // version stopped finishing inside the API's 8 s statement timeout at ~1M rows). `hours` is the
 // real span covered, which can be shorter than requested while history is still accumulating;
 // callers decide what counts. Returns null on a DB error (logged), never a partial map.
-export async function getRewardWindows(winHours: number, mints: string[]): Promise<Map<string, RewardWindow> | null> {
+async function getRewardWindowsImpl(winHours: number, mints: string[]): Promise<Map<string, RewardWindow> | null> {
   const db = getDb();
   if (!db) return null;
   const out = new Map<string, RewardWindow>();
@@ -259,7 +306,7 @@ export type BuybackLeaderboard = { from: string; to: string; hours: number; rows
 // Which fee/quote coins funded STONK buybacks over a window, from the buyback ledger the worker
 // accumulates (§6). Ranked by USD spent (StonkFun's value at the time of the buy). `to` is the
 // newest buy in the window, so a stalled worker shows up as a stale `to`, not as a quiet hour.
-export async function getBuybackLeaderboard(hours = 1, top = 10): Promise<BuybackLeaderboard | null> {
+async function getBuybackLeaderboardImpl(hours = 1, top = 10): Promise<BuybackLeaderboard | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
@@ -289,3 +336,23 @@ export async function getBuybackLeaderboard(hours = 1, top = 10): Promise<Buybac
 }
 
 // ---------- holder_snapshots (migration 0009; /holders) ----------
+
+const readPoolFlow = memoDb("getPoolFlow", 60, getPoolFlowImpl);
+export async function getPoolFlow(poolId: string, hours = 24, stonkPriceUsd?: number): Promise<PoolFlow | null> {
+  const f = await readPoolFlow(poolId, hours);
+  return f ? { ...f, netStonkUsd: f.netStonkIntoPool * (stonkPriceUsd ?? 0) } : null;
+}
+
+export const getBurnsSince = memoDb("getBurnsSince", 60, getBurnsSinceImpl);
+
+export const getGmgnHistory = memoDb("getGmgnHistory", 60, getGmgnHistoryImpl);
+
+export const getTokenHistory = memoDb("getTokenHistory", 120, getTokenHistoryImpl);
+
+export const getRevenuePace = memoDb("getRevenuePace", 120, getRevenuePaceImpl);
+
+export const getLaunchVelocity = memoDb("getLaunchVelocity", 120, getLaunchVelocityImpl);
+
+export const getRewardWindows = memoDb("getRewardWindows", 120, getRewardWindowsImpl);
+
+export const getBuybackLeaderboard = memoDb("getBuybackLeaderboard", 60, getBuybackLeaderboardImpl);
