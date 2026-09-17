@@ -44,9 +44,9 @@ export function RunnersCard({ win, supplyBurnedPct, at, partialSinceHours }: Run
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", padding: "44px 0 30px", borderBottom: `1px solid ${C.line}` }}>
-        <div style={{ display: "flex", alignItems: "baseline", gap: 22 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
           <div style={{ ...mono, display: "flex", fontSize: 128, fontWeight: 500, letterSpacing: -6, lineHeight: 1, color: entered ? C.bull : C.ink3 }}>{entered}</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 40, fontWeight: 600, letterSpacing: -1.2, lineHeight: 1.1 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 40, fontWeight: 600, letterSpacing: -1.2, lineHeight: 1.1 }}>
             <div style={{ display: "flex" }}>{entered === 1 ? "StonkFun token crossed" : "StonkFun tokens crossed"}</div>
             <div style={{ display: "flex", gap: 14 }}>
               <span style={{ color: C.bull }}>$1M market cap</span>
