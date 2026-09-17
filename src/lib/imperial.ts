@@ -3,4 +3,5 @@
 // are attributed. Client-safe (the Nav renders it); one place for the URL.
 
 export const IMPERIAL_REF = "HANKO";
-export const IMPERIAL_URL = `https://www.imperial.space/refer/${IMPERIAL_REF}`;
+// `to` sends the visitor straight to the STONK perps market after the referral is recorded.
+export const IMPERIAL_URL = `https://www.imperial.space/refer/${IMPERIAL_REF}?to=/perps/stonk`;
