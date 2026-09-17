@@ -14,6 +14,7 @@ import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, ge
 import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/lib/holderscan";
 import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
 import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, getCoinProfiles, TOP_COINS_SHOWN } from "@/lib/coin-profiles";
+import { runnersHealth } from "@/lib/runners";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -203,6 +204,11 @@ export async function GET() {
       const mode = process.env.SOCIALBU_TOKEN && process.env.SOCIALBU_ACCOUNT_ID ? "posting" : "dry-run";
       if (!last) return `every 1% of supply · ${mode} · not seeded yet (first tick seeds the current level)`;
       return `every 1% of supply · ${mode} · last ${last.pct}% ${last.status} at ${last.ts} · next post at ${last.pct + 1}%`;
+    }),
+    run("runners", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      return runnersHealth(db); // throws if migration 0018 is missing
     }),
     run("ath_alerts", async () => {
       const db = getDb();

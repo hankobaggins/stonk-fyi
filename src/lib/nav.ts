@@ -19,6 +19,7 @@ export const NAV: NavGroup[] = [
       { href: "/tokens", label: "Tokens & yield" },
       { href: "/pairs", label: "Pairs" },
       { href: "/launches", label: "Launches" },
+      { href: "/runners", label: "Runners" },
       { href: "/rewards", label: "Rewards" },
       { href: "/holders", label: "Holders" },
     ],

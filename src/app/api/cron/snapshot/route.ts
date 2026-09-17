@@ -15,6 +15,8 @@ import { SITE_URL } from "@/lib/site";
 import { profileDue, PROFILE_EVERY_MIN, pruneHolderProfiles, runHolderProfile } from "@/lib/stonk-holders";
 import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, coinProfilesDue, runCoinProfiles } from "@/lib/coin-profiles";
 import { HOLDERSCAN_ADVANCED } from "@/lib/holderscan";
+import { runRunners } from "@/lib/runners";
+import { peakOf, RUNNER_FLOOR } from "@/lib/runner-math";
 import type { Token } from "@/lib/types";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
@@ -455,6 +457,8 @@ export async function GET(req: Request) {
     return 1;
   });
 
+  const fetched: Token[] = [];
+  const prevSeen = new Map<string, string | null>();
   await step("tokens", async () => {
     // Top pages by volume (1 page normally, 5 hourly); full mode walks every page
     // (16k tokens ≈ 165 requests; fits in the 300/min limit). STONK itself is always included.
@@ -466,6 +470,16 @@ export async function GET(req: Request) {
       const fresh = toks.filter((t) => !seen.has(t.mint));
       if (!fresh.length) return;
       fresh.forEach((t) => seen.add(t.mint));
+      fetched.push(...fresh);
+      // For the runners step (§6k): when this site last saw each token whose peak is on the ladder, read
+      // before the upsert below overwrites last_seen_at. Only candidates, so most full-walk pages skip it.
+      const cands = fresh.filter((t) => peakOf(t.market) >= RUNNER_FLOOR).map((t) => t.mint);
+      if (cands.length) {
+        const { data: prev, error: e0 } = await db.from("tokens").select("mint, last_seen_at").in("mint", cands);
+        if (e0) throw new Error(e0.message);
+        for (const m of cands) prevSeen.set(m, null);
+        for (const r of (prev ?? []) as { mint: string; last_seen_at: string | null }[]) prevSeen.set(r.mint, r.last_seen_at);
+      }
       const { error } = await db.from("tokens").upsert(fresh.map(tokenRow), { onConflict: "mint" });
       if (error) throw new Error(error.message);
       const { error: e2 } = await db.from("token_snapshots").upsert(fresh.map((t) => snapshotRow(t, ts)), { onConflict: "mint,ts" });
@@ -485,6 +499,14 @@ export async function GET(req: Request) {
       if (s) await write([s.data.token]);
     }
     return written;
+  });
+
+  await step("runners", async () => {
+    // Market-cap lines crossed ($1M / $5M / $10M / $25M / $50M / $100M, §6k) by the tokens this tick fetched
+    // plus the top 100 by market cap. First run seeds every crossing to date. See src/lib/runners.ts.
+    const r = await runRunners(db, fetched, prevSeen, { ts, mode: full ? "full" : hourly ? "hourly" : "tick" });
+    notes.runners = r.seeded && !r.crossed.length ? `seeded ${r.seeded} crossings over ${r.candidates} tokens` : r.crossed.length ? `crossed: ${r.crossed.slice(0, 8).join(", ")}${r.crossed.length > 8 ? ` +${r.crossed.length - 8}` : ""}${r.seeded ? ` (+${r.seeded} seeded)` : ""}` : `no new crossings (${r.candidates} tokens on the ladder)`;
+    return r.created;
   });
 
   if (full) {
