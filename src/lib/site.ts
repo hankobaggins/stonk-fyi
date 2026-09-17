@@ -15,5 +15,5 @@ export const ogImageUrl = (nowMs: number): string => `/og?v=${Math.floor(nowMs /
 // Footer social links. The wallet is the site's own Solana address (tips / donations), not STONK's.
 export const X_HANDLE = "stonk_fyi";
 export const X_URL = `https://x.com/${X_HANDLE}`;
-export const SITE_WALLET = "stonkdfAK55oc91ho3iXztDqijsSqjPAgQyNGRWZz8F";
+export const SITE_WALLET = "stonkosR49h1Kjz7jUtVrWTLrJezMrp2QfLtigutCok";
 export const SITE_WALLET_URL = `https://solscan.io/account/${SITE_WALLET}`;
