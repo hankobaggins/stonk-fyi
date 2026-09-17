@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import LiveRefresh from "./LiveRefresh";
 import BurnRing from "./BurnRing";
-import BuyButton from "./BuyButton";
+import BuyButton, { PerpsButton } from "./BuyButton";
 import { STONK_MINT_PUBLIC } from "@/lib/jtx";
 import { childActive, groupOf, NAV } from "@/lib/nav";
 
@@ -101,6 +101,7 @@ export default function Nav({ mark }: { mark?: ReactNode }) {
 
         <div className="ml-auto shrink-0 flex items-center gap-2.5">
           <LiveRefresh intervalMs={60_000} />
+          <span className="hidden xl:block"><PerpsButton size="sm" /></span>
           <span className="hidden sm:block"><BuyButton mint={STONK_MINT_PUBLIC} size="sm" /></span>
           <button
             type="button"
@@ -129,7 +130,10 @@ export default function Nav({ mark }: { mark?: ReactNode }) {
           <div className="fixed inset-0 top-13 z-10 bg-bg/60" onClick={() => setOpen(false)} aria-hidden="true" />
           <nav id="mobile-nav" aria-label="Primary" className="absolute left-0 right-0 top-full z-20 border-b border-border-strong bg-surface-1 shadow-[var(--shadow-toast)]">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-3 pb-4 grid gap-1 text-[15px]">
-              <div className="sm:hidden mb-2 grid"><BuyButton mint={STONK_MINT_PUBLIC} size="md" className="min-h-11" /></div>
+              <div className="mb-2 grid gap-2">
+                <span className="sm:hidden grid"><BuyButton mint={STONK_MINT_PUBLIC} size="md" className="min-h-11" /></span>
+                <PerpsButton size="md" className="min-h-11" />
+              </div>
               {NAV.map((g) => {
                 const on = g.label === active;
                 return (

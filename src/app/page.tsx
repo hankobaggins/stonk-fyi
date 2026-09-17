@@ -10,7 +10,7 @@ import Foundation from "@/components/Foundation";
 import { GMGN_TOKEN_URL } from "@/lib/gmgn";
 import TokenTable from "@/components/TokenTable";
 import Projection from "@/components/Projection";
-import BuyButton from "@/components/BuyButton";
+import BuyButton, { PerpsButton } from "@/components/BuyButton";
 import HolderBase from "@/components/HolderBase";
 
 export const dynamic = "force-dynamic";
@@ -64,8 +64,9 @@ export default async function StonkPage() {
           ) : (
             <div className="num text-[12px] text-muted">GMGN unavailable · one reference price on this read</div>
           )}
-          <div className="mt-1.5 flex w-full md:w-auto md:justify-end">
+          <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 md:flex gap-2 w-full md:w-auto md:justify-end">
             <BuyButton mint={STONK_MINT} size="lg" className="w-full md:w-auto min-h-11" />
+            <PerpsButton size="lg" className="w-full md:w-auto min-h-11" />
           </div>
         </div>
       </div>

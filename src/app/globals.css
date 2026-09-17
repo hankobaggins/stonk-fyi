@@ -163,6 +163,11 @@ table.data th button { font: inherit; color: inherit; letter-spacing: inherit; t
 .btn-buy:hover { background: color-mix(in oklab, var(--accent) 88%, white); }
 .btn-buy:active { transform: translateY(1px); }
 .btn-buy:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+/* Perps button (Imperial referral link): outlined in the accent, so the fill stays unique to .btn-buy. */
+.btn-perps { background: transparent; color: var(--accent); border: 1px solid var(--accent); transition: background 120ms ease, transform 120ms ease; }
+.btn-perps:hover { background: color-mix(in oklab, var(--accent) 14%, transparent); }
+.btn-perps:active { transform: translateY(1px); }
+.btn-perps:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
 
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }

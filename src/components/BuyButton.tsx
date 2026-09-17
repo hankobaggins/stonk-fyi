@@ -1,4 +1,5 @@
 import { jtxTradeUrl } from "@/lib/jtx";
+import { IMPERIAL_URL } from "@/lib/imperial";
 
 /*
  * The one call-to-action on the site: a trade link to JTX carrying the stonk.fyi referral code.
@@ -45,6 +46,30 @@ export function TradeLink({ mint, label = "Buy ↗" }: { mint: string; label?: s
       className="btn-buy inline-flex items-center h-6 px-2 rounded text-[11px] font-semibold whitespace-nowrap"
     >
       {label}
+    </a>
+  );
+}
+
+/*
+ * Second CTA (2026-09-16): trade $STONK perps on Imperial via the owner's referral link. Outlined in
+ * the accent so it sits beside the filled JTX button without competing with it — the fill stays
+ * unique to `.btn-buy`. Same sizes as BuyButton so the two line up in the hero and the nav.
+ */
+export function PerpsButton({ size = "md", className = "" }: { size?: "sm" | "md" | "lg"; className?: string }) {
+  const sizes = {
+    sm: "h-8 px-3 text-[12px] gap-1.5 rounded-md",
+    md: "h-10 px-4 text-[13px] gap-2 rounded-md",
+    lg: "h-12 px-6 text-[15px] gap-2.5 rounded-lg",
+  }[size];
+  return (
+    <a
+      href={IMPERIAL_URL}
+      target="_blank"
+      rel="noopener noreferrer sponsored"
+      className={`btn-perps inline-flex items-center justify-center font-semibold whitespace-nowrap ${sizes} ${className}`}
+    >
+      Trade perps
+      <span className="opacity-80 font-medium">on Imperial ↗</span>
     </a>
   );
 }
