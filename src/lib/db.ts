@@ -167,6 +167,29 @@ async function getTokenHistoryImpl(mint: string, days = 7, maxPoints = 600): Pro
   };
 }
 
+// Hourly deltas of a cumulative counter from 5-minute readings, for the bar charts. One bucket per
+// UTC hour, valued at the last reading inside it. When the worker missed hours (pg_cron stalls have
+// left 2–7 h holes), the delta across the hole is spread evenly over the missing hours instead of
+// landing on the first bucket after it — a 7-hour catch-up once drew as a $293K "hour". The current
+// hour is dropped while it is still partial (newest reading earlier than :50), the rolling tiles
+// carry the live figure. The counter only rises, so negative deltas are clamped to 0.
+function hourlyDeltas(rows: { ts: string; v: number }[]): { date: string; value: number }[] {
+  const lastInHour = new Map<string, number>();
+  for (const r of rows) lastInHour.set(r.ts.slice(0, 13) + ":00:00Z", r.v);
+  const keys = [...lastInHour.keys()].sort();
+  const out: { date: string; value: number }[] = [];
+  for (let i = 1; i < keys.length; i++) {
+    const prevT = Date.parse(keys[i - 1]);
+    const curT = Date.parse(keys[i]);
+    const gapHours = Math.max(1, Math.round((curT - prevT) / 3.6e6));
+    const perHour = Math.max(0, lastInHour.get(keys[i])! - lastInHour.get(keys[i - 1])!) / gapHours;
+    for (let k = gapHours - 1; k >= 0; k--) out.push({ date: new Date(curT - k * 3.6e6).toISOString().replace(".000Z", "Z"), value: perHour });
+  }
+  const newest = rows.length ? Date.parse(rows[rows.length - 1].ts) : 0;
+  if (out.length && newest - Date.parse(out[out.length - 1].date) < 50 * 60e3) out.pop();
+  return out;
+}
+
 export type RevenuePace = {
   from: string;
   to: string;
@@ -191,9 +214,14 @@ async function getRevenuePaceImpl(hours = 48): Promise<RevenuePace | null> {
   const last = rows[rows.length - 1];
   const lastT = Date.parse(last.ts);
   // Delta over a window: newest reading minus the newest reading at or before window start.
-  // Requires the window to be at least 80% covered by data, else null.
+  // Requires the window to be at least 80% covered by data, else null. The base reading must sit
+  // close to the window start (two missed ticks, or 10% of the window): after a worker stall the
+  // newest reading before "an hour ago" can be hours older, and the delta is then the whole stall,
+  // not the last hour. Likewise nothing is reported off a stale newest reading.
   const windowDelta = (h: number) => {
+    if (Date.now() - lastT > 20 * 60e3) return null;
     const start = lastT - h * 3.6e6;
+    const slack = Math.max(15 * 60e3, h * 3.6e6 * 0.1);
     let base: { ts: string; total_revenue_usd: number } | null = null;
     for (const r of rows) {
       if (Date.parse(r.ts) <= start) base = r;
@@ -203,14 +231,10 @@ async function getRevenuePaceImpl(hours = 48): Promise<RevenuePace | null> {
       const first = rows[0];
       if ((lastT - Date.parse(first.ts)) / (h * 3.6e6) < 0.8) return null;
       base = first;
-    }
+    } else if (start - Date.parse(base.ts) > slack) return null;
     return Math.max(0, last.total_revenue_usd - base.total_revenue_usd);
   };
-  const lastInHour = new Map<string, number>();
-  for (const r of rows) lastInHour.set(r.ts.slice(0, 13) + ":00:00Z", r.total_revenue_usd);
-  const keys = [...lastInHour.keys()].sort();
-  const hourly: { date: string; value: number }[] = [];
-  for (let i = 1; i < keys.length; i++) hourly.push({ date: keys[i], value: Math.max(0, lastInHour.get(keys[i])! - lastInHour.get(keys[i - 1])!) });
+  const hourly = hourlyDeltas(rows.map((r) => ({ ts: r.ts, v: r.total_revenue_usd })));
   return {
     from: rows[0].ts,
     to: last.ts,
@@ -248,11 +272,7 @@ async function getLaunchVelocityImpl(hours = 24): Promise<LaunchVelocity | null>
   const last = rows[rows.length - 1];
   const span = (Date.parse(last.ts) - Date.parse(first.ts)) / 3.6e6;
   if (span < 0.5) return null;
-  const lastInHour = new Map<string, number>();
-  for (const r of rows) lastInHour.set(r.ts.slice(0, 13) + ":00:00Z", r.tokens_total);
-  const keys = [...lastInHour.keys()].sort();
-  const hourly: { date: string; value: number }[] = [];
-  for (let i = 1; i < keys.length; i++) hourly.push({ date: keys[i], value: Math.max(0, lastInHour.get(keys[i])! - lastInHour.get(keys[i - 1])!) });
+  const hourly = hourlyDeltas(rows.map((r) => ({ ts: r.ts, v: r.tokens_total })));
   const launches = Math.max(0, last.tokens_total - first.tokens_total);
   return { from: first.ts, to: last.ts, hours: span, launches, perHour: launches / span, samples: rows.length, hourly };
 }

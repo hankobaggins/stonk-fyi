@@ -85,7 +85,10 @@ export default async function PlatformPage() {
         </Section>
         <Section title="Hourly fee revenue, last 48h" className="lg:col-span-2" action={<span className="num text-[11px] text-muted">stonk.fyi snapshots · hourly · 5 min</span>}>
           {pace && pace.hourly.length >= 2 ? (
-            <CountBarChart data={pace.hourly} name="Revenue" fmt="usd" tick="hour" height={220} />
+            <>
+              <CountBarChart data={pace.hourly} name="Revenue" fmt="usd" tick="hour" height={220} />
+              <p className="text-xs text-muted mt-2 leading-relaxed">Each bar is the change in StonkFun&apos;s lifetime revenue over one UTC hour. Hours the snapshot worker missed are averaged over the gap; the current hour appears once it is nearly complete.</p>
+            </>
           ) : (
             <div className="h-[220px] rounded-md border border-dashed border-border-strong flex flex-col items-center justify-center text-center gap-1.5"><span className="state collecting">collecting</span><span className="text-[13px] text-secondary">Hourly bars appear after the first two hours of snapshots.</span></div>
           )}
