@@ -113,6 +113,7 @@ supabase/migrations/0015_universe_census.sql   wallet_mint_counts.truncated (§6
 supabase/migrations/0009_holder_snapshots.sql   holder_snapshots + holder_window(win_hours, mints) + holder_snapshots_prune() (§6e) — paste by hand
 supabase/migrations/0008_ath_alerts.sql   ath_alerts table (§6d) — paste into the SQL editor by hand
 supabase/migrations/0016_velocity_alerts.sql   velocity_alerts table (§6i) — paste into the SQL editor by hand
+supabase/migrations/0017_views_security_invoker.sql   launches_per_day + volume_by_quote_latest as security_invoker (lint 0010; unused convenience views from 0001) — by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
 scripts/screenshot.mjs, scripts/shot-section.mjs   Playwright screenshot helpers for visual verification
