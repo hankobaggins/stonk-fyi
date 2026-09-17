@@ -105,7 +105,7 @@ export default async function RunnersPage() {
         )}
         <MethodStrip
           lead="A crossing is counted the first time a token's lifetime peak market cap is seen at or above a line. Peaks only rise, so nothing is counted twice."
-          note={live ? `card: /runners-card?window=7d` : undefined}
+          note={live ? `cards: /runners-card?window=7d · &frame=launched` : undefined}
           href="/about#runners"
         >
           <div className="method-body">

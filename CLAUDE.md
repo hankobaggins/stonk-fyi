@@ -41,8 +41,9 @@ src/app/                    routes
   runners/page.tsx          tokens crossing $1M / $5M / $10M / $25M / $50M / $100M market cap, once per token per line (§6k, 2026-09-17):
                             crossings 24h / 7d (cumulative) + by peak band, a 7-day ledger with the crossing's ± window, and the
                             "launched in window, by peak so far" cohort table (the competitor framing, labelled as biased)
-  runners-card/route.tsx    1200×1200 PNG: crossings per line over `?window=7d|24h` from the ledger (`?format=json`). Card is the pure
-                            `lib/runners-card.tsx`; hand-posted for now. 503 when the DB is unset or the ledger is not seeded
+  runners-card/route.tsx    1200×1200 PNG: crossings per line over `?window=7d|24h` from the ledger (`?format=json`); `&frame=launched`
+                            renders the cohort framing instead (tokens launched in the window by peak so far, from the token index).
+                            Card is the pure `lib/runners-card.tsx`; hand-posted for now. 503 when the DB is unset or the ledger is not seeded
   yield/page.tsx            redirect → /tokens?mode=reward&by=apr3 (the table lived here 2026-09-09 → 2026-09-11). `getYieldTable()` in lib/yield.ts still
                             exists for /yield-card and /api/health (needs migration 0005 + the `rewards` worker step)
   holders/page.tsx          one page (since 2026-09-13): the reward-coin census headline (§6g: wallets holding a reward coin,

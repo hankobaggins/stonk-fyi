@@ -1,6 +1,6 @@
 import { C, Ring } from "@/lib/card";
 import { SITE_NAME } from "@/lib/site";
-import { lineLabel, type WindowCounts } from "@/lib/runner-math";
+import { lineLabel } from "@/lib/runner-math";
 
 // Square 1200×1200 "runners" card (§6k): how many StonkFun tokens crossed each market-cap line inside a
 // window, counted once per token per line, plus the window's biggest runners. Pure: the /runners-card
@@ -9,7 +9,12 @@ import { lineLabel, type WindowCounts } from "@/lib/runner-math";
 export const RUNNERS_CARD_SIZE = { width: 1200, height: 1200 };
 export const RUNNERS_CARD_TOP = 4;
 
-export type RunnersCardProps = { win: WindowCounts; supplyBurnedPct: number; at: string; partialSinceHours?: number | null };
+// Two frames share the layout. "crossed": tokens that crossed each line inside the window, whatever their
+// launch date (the fair one, the default). "launched": tokens launched inside the window by the peak they
+// have reached so far (the framing of "since date X only N tokens reached $5M" posts) — same lines, same bars.
+export type CardFrame = "crossed" | "launched";
+export type CardData = { hours: number; counts: { line: number; count: number }[]; top: { mint: string; symbol: string | null; peakUsd: number }[] };
+export type RunnersCardProps = { data: CardData; frame: CardFrame; supplyBurnedPct: number; at: string; partialSinceHours?: number | null };
 
 const mono = { fontFamily: "Geist Mono" };
 const usd = (n: number): string => (n >= 1e6 ? `$${(n / 1e6).toFixed(n >= 1e7 ? 1 : 2)}M` : `$${(n / 1e3).toFixed(0)}K`);
@@ -17,10 +22,11 @@ const stampUtc = (iso: string): string => `${iso.slice(0, 10)} ${iso.slice(11, 1
 const windowLabel = (h: number): string => (h === 24 ? "LAST 24H" : h % 24 === 0 ? `LAST ${h / 24}D` : `LAST ${h}H`);
 const windowWords = (h: number): string => (h === 24 ? "the last 24 hours" : h % 24 === 0 ? `the last ${h / 24} days` : `the last ${h} hours`);
 
-export function RunnersCard({ win, supplyBurnedPct, at, partialSinceHours }: RunnersCardProps) {
-  const entered = win.crossed[0]?.count ?? 0;
-  const max = Math.max(1, ...win.crossed.map((c) => c.count));
-  const top = win.top.slice(0, RUNNERS_CARD_TOP);
+export function RunnersCard({ data, frame, supplyBurnedPct, at, partialSinceHours }: RunnersCardProps) {
+  const entered = data.counts[0]?.count ?? 0;
+  const max = Math.max(1, ...data.counts.map((c) => c.count));
+  const top = data.top.slice(0, RUNNERS_CARD_TOP);
+  const launched = frame === "launched";
 
   const line = (c: { line: number; count: number }) => (
     <div key={c.line} style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 10, flex: 1, borderBottom: `1px solid ${C.line}` }}>
@@ -40,18 +46,29 @@ export function RunnersCard({ win, supplyBurnedPct, at, partialSinceHours }: Run
         <Ring pct={supplyBurnedPct} size={34} stroke={C.accent} track={C.line} width={7} />
         <div style={{ fontSize: 30, fontWeight: 600, letterSpacing: -0.5 }}>{SITE_NAME}</div>
         <div style={{ ...mono, fontSize: 14, fontWeight: 500, color: C.ink3, border: `1px solid ${C.lineStrong}`, borderRadius: 4, padding: "6px 9px", letterSpacing: 1.5 }}>UNOFFICIAL</div>
-        <div style={{ ...mono, fontSize: 18, color: C.ink3, marginLeft: "auto", letterSpacing: 2 }}>{`${windowLabel(win.hours)} · ${stampUtc(at)}`}</div>
+        <div style={{ ...mono, fontSize: 18, color: C.ink3, marginLeft: "auto", letterSpacing: 2 }}>{`${launched ? "LAUNCHED " : ""}${windowLabel(data.hours)} · ${stampUtc(at)}`}</div>
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", padding: "44px 0 30px", borderBottom: `1px solid ${C.line}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
           <div style={{ ...mono, display: "flex", fontSize: 128, fontWeight: 500, letterSpacing: -6, lineHeight: 1, color: entered ? C.bull : C.ink3 }}>{entered}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 40, fontWeight: 600, letterSpacing: -1.2, lineHeight: 1.1 }}>
-            <div style={{ display: "flex" }}>{entered === 1 ? "StonkFun token crossed" : "StonkFun tokens crossed"}</div>
-            <div style={{ display: "flex", gap: 14 }}>
-              <span style={{ color: C.bull }}>$1M market cap</span>
-              <span style={{ color: C.ink2 }}>{`in ${windowWords(win.hours)}`}</span>
-            </div>
+            {launched ? (
+              <div style={{ display: "flex" }}>{entered === 1 ? "StonkFun token launched" : "StonkFun tokens launched"}</div>
+            ) : (
+              <div style={{ display: "flex" }}>{entered === 1 ? "StonkFun token crossed" : "StonkFun tokens crossed"}</div>
+            )}
+            {launched ? (
+              <div style={{ display: "flex", gap: 14 }}>
+                <span style={{ color: C.ink2 }}>{`in ${windowWords(data.hours)} reached`}</span>
+                <span style={{ color: C.bull }}>$1M</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", gap: 14 }}>
+                <span style={{ color: C.bull }}>$1M market cap</span>
+                <span style={{ color: C.ink2 }}>{`in ${windowWords(data.hours)}`}</span>
+              </div>
+            )}
           </div>
         </div>
         {partialSinceHours ? (
@@ -59,11 +76,11 @@ export function RunnersCard({ win, supplyBurnedPct, at, partialSinceHours }: Run
         ) : null}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "6px 0 8px" }}>{win.crossed.map(line)}</div>
+      <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "6px 0 8px" }}>{data.counts.map(line)}</div>
 
       {top.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, padding: "26px 0 24px", borderBottom: `1px solid ${C.line}` }}>
-          <div style={{ ...mono, display: "flex", fontSize: 17, letterSpacing: 2, color: C.ink3 }}>BIGGEST RUNNERS · PEAK SO FAR</div>
+          <div style={{ ...mono, display: "flex", fontSize: 17, letterSpacing: 2, color: C.ink3 }}>{launched ? "BIGGEST OF THE COHORT · PEAK SO FAR" : "BIGGEST RUNNERS · PEAK SO FAR"}</div>
           <div style={{ display: "flex", gap: 28 }}>
             {top.map((r) => (
               <div key={r.mint} style={{ display: "flex", flexDirection: "column", gap: 6, flex: 1, minWidth: 0 }}>
