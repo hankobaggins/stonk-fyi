@@ -54,9 +54,9 @@ export function RunnersCard({ win, supplyBurnedPct, at, partialSinceHours }: Run
             </div>
           </div>
         </div>
-        <div style={{ ...mono, display: "flex", fontSize: 18, color: C.ink3, letterSpacing: 1, marginTop: 22 }}>
-          {partialSinceHours ? `LEDGER LIVE FOR ${Math.round(partialSinceHours)}H · COUNTED SINCE THEN` : "EACH TOKEN COUNTED ONCE PER LINE, FROM THE MOMENT IT CROSSES"}
-        </div>
+        {partialSinceHours ? (
+          <div style={{ ...mono, display: "flex", fontSize: 18, color: C.ink3, letterSpacing: 1, marginTop: 22 }}>{`LEDGER LIVE FOR ${Math.round(partialSinceHours)}H · COUNTED SINCE THEN`}</div>
+        ) : null}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "6px 0 8px" }}>{win.crossed.map(line)}</div>
