@@ -14,6 +14,10 @@ import { SITE_URL } from "./site";
 // Without SOCIALBU_TOKEN the alert is recorded as a dry run (row + card URL, no post).
 
 export { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN };
+// At most one post per this many minutes (2026-09-18). Without it a busy stretch posts as often as the
+// un-announced burns re-reach the threshold: at $30K that was every ~30 min. Burns made during the
+// cooldown are not claimed, so they still count toward the next post.
+export const BURN_ALERT_COOLDOWN_MIN = Number(process.env.BURN_ALERT_COOLDOWN_MIN ?? 60);
 const SOCIALBU_API = process.env.SOCIALBU_API_BASE ?? "https://socialbu.com/api/v1";
 
 export type BurnAlertContext = {
@@ -128,8 +132,21 @@ export async function runBurnAlert(
   burns: BurnEvent[],
   ctx: BurnAlertContext,
   opts: { dry?: boolean; now?: number } = {}
-): Promise<{ created: number; alertId?: number; status?: string }> {
+): Promise<{ created: number; alertId?: number; status?: string; cooldownUntil?: string }> {
   if (!burns.length) return { created: 0 };
+  // Failed rows don't count, so a failed post can be retried by the next qualifying window.
+  const now = opts.now ?? Date.now();
+  const { data: lastRows, error: e0 } = await db
+    .from("burn_alerts")
+    .select("ts")
+    .in("status", ["posted", "pending", "dry_run"])
+    .order("ts", { ascending: false })
+    .limit(1);
+  if (e0) throw new Error(e0.message);
+  const lastTs = lastRows?.[0]?.ts ? Date.parse(lastRows[0].ts as string) : NaN;
+  if (Number.isFinite(lastTs) && now - lastTs < BURN_ALERT_COOLDOWN_MIN * 60_000) {
+    return { created: 0, cooldownUntil: new Date(lastTs + BURN_ALERT_COOLDOWN_MIN * 60_000).toISOString() };
+  }
   const exclude = await alreadyAnnounced(db, burns.map((b) => b.signature));
   const w = findBigBurnWindow(burns, { now: opts.now, exclude });
   if (!w) return { created: 0 };

@@ -220,6 +220,7 @@ export async function GET(req: Request) {
       priceUsd: d.token.market?.priceUsd ?? null,
     }, { dry });
     if (r.alertId) notes.burn_alert = `#${r.alertId} ${r.status}`;
+    else if (r.cooldownUntil) notes.burn_alert = `cooldown until ${r.cooldownUntil}`;
     return r.created;
   });
 
