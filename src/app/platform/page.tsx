@@ -112,10 +112,10 @@ export default async function PlatformPage() {
         <Section title="Launch activity" action={<Link href="/launches" className="num text-[11px] text-secondary hover:text-primary">Launches →</Link>}>
           <div className="kpis !border-b-0 !pb-0">
             {vel
-              ? <KpiTile label="Launches / hour" value={fmtNum(vel.perHour, 1)} sub={`${fmtNum(vel.launches)} over ${vel.hours.toFixed(0)}h`} />
+              ? <KpiTile label="Launches / hour" value={fmtNum(vel.perHour, 1)} sub={vel.reset ? `${fmtNum(vel.launches)} since StonkFun's counter reset, ${vel.hours.toFixed(1)}h` : `${fmtNum(vel.launches)} over ${vel.hours.toFixed(0)}h`} />
               : <KpiTile label="Launches / hour" value="—" sub="needs stonk.fyi snapshots" />}
-            <KpiTile label="Graduated" value={fmtNum(s.tokens.graduated)} sub={`${((s.tokens.graduated / Math.max(1, s.tokens.total)) * 100).toFixed(1)}% of live tokens`} />
-            <KpiTile label="Reward mode" value={fmtNum(s.tokens.rewardLaunches)} sub={`of ${fmtNum(s.tokens.total)} live`} />
+            <KpiTile label="Graduated" value={fmtNum(s.tokens.graduated)} sub={`${((s.tokens.graduated / Math.max(1, s.tokens.total)) * 100).toFixed(1)}% of indexed tokens`} />
+            <KpiTile label="Reward mode" value={fmtNum(s.tokens.rewardLaunches)} sub={`of ${fmtNum(s.tokens.total)} indexed`} />
             <KpiTile label="About to graduate" value={fmtNum(s.tokens.aboutToGraduate)} sub={<Link href="/pairs" className="hover:text-primary">≥ {fmtUsd(Number(s.config.aboutToGraduateMarketCapUsd))} · Pairs →</Link>} />
           </div>
         </Section>

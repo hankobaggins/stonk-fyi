@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
-import { DB_BREAKER_MS, dbBreakerOpen, getDb, getRewardWindows } from "@/lib/db";
+import { DB_BREAKER_MS, dbBreakerOpen, getDb, getLaunchVelocity, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
@@ -77,6 +77,24 @@ export async function GET() {
       const note = `${count ?? 0} platform snapshots, last ${ageMin.toFixed(0)} min ago`;
       // The tick runs every 5 min; anything past 15 min means the trigger has stalled (see CLAUDE.md §6).
       if (ageMin > 15) throw new Error(`${note} — snapshot tick stalled`);
+      return note;
+    }),
+    run("launch_velocity", async () => {
+      // The figure /launches and /platform show, with its source and any upstream counter reset in
+      // the window. StonkFun's /stats tokens.total fell from 74.6K to 8.3K on 2026-09-18 17:45 UTC
+      // (the launchlab tokens left their index) while /launches kept counting; the worker stores
+      // the ledger total since migration 0020 and reads it first. Fails while the figure is
+      // unavailable, or while it still comes from the token index after a reset.
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const [vel, stats, launches] = await Promise.all([getLaunchVelocity(24), getStats(), getLaunches({ pageSize: 1 })]);
+      const idx = stats.data.tokens.total;
+      const ledger = launches.data.pagination.total;
+      const upstream = `StonkFun: ${ledger} launches on the ledger, ${idx} tokens in the index`;
+      if (!vel) throw new Error(`unavailable: under 30 min of readings since the newest counter reset (migration 0020 applied?) · ${upstream}`);
+      const reset = vel.reset ? ` · counter reset at ${vel.reset.ts} (${vel.reset.before} → ${vel.reset.after})` : "";
+      const note = `${vel.perHour.toFixed(1)}/h, ${vel.launches} over ${vel.hours.toFixed(1)}h from ${vel.source === "launches" ? "launches_total (ledger)" : "tokens_total (token index)"}${reset} · ${upstream}`;
+      if (vel.source === "tokens" && vel.reset) throw new Error(`${note} — token index reset upstream; the ledger column (0020) takes over once it covers 12h`);
       return note;
     }),
     run("reward_snapshots", async () => {

@@ -255,26 +255,63 @@ export type LaunchVelocity = {
   perHour: number;
   samples: number;
   hourly: { date: string; value: number }[];
+  // Which counter the figures come from: the launch ledger's total (launches_total, migration 0020)
+  // or, for history written before it existed, the token index's total (tokens_total).
+  source: "launches" | "tokens";
+  // The newest counter reset inside the requested window, if any: the reading it was seen at and
+  // the values either side. The figures above start after it.
+  reset: { ts: string; before: number; after: number } | null;
 };
 
-// Launch rate from platform_snapshots (tokens_total every 5 min): the 24h delta and hourly deltas.
-// tokens_total counts tokens with live pools and can dip when pools are removed, so negative
-// hourly deltas are clamped to 0.
+// A cumulative counter that jumps by more than this share between two readings has been reset
+// upstream (re-indexed, switched backends), not moved by launches: the platform launches a few
+// hundred tokens an hour against a 70K+ total, well under 1% even across a 7-hour hole.
+export const COUNTER_RESET_SHARE = 0.1;
+
+// Rows from the newest reset onward (the whole series when there is none), plus that reset.
+export function trimCounterResets<T extends { ts: string; v: number }>(rows: T[]): { rows: T[]; reset: LaunchVelocity["reset"] } {
+  let start = 0;
+  let reset: LaunchVelocity["reset"] = null;
+  for (let i = 1; i < rows.length; i++) {
+    const a = rows[i - 1].v;
+    const b = rows[i].v;
+    if (Math.abs(b - a) > Math.max(a, b) * COUNTER_RESET_SHARE) {
+      start = i;
+      reset = { ts: rows[i].ts, before: a, after: b };
+    }
+  }
+  return { rows: rows.slice(start), reset };
+}
+
+// Launch rate from platform_snapshots: the delta over the window and hourly deltas. Reads the
+// launch ledger's total (launches_total) when the window has it, else the token index's total
+// (tokens_total) — which counts tokens in StonkFun's index and can dip when pools are removed
+// (negative hourly deltas are clamped to 0), and on 2026-09-18 17:45 UTC fell from 74.6K to 8.3K
+// in one tick. A jump like that is a reset, not launches: the series is restarted after it and
+// the result is null ("unavailable") rather than a 0 or a 65K "hour" until half an hour of
+// readings exists past it.
 async function getLaunchVelocityImpl(hours = 24): Promise<LaunchVelocity | null> {
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - hours * 3.6e6).toISOString();
-  const { data, error } = await db.from("platform_snapshots").select("ts, tokens_total").gte("ts", since).order("ts", { ascending: true });
+  const { data, error } = await db.from("platform_snapshots").select("ts, tokens_total, launches_total").gte("ts", since).order("ts", { ascending: true });
   if (error || !data || data.length < 2) return null;
-  const rows = data.filter((r) => typeof r.tokens_total === "number") as { ts: string; tokens_total: number }[];
+  const all = data as { ts: string; tokens_total: number | null; launches_total: number | null }[];
+  const fromLedger = all.filter((r) => typeof r.launches_total === "number").map((r) => ({ ts: r.ts, v: r.launches_total as number }));
+  const fromIndex = all.filter((r) => typeof r.tokens_total === "number").map((r) => ({ ts: r.ts, v: r.tokens_total as number }));
+  // The ledger column only once it covers at least half the window, so the switch-over does not
+  // shrink the figure to a few ticks; before that the token index's history, resets trimmed.
+  const ledgerHours = fromLedger.length >= 2 ? (Date.parse(fromLedger[fromLedger.length - 1].ts) - Date.parse(fromLedger[0].ts)) / 3.6e6 : 0;
+  const source: LaunchVelocity["source"] = ledgerHours >= hours / 2 ? "launches" : "tokens";
+  const { rows, reset } = trimCounterResets(source === "launches" ? fromLedger : fromIndex);
   if (rows.length < 2) return null;
   const first = rows[0];
   const last = rows[rows.length - 1];
   const span = (Date.parse(last.ts) - Date.parse(first.ts)) / 3.6e6;
   if (span < 0.5) return null;
-  const hourly = hourlyDeltas(rows.map((r) => ({ ts: r.ts, v: r.tokens_total })));
-  const launches = Math.max(0, last.tokens_total - first.tokens_total);
-  return { from: first.ts, to: last.ts, hours: span, launches, perHour: launches / span, samples: rows.length, hourly };
+  const hourly = hourlyDeltas(rows);
+  const launches = Math.max(0, last.v - first.v);
+  return { from: first.ts, to: last.ts, hours: span, launches, perHour: launches / span, samples: rows.length, hourly, source, reset };
 }
 
 export type RewardWindow = { mint: string; quoteMint: string; from: string; to: string; fromTokens: number; toTokens: number; hours: number };

@@ -110,12 +110,17 @@ export async function GET(req: Request) {
   };
 
   await step("platform", async () => {
-    const [stats, revenue] = await Promise.all([getStats(), getRevenue()]);
+    // launches_total comes from the launch ledger's pagination total: /stats tokens.total counts
+    // tokens in StonkFun's index, which dropped from 74.6K to 8.3K on 2026-09-18 when the launchlab
+    // tokens left it, and launch velocity is read from this column first (migration 0020).
+    const [stats, revenue, launches] = await Promise.all([getStats(), getRevenue(), getLaunches({ pageSize: 1 }).catch(() => null)]);
     const s = stats.data;
     const r = revenue.data;
+    const launchesTotal = launches?.data.pagination.total;
     const { error } = await db.from("platform_snapshots").insert({
       ts,
       tokens_total: s.tokens.total,
+      launches_total: typeof launchesTotal === "number" ? launchesTotal : null,
       tokens_graduated: s.tokens.graduated,
       tokens_about_to_grad: s.tokens.aboutToGraduate,
       reward_launches: s.tokens.rewardLaunches,
