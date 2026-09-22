@@ -1,11 +1,12 @@
 import { cache } from "react";
 import "server-only";
-import { getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "./api";
+import { getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT, USE_FIXTURES, type TokenDetail } from "./api";
+import { staleReason, type StaleReason } from "./stale-reading";
 import { getPoolInfo, poolSides } from "./raydium";
 import { getBurnsSince, getGmgnHistory, getPoolFlow } from "./db";
 import { getGmgnStonk, type GmgnData } from "./gmgn";
 import { getHolderHistory, profileChange, PROFILE_EVERY_MIN, type HolderHistory } from "./stonk-holders";
-import type { BurnEvent, PoolFlow, PoolInfo, PricePoint, Revenue, RevenueDay, Stats, Token, TokenBurns } from "./types";
+import type { ApiEnvelope, BurnEvent, PoolFlow, PoolInfo, PricePoint, Revenue, RevenueDay, Stats, Token, TokenBurns } from "./types";
 
 // STONK launched 2026-07-23 with a fixed 1B supply; mint and freeze authority are null,
 // so supply can only go down. Burned amount comes from the per-mint burn ledger.
@@ -47,7 +48,55 @@ export type StonkData = {
   indicators: Indicator[];
   watch: { label: string; detail: string }[];
   generatedAt: string;
+  // StonkFun's STONK record failed a staleness tell on this read (lib/stale-reading.ts). `served` says what
+  // the page shows instead: a re-read that passed, this instance's last good reading (`readAt`), or the
+  // suspect record itself when nothing better exists. null = the reading passed.
+  staleReading: { reason: StaleReason; served: "refetch" | "last-good" | "as-is"; readAt: string | null } | null;
 };
+
+// Per-instance memory for the staleness guard: the newest reading that passed every tell, and the highest
+// peak market cap seen (a peak only rises, so an older record shows a lower one).
+type StonkReading = { tokenRes: ApiEnvelope<TokenDetail>; burns: TokenBurns | null; at: number };
+const mem = globalThis as unknown as { __stonkLastGood?: StonkReading; __stonkPeakSeen?: number };
+const LAST_GOOD_MAX_AGE_MS = 15 * 60_000;
+
+// Read STONK's record and burn ledger, reject a stale record (one of StonkFun's backends served a
+// Sep-18 record on 2026-09-22 — price 37% low — with a fresh generatedAt), re-read past the data cache
+// once, then fall back to the last reading that passed.
+async function readStonkToken(gmgnPrice: number | null): Promise<{ tokenRes: ApiEnvelope<TokenDetail> | null; burns: TokenBurns | null; stale: StonkData["staleReading"] }> {
+  let [tokenRes, burns] = await Promise.all([getToken(STONK_MINT), getTokenBurns(STONK_MINT)]);
+  if (!tokenRes || USE_FIXTURES) return { tokenRes, burns, stale: null };
+  const check = (t: ApiEnvelope<TokenDetail>, b: TokenBurns | null) =>
+    staleReason(t.data.token.market ?? {}, b ? STONK_INITIAL_SUPPLY - b.totals.amountTokens : null, gmgnPrice, mem.__stonkPeakSeen ?? null);
+  let reason = check(tokenRes, burns);
+  let stale: StonkData["staleReading"] = null;
+  if (reason) {
+    console.warn(`stonk reading stale (${reason.code}): ${reason.detail} — re-reading past the cache`);
+    const [t2, b2] = await Promise.all([getToken(STONK_MINT, { fresh: true }).catch(() => null), getTokenBurns(STONK_MINT, 60, { fresh: true }).catch(() => null)]);
+    const r2 = t2 ? check(t2, b2 ?? burns) : reason;
+    if (t2 && !r2) {
+      tokenRes = t2;
+      burns = b2 ?? burns;
+      stale = { reason, served: "refetch", readAt: null };
+    } else {
+      reason = r2 ?? reason;
+      const good = mem.__stonkLastGood;
+      if (good && Date.now() - good.at < LAST_GOOD_MAX_AGE_MS) {
+        tokenRes = good.tokenRes;
+        burns = good.burns;
+        stale = { reason, served: "last-good", readAt: new Date(good.at).toISOString() };
+      } else {
+        stale = { reason, served: "as-is", readAt: null };
+      }
+    }
+  }
+  if (!stale || stale.served === "refetch") {
+    mem.__stonkLastGood = { tokenRes, burns, at: Date.now() };
+    const peak = tokenRes.data.token.market?.peakMarketCapUsd ?? 0;
+    if (peak > (mem.__stonkPeakSeen ?? 0)) mem.__stonkPeakSeen = peak;
+  }
+  return { tokenRes, burns, stale };
+}
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
@@ -81,9 +130,10 @@ function computeBurnRate(ledger: BurnEvent[] | null, recent: BurnEvent[], supply
 }
 
 async function computeStonkData(): Promise<StonkData> {
-  const [tokenRes, burns, revenueRes, historyRes, statsRes, quotedRes, history, pool] = await Promise.all([
-    getToken(STONK_MINT),
-    getTokenBurns(STONK_MINT),
+  // GMGN first: its SOL-pool price is the independent reference the staleness guard compares against.
+  const gmgn = await getGmgnStonk().catch(() => null);
+  const [{ tokenRes, burns, stale }, revenueRes, historyRes, statsRes, quotedRes, history, pool] = await Promise.all([
+    readStonkToken(gmgn?.priceUsd ?? null),
     getRevenue(),
     getRevenueHistory(),
     getStats(),
@@ -107,7 +157,7 @@ async function computeStonkData(): Promise<StonkData> {
   const impliedFromMarket = m.priceUsd && m.marketCapUsd ? m.marketCapUsd / m.priceUsd : undefined;
   const supply = { initial: STONK_INITIAL_SUPPLY, burned, burnedPct: (burned / STONK_INITIAL_SUPPLY) * 100, circulating, impliedFromMarket };
   const sides = pool ? poolSides(pool, STONK_MINT, m.priceUsd) : null;
-  const [flow, gmgn, gmgnHistory, burnLedger, holders] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnStonk(), getGmgnHistory(24), getBurnsSince(STONK_MINT, BURN_RATE_WINDOW_H), getHolderHistory(STONK_MINT)]);
+  const [flow, gmgnHistory, burnLedger, holders] = await Promise.all([getPoolFlow(STONK_POOL, 24, m.priceUsd), getGmgnHistory(24), getBurnsSince(STONK_MINT, BURN_RATE_WINDOW_H), getHolderHistory(STONK_MINT)]);
   // A reserve delta over a few minutes is noise, not a 24h flow: only score once the window has real coverage.
   const flowHours = flow ? (new Date(flow.to).getTime() - new Date(flow.from).getTime()) / 3.6e6 : 0;
   const flowReady = flowHours >= 12;
@@ -329,6 +379,7 @@ async function computeStonkData(): Promise<StonkData> {
     indicators,
     watch,
     generatedAt: tokenRes.meta.generatedAt,
+    staleReading: stale,
   };
 }
 

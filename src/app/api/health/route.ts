@@ -7,7 +7,7 @@ import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
 import { lastVelocityPost, lastVelocityRow, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT } from "@/lib/velocity-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
-import { STONK_POOL } from "@/lib/stonk";
+import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
 import { COIN_CENSUS_EVERY_H, COIN_CENSUS_MAX_PAGES, getWalletCensus, QUOTE_CENSUS_MAX_PAGES, WALLET_CENSUS_EVERY_H } from "@/lib/wallets";
 import { COIN_DELTAS_TOP, DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, getCoinCensus, getMintCounts, getCoinDeltaTotals, getLatestDeltas, getQuoteHolderWindows, getUniverse } from "@/lib/universe";
@@ -40,6 +40,18 @@ export async function GET() {
       const t = await getToken(STONK_MINT);
       if (!t) throw new Error("404");
       return `price ${t.data.token.market?.priceUsd ?? "missing"}`;
+    }),
+    run("stonk_reading", async () => {
+      // The page's own read, through the staleness guard (lib/stale-reading.ts): fails while the record
+      // StonkFun serves is stale and nothing better could be shown.
+      const d = await getStonkData();
+      const m = d.token.market ?? {};
+      const head = `price ${m.priceUsd?.toFixed(4)} · mcap $${((m.marketCapUsd ?? 0) / 1e6).toFixed(2)}M · implied supply ${((d.supply.impliedFromMarket ?? 0) / 1e6).toFixed(2)}M vs ${(d.supply.circulating / 1e6).toFixed(2)}M circulating`;
+      const s = d.staleReading;
+      if (!s) return `${head} · passed`;
+      if (s.served === "refetch") return `${head} · first read was stale (${s.reason.code}: ${s.reason.detail}), re-read passed`;
+      if (s.served === "last-good") throw new Error(`stale (${s.reason.code}: ${s.reason.detail}) · serving the last good reading from ${s.readAt}`);
+      throw new Error(`stale (${s.reason.code}: ${s.reason.detail}) · no good reading to fall back to, served as-is`);
     }),
     run("stonkfun:/tokens/STONK/burns", async () => {
       const b = await getTokenBurns(STONK_MINT);

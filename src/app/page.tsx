@@ -56,6 +56,13 @@ export default async function StonkPage() {
             <span><Delta value={m.priceChange24h} /> 24h</span>
             <span className="text-muted">· StonkFun snapshot {timeAgo(d.generatedAt, now)}</span>
           </div>
+          {d.staleReading && d.staleReading.served !== "refetch" && (
+            <div className="num text-[12px] text-caution max-w-[48ch]">
+              {d.staleReading.served === "last-good"
+                ? <>StonkFun&apos;s live reading looks stale ({d.staleReading.reason.detail}) · showing its reading from {timeAgo(d.staleReading.readAt, now)}</>
+                : <>StonkFun&apos;s reading may be stale: {d.staleReading.reason.detail}</>}
+            </div>
+          )}
           {spread !== null && d.gmgn ? (
             <div className={`num text-[12px] ${Math.abs(spread) > 3 ? "text-caution" : "text-muted"}`}>
               <a href={GMGN_TOKEN_URL} target="_blank" rel="noreferrer" className="hover:text-accent">GMGN</a> {fmtPrice(d.gmgn.priceUsd)} · {spread >= 0 ? "+" : "−"}{Math.abs(spread).toFixed(1)}% vs StonkFun

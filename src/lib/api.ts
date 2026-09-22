@@ -22,7 +22,7 @@ export const STONK_MINT = "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx";
 
 // DATA_SOURCE=fixture serves captured responses from src/fixtures (for local dev
 // without network access). Anything else hits the live API.
-const USE_FIXTURES = process.env.DATA_SOURCE === "fixture";
+export const USE_FIXTURES = process.env.DATA_SOURCE === "fixture";
 
 async function fixture<T>(name: string): Promise<ApiEnvelope<T>> {
   const mod = await import(`@/fixtures/${name}.json`);
@@ -39,14 +39,16 @@ export class ApiError extends Error {
   }
 }
 
-async function get<T>(path: string, params?: Record<string, string | number | undefined>, revalidate = 30): Promise<ApiEnvelope<T>> {
+// `fresh` bypasses Next's data cache (cache: "no-store") — used to re-read a record the caller has
+// judged stale (lib/stale-reading.ts) instead of serving the bad entry for the rest of its window.
+async function get<T>(path: string, params?: Record<string, string | number | undefined>, revalidate = 30, fresh = false): Promise<ApiEnvelope<T>> {
   const url = new URL(API_BASE + path);
   for (const [k, v] of Object.entries(params ?? {})) {
     if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
   }
   const res = await fetch(url, {
     headers: { accept: "application/json", "user-agent": "stonkfun-dashboard/0.1" },
-    next: { revalidate },
+    ...(fresh ? { cache: "no-store" as const } : { next: { revalidate } }),
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
   if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} for ${url.pathname}`);
@@ -129,7 +131,7 @@ function unwrapTokenDetail(data: unknown): TokenDetail | null {
   return null;
 }
 
-export async function getToken(mint: string): Promise<ApiEnvelope<TokenDetail> | null> {
+export async function getToken(mint: string, opts: { fresh?: boolean } = {}): Promise<ApiEnvelope<TokenDetail> | null> {
   if (USE_FIXTURES) {
     const fx = await fixture<TokensResponse>("tokens");
     const t = fx.data.tokens.find((x) => x.mint === mint);
@@ -139,7 +141,7 @@ export async function getToken(mint: string): Promise<ApiEnvelope<TokenDetail> |
     return { data: { token: t, launch, network: fx.data.network }, meta: fx.meta };
   }
   try {
-    const res = await get<unknown>(`/tokens/${mint}`, undefined, 30);
+    const res = await get<unknown>(`/tokens/${mint}`, undefined, 30, opts.fresh);
     const detail = unwrapTokenDetail(res.data);
     if (!detail) throw new ApiError(502, `Unexpected /tokens/${mint} response shape: keys=${Object.keys((res.data as object) ?? {}).join(",")}`);
     return { data: detail, meta: res.meta };
@@ -153,22 +155,22 @@ export async function getToken(mint: string): Promise<ApiEnvelope<TokenDetail> |
 // Sub-resources are optional. Any 4xx means "not available for this token" (e.g. /backing returns
 // 400 "Backing is only tracked for Pump launches" for almost every mint) and yields null; only
 // 5xx and network failures throw, and the token page isolates those per section.
-async function optional<T>(path: string, revalidate = 60, fixtureName?: string): Promise<T | null> {
+async function optional<T>(path: string, revalidate = 60, fixtureName?: string, fresh = false): Promise<T | null> {
   if (USE_FIXTURES) return fixtureName ? (await fixture<T>(fixtureName)).data : null;
   try {
-    return (await get<T>(path, undefined, revalidate)).data;
+    return (await get<T>(path, undefined, revalidate, fresh)).data;
   } catch (e) {
     if (e instanceof ApiError && e.status >= 400 && e.status < 500) return null;
     throw e;
   }
 }
 
-export async function getTokenBurns(mint: string, revalidate = 60): Promise<TokenBurns | null> {
+export async function getTokenBurns(mint: string, revalidate = 60, opts: { fresh?: boolean } = {}): Promise<TokenBurns | null> {
   if (USE_FIXTURES) {
     if (mint !== STONK_MINT) return null;
     return (await fixture<TokenBurns>("stonk-burns")).data;
   }
-  return optional<TokenBurns>(`/tokens/${mint}/burns`, revalidate);
+  return optional<TokenBurns>(`/tokens/${mint}/burns`, revalidate, undefined, opts.fresh);
 }
 export const getTokenRewards = (mint: string) => optional<TokenRewards>(`/tokens/${mint}/rewards`, 60, mint === STONK_MINT ? "token-rewards-standard" : "token-rewards-reward");
 export const getTokenFees = (mint: string) => optional<TokenFees>(`/tokens/${mint}/fees`, 60, mint === STONK_MINT ? "token-fees-standard" : "token-fees-reward");
