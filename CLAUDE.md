@@ -34,7 +34,7 @@ src/app/                    routes
                             the YIELD_TRACKED=200 set — and every numeric column header sortable (`?by=<key>&dir=`): the page loads a pool of
                             the first 500 tokens in StonkFun's order (`?sort=` market cap / volume / newest, 5×100 requests, 30s cache) and
                             sorts/pages the pool itself. Buy button (JTX) where the Mode column was. Merged from /yield 2026-09-11
-  tokens/[mint]/page.tsx    token detail
+  tokens/[mint]/page.tsx    token detail; HolderScan holder base for any graduated coin, streamed behind Suspense (§6l)
   pairs/page.tsx            volume & mcap by quote asset / category (aggregates top 300 by volume)
   flywheel/page.tsx         revenue → buyback → burn
   launches/page.tsx         launch ledger & velocity
@@ -115,6 +115,7 @@ supabase/migrations/0013_coin_holder_deltas.sql   coin_holder_deltas: HolderScan
 src/lib/holderscan.ts, universe.ts   HolderScan client (all routes, §6h); the universe of quote assets, the universe_holders step, the page's rows (§6g)
 src/lib/stonk-holders.ts, components/HolderBase.tsx   STONK's HolderScan profile: worker step, reads, the home-page block (§6h)
 src/lib/coin-profiles.ts, components/TopCoins.tsx   top coins by market cap: HolderScan holders + own deltas + hold time, the /holders table (§6j)
+src/lib/token-holders.ts, components/TokenHolders.tsx   token-page holder base: stored-first, else a cached, budgeted live HolderScan read (§6l)
 supabase/migrations/0014_holderscan_profiles.sql   holderscan_snapshots + series/prune fns, d1/d3 delta columns, holder_window per source (§6h) — paste by hand
 supabase/migrations/0015_universe_census.sql   wallet_mint_counts.truncated (§6f whole-universe census) — paste by hand
 supabase/migrations/0009_holder_snapshots.sql   holder_snapshots + holder_window(win_hours, mints) + holder_snapshots_prune() (§6e) — paste by hand
@@ -441,6 +442,18 @@ Same tokens, same components where they worked; changes are IA, density and prov
 
 **Ops:** migration `0018_mcap_milestones.sql` by hand (table + `runner_cohort`), then `0019_runner_backfill.sql`; until 0018 exists the step fails in isolation and `/api/health` → `runners` reports the error. **First-run checks:** the first tick's note says `seeded N crossings over M tokens` (expect a few hundred rows: every token in the tick's ~200 with peak ≥ $1M × lines); the first *full* walk (03:00 UTC) should add seeded rows for old runners and **no** `crossed` rows for tokens older than 36 h — if it does, `SEED_AGE_H` or `after_ts` is wrong; `/api/health` → `runners` shows the row count, go-live time and the last crossing. `/runners-card?format=json` returns the counts. Not yet: auto-posting (the card is hand-posted; a weekly post would reuse `postCardToX`), 30d windows (add once a month of history exists), a per-line chart of crossings per day.
 
+## 6l — Holder base on every token page (added 2026-09-29)
+
+**Owner's news (2026-09-29):** HolderScan's automatic metrics are live — a StonkFun token is listed within minutes of graduating. So the full §6h profile exists for any graduated coin, not just STONK and the top 20. Asked: integrate it into the token pages.
+
+**What renders:** `/tokens/[mint]` carries the same `HolderBase` block as the home page (holders + HolderScan's 1h/24h/7d/30d, average and median per holder, holders over $1K, hold time + retention, the $10…$1M ladder, size tiers, hold-time classes and their supply, top-10/100 share, Gini, HHI, break-even, PnL), placed after the 7d history chart. `HolderBase` now takes `symbol`, `cadence` (source-line override: `live · 15 min cache`) and `notice`; the ladder's 24h column and the "24h after ~19h of readings" note only appear where the site keeps readings (home page, or a mint with a stored full row a day back). The section is its own async server component (`components/TokenHolders.tsx`) behind `<Suspense>` with a skeleton, so the page never waits on HolderScan. The old "Holders change · HolderScan" mini in Holder rewards (from `coin_holder_deltas`) is gone — the block shows the same deltas (rule 9); the rewards mini "Avg per holder" is renamed "Market cap per holder paid" so it is not confused with the block's HolderScan-based average. `getCoinHolderDelta` is no longer used by any page.
+
+**The one page that calls HolderScan live (`lib/token-holders.ts` → `getTokenHolders`).** Order: (1) a stored full profile (`holderscan_snapshots` row with breakdowns, younger than max(30 min, 2× the profile cadence + 10)) is served as-is — STONK costs nothing; (2) not graduated (`status !== "graduated"` and no `graduatedAt`) → no call, "at graduation" state; (3) key unset → the block is absent; (4) a mint that 404'd in the last 3 min on this instance → "listing" (graduated < 1 h ago) or "not tracked"; (5) otherwise `unstable_cache` keyed by mint only (`TOKEN_HOLDERS_TTL_MIN`, default 15; stale-while-revalidate), inside it the per-instance budget check and `readHolderProfile(…, { parallel: true })` + `getHolderscanToken` for the supply (top-N shares are against HolderScan's current supply). 170 units a read. Failures throw so they are never cached; an 8 s deadline races the read (the cache still fills when it lands). The worker's partial rows for top coins (§6j) supply `dayAgo` / `weekAgo` / the hourly `series`, so those coins also get the chart.
+
+**Budget:** `HOLDERSCAN_PAGE_UNITS_PER_H` per instance (globalThis meter, resets hourly): default **6,000 on Advanced** (~35 fresh reads an hour an instance, worst case ~4.3M units a month an instance against ~10M of headroom — the worker uses ~4.7M of 15M), **0 on Standard** (the worker already uses ~190K of 200K). Over budget → "rationed" state, nothing else on the page changes. Token pages are not in the sitemap, but /tokens links to them — the cap is what keeps a crawler from spending the month. If `/api/health` → `token_holders` shows `refused` climbing, raise the cap or the TTL; watch HolderScan's usage dashboard the first week.
+
+**Ops:** no migration, no worker step. `/api/health` → `token_holders` (per-instance: reads, units, refused, not-listed mints, last read, last error). `DATA_SOURCE=fixture` serves a **synthetic** profile scaled from the STONK sample for any graduated fixture token, labelled on the block. **First-run checks (production, the sandbox and VM cannot reach HolderScan):** a coin graduated minutes ago shows "listing" then the profile; `stats` hold time / retention and `pnl` may be missing for young coins (listed in amber under "Missing on this read"); top-10 share is sane (null means HolderScan's supply or amounts are in a different unit). Not done: HolderScan columns in the /tokens table (a per-row fetch, rule 7 — would need a worker step over the index), a stored history for coins outside the top 20.
+
 ## 7. Roadmap (in priority order)
 
 1. ~~Deploy to Vercel + turn on Supabase worker~~ — done 2026-09-07.
@@ -470,6 +483,7 @@ HELIUS_API_KEY, WALLET_CENSUS_EVERY_H=6                # wallet census (§6f); H
 HELIUS_PLAN=free|developer                             # §6g: paid = 100 ms DAS pacing, coin census every 6 h with 3,000 pages, quote-asset census over the whole universe (COIN_CENSUS_EVERY_H / COIN_CENSUS_MAX_PAGES / QUOTE_CENSUS_MAX_PAGES=150 override)
 HOLDERSCAN_API_KEY, COIN_CENSUS_MAX_PAGES=1100         # universe holders + reward-coin census (§6g); HOLDERSCAN_GAP_MS, UNIVERSE_DELTAS_EVERY_DAYS, UNIVERSE_EVERY_H, COIN_DELTAS_TOP=250 optional
 COIN_PROFILES_TOP=20|10, COIN_PROFILES_EVERY_H=1|12   # §6j top coins by market cap (defaults by HOLDERSCAN_PLAN)
+HOLDERSCAN_PAGE_UNITS_PER_H=6000|0, TOKEN_HOLDERS_TTL_MIN=15   # §6l token-page live reads: per-instance hourly unit cap (0 = off; default 0 on Standard) and shared cache window
 HOLDERSCAN_PLAN=standard|advanced                      # §6h: advanced = STONK profile every tick, universe + stock counts hourly, deltas daily, 100 ms pacing; HOLDERSCAN_RETENTION_DAYS=90
 ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
 VELOCITY_ALERT_THRESHOLD_PCT=0.3, VELOCITY_ALERT_REARM_PCT=0.2, VELOCITY_ALERT_COOLDOWN_MIN=240   # "burns are heating up" posts (§6i)

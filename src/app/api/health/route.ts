@@ -15,6 +15,7 @@ import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/l
 import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
 import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, getCoinProfiles, TOP_COINS_SHOWN } from "@/lib/coin-profiles";
 import { runnersHealth } from "@/lib/runners";
+import { PAGE_UNITS_PER_H, pageMeter, TOKEN_HOLDERS_TTL_MIN, TOKEN_PROFILE_UNITS } from "@/lib/token-holders";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -181,6 +182,15 @@ export async function GET() {
       const ageMin = (Date.now() - Date.parse(p.ts)) / 60000;
       const note = `${key} · ${p.holders} holders, ${p.breakdowns ? `${p.breakdowns.over1k} over $1K` : "no breakdown"}, top-10 ${p.top10Share !== null ? `${(p.top10Share * 100).toFixed(1)}%` : "n/a"}, break-even ${p.pnl?.breakEvenPrice ?? "n/a"} · read ${ageMin.toFixed(0)} min ago, ${(h.hoursOfHistory / 24).toFixed(1)} days of history, ${h.series.length} hourly points${p.errors.length ? ` · missing: ${p.errors.join("; ")}` : ""}`;
       if (ageMin > PROFILE_EVERY_MIN * 3 + 10) throw new Error(`${note} — holder_profile step stalled`);
+      return note;
+    }),
+    run("token_holders", async () => {
+      // §6l: live HolderScan profiles on token pages. Per-instance meter: this is what the instance answering this
+      // request has spent this hour, not a site-wide total.
+      if (!holderscanEnabled()) return "HOLDERSCAN_API_KEY unset — token pages show no holder base";
+      const m = pageMeter();
+      const note = `budget ${PAGE_UNITS_PER_H} units/h per instance (${Math.floor(PAGE_UNITS_PER_H / TOKEN_PROFILE_UNITS)} reads of ${TOKEN_PROFILE_UNITS}), ${TOKEN_HOLDERS_TTL_MIN} min shared cache · this instance this hour: ${m.reads} reads, ${m.units} units, ${m.refused} refused over budget, ${m.notListed} mints remembered as not listed${m.lastReadAt ? ` · last read ${m.lastReadAt}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}`;
+      if (PAGE_UNITS_PER_H === 0) return `${note} — disabled on the Standard plan (set HOLDERSCAN_PAGE_UNITS_PER_H to enable)`;
       return note;
     }),
     run("coin_profiles", async () => {

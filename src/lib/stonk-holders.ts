@@ -47,7 +47,10 @@ export type ProfileContext = { priceUsd: number | null; marketCapUsd: number | n
 
 // Live read of every route. null when even the holder count is unavailable (not tracked, key unset, outage);
 // otherwise partial — each missing block is named in `errors`.
-export async function readHolderProfile(mint: string, ts: string, ctx: ProfileContext): Promise<HolderProfile | null> {
+// `parallel` (token pages, §6l) fires the six follow-up routes at once instead of one after another: a page render
+// cannot wait ~3 s of paced calls, and six calls in a burst sit far inside the 1000/min limit. The worker keeps the
+// paced, sequential default.
+export async function readHolderProfile(mint: string, ts: string, ctx: ProfileContext, opts?: { parallel?: boolean }): Promise<HolderProfile | null> {
   if (!holderscanEnabled()) return null;
   const errors: string[] = [];
   const top = await getHolderscanTopHolders(mint, 100);
@@ -62,14 +65,23 @@ export async function readHolderProfile(mint: string, ts: string, ctx: ProfileCo
     const s = ctx.circulating > 0 ? sum / ctx.circulating : null;
     return s !== null && s >= 0 && s <= 1 ? s : null;
   };
-  const [deltas, breakdowns, stats, pnl, wallets, supplyBreakdown] = [
-    await getHolderscanDeltas(mint),
-    await getHolderscanBreakdowns(mint),
-    await getHolderscanStats(mint),
-    await getHolderscanPnl(mint),
-    await getHolderscanWalletCategories(mint),
-    await getHolderscanSupplyBreakdown(mint),
-  ];
+  const [deltas, breakdowns, stats, pnl, wallets, supplyBreakdown] = opts?.parallel
+    ? await Promise.all([
+        getHolderscanDeltas(mint),
+        getHolderscanBreakdowns(mint),
+        getHolderscanStats(mint),
+        getHolderscanPnl(mint),
+        getHolderscanWalletCategories(mint),
+        getHolderscanSupplyBreakdown(mint),
+      ])
+    : [
+        await getHolderscanDeltas(mint),
+        await getHolderscanBreakdowns(mint),
+        await getHolderscanStats(mint),
+        await getHolderscanPnl(mint),
+        await getHolderscanWalletCategories(mint),
+        await getHolderscanSupplyBreakdown(mint),
+      ];
   if (!deltas.deltas) errors.push(`deltas: ${deltas.error}`);
   if (!breakdowns.data) errors.push(`breakdowns: ${breakdowns.error}`);
   if (!stats.data) errors.push(`stats: ${stats.error}`);

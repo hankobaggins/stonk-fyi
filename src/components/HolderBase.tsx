@@ -1,13 +1,15 @@
 import type { HolderHistory } from "@/lib/stonk-holders";
 import { profileChange, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
+import type { ReactNode } from "react";
 import { fmtNum, fmtPrice, fmtUsd, timeAgo } from "@/lib/format";
 import { KpiTile, Section } from "./ui";
 import { SeriesAreaChart, ShareBar } from "./charts";
 import MethodStrip from "./MethodStrip";
 
-// The $STONK holder base from HolderScan's profile (CLAUDE.md §6h): who holds, how much, for how long, at what
-// cost. Everything here is read by the worker and stored; the page never calls HolderScan. Dollar figures are
-// StonkFun's market cap and price against HolderScan's counts and positions, and say so.
+// A token's holder base from HolderScan's profile (CLAUDE.md §6h; every token page since 2026-09-29, §6l): who holds,
+// how much, for how long, at what cost. On the home page everything is read by the worker and stored; on a token page
+// it may be a cached live read (`cadence` says which). Dollar figures are StonkFun's market cap and price against
+// HolderScan's counts and positions, and say so.
 
 const HOLDERSCAN_URL = "https://holderscan.com/token/";
 
@@ -20,13 +22,26 @@ function DeltaChip({ n, label }: { n: number | null | undefined; label: string }
   return <span className={cls(n)}>{signed(n)} <span className="text-muted">{label}</span></span>;
 }
 
-export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h: HolderHistory; mint: string; marketCapUsd: number | null; priceUsd: number | null; now: number }) {
+export default function HolderBase({ h, mint, symbol = "STONK", marketCapUsd, priceUsd, now, cadence: cadenceLabel, notice }: {
+  h: HolderHistory;
+  mint: string;
+  symbol?: string;
+  marketCapUsd: number | null;
+  priceUsd: number | null;
+  now: number;
+  cadence?: string; // overrides the worker cadence in the source line (token pages: "live · 15 min cache")
+  notice?: ReactNode; // one line above the tiles (token pages: the synthetic-fixture label)
+}) {
   const p = h.latest;
   const b = p.breakdowns;
   const s = p.stats;
   const w = p.wallets;
   const sb = p.supplyBreakdown;
-  const cadence = PROFILE_EVERY_MIN >= 60 ? `every ${PROFILE_EVERY_MIN / 60} h` : `every ${PROFILE_EVERY_MIN} min`;
+  const cadence = cadenceLabel ?? (PROFILE_EVERY_MIN >= 60 ? `every ${PROFILE_EVERY_MIN / 60} h` : `every ${PROFILE_EVERY_MIN} min`);
+  // 24h changes of the value ladder need a stored reading ~a day back with breakdowns; token pages read live and
+  // usually have none, so the column and the "after ~19h" note only appear where the site keeps readings.
+  const ownDay = !!h.dayAgo?.breakdowns;
+  const keepsReadings = cadenceLabel === undefined;
   const avgUsd = marketCapUsd && p.holders > 0 ? marketCapUsd / p.holders : null;
   const medianUsd = s?.medianPosition && priceUsd ? s.medianPosition * priceUsd : null;
   const over1k = profileChange(h.dayAgo, p, (x) => x.breakdowns?.over1k);
@@ -52,6 +67,7 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
       title="Holder base"
       action={<span className="num text-[11px] text-muted">HolderScan · {cadence} · read {timeAgo(p.ts, now)} · <a href={`${HOLDERSCAN_URL}${mint}`} target="_blank" rel="noreferrer" className="hover:text-primary">HolderScan ↗</a></span>}
     >
+      {notice && <div className="text-xs text-caution mb-2.5">{notice}</div>}
       <div className="kpis">
         <KpiTile
           label="Holders"
@@ -61,12 +77,12 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
         <KpiTile
           label="Average per holder"
           value={avgUsd !== null ? fmtUsd(avgUsd) : "—"}
-          sub={medianUsd !== null ? <>median {fmtUsd(medianUsd)} · {fmtNum(s!.medianPosition!)} STONK</> : "market cap ÷ holders"}
+          sub={medianUsd !== null ? <>median {fmtUsd(medianUsd)} · {fmtNum(s!.medianPosition!)} {symbol}</> : "market cap ÷ holders"}
         />
         <KpiTile
           label="Holders over $1K"
           value={b ? fmtNum(b.over1k) : "—"}
-          sub={b ? <>{p.holders > 0 ? `${((b.over1k / p.holders) * 100).toFixed(0)}% of holders` : ""}{over1k ? <span className={cls(over1k.abs)}> · {signed(over1k.abs)} 24h</span> : <span className="text-muted"> · 24h after ~19h of readings</span>}</> : "no breakdown on this read"}
+          sub={b ? <>{p.holders > 0 ? `${((b.over1k / p.holders) * 100).toFixed(0)}% of holders` : ""}{over1k ? <span className={cls(over1k.abs)}> · {signed(over1k.abs)} 24h</span> : keepsReadings ? <span className="text-muted"> · 24h after ~19h of readings</span> : null}</> : "no breakdown on this read"}
         />
         <KpiTile
           label="Average hold time"
@@ -80,7 +96,7 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
           <div className="label mb-2">By value held</div>
           {b ? (
             <table className="data w-full">
-              <thead><tr><th>Holders</th><th className="r">Wallets</th><th className="r">Share</th><th className="r">24h</th></tr></thead>
+              <thead><tr><th>Holders</th><th className="r">Wallets</th><th className="r">Share</th>{(ownDay || keepsReadings) && <th className="r">24h</th>}</tr></thead>
               <tbody>
                 {ladder.map((r) => {
                   const v = r.pick(b);
@@ -90,7 +106,7 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
                       <td className="text-secondary">{r.label}</td>
                       <td className="r num">{fmtNum(v)}</td>
                       <td className="r num text-muted">{p.holders > 0 ? `${((v / p.holders) * 100).toFixed(1)}%` : "—"}</td>
-                      <td className={`r num ${cls(c?.abs)}`}>{c ? signed(c.abs) : "—"}</td>
+                      {(ownDay || keepsReadings) && <td className={`r num ${cls(c?.abs)}`}>{c ? signed(c.abs) : "—"}</td>}
                     </tr>
                   );
                 })}
@@ -113,7 +129,7 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
           )}
           {supplyByClass && (
             <div>
-              <div className="label mb-2">Their STONK, by hold time</div>
+              <div className="label mb-2">Their {symbol}, by hold time</div>
               <ShareBar data={supplyByClass} fmt="count" />
             </div>
           )}
@@ -137,7 +153,7 @@ export default function HolderBase({ h, mint, marketCapUsd, priceUsd, now }: { h
       >
         <div className="method-body !grid-cols-1">
           <p className="max-w-[90ch]">
-            HolderScan counts every wallet with a STONK balance on any venue and values it at its own price at read time; the median position is the typical holder. Hold-time classes and their supply cover the 1,000 largest wallets only; PnL is HolderScan&apos;s FIFO estimate. Top-wallet shares include pools. When a field is missing on a read it is listed in amber next to the numbers, never silently dropped.
+            HolderScan counts every wallet with a {symbol} balance on any venue and values it at its own price at read time; the median position is the typical holder. Hold-time classes and their supply cover the 1,000 largest wallets only; PnL is HolderScan&apos;s FIFO estimate. Top-wallet shares include pools. When a field is missing on a read it is listed in amber next to the numbers, never silently dropped.
           </p>
         </div>
         {series.length > 1 && (

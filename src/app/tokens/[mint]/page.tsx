@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, Suspense } from "react";
 import { notFound } from "next/navigation";
 import { getToken, getTokenBacking, getTokenBurns, getTokenFees, getTokenRewards, resolveImage, SITE_BASE } from "@/lib/api";
 import { getUsdPrices } from "@/lib/jupiter";
@@ -8,7 +8,7 @@ import { Delta, ExplorerLink, KpiTile, ModePill, Section, StatusPill } from "@/c
 import TokenIcon from "@/components/TokenIcon";
 import TokenHistoryChart from "@/components/TokenHistoryChart";
 import { getTokenHistory } from "@/lib/db";
-import { getCoinHolderDelta } from "@/lib/universe";
+import TokenHolders, { TokenHoldersSkeleton } from "@/components/TokenHolders";
 import BuyButton from "@/components/BuyButton";
 
 export const dynamic = "force-dynamic";
@@ -40,13 +40,12 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
   const launch = res.data.launch;
   const m = t.market ?? {};
   const now = nowMs();
-  const [burns, rewards, fees, backing, history, holderDelta] = await Promise.all([
+  const [burns, rewards, fees, backing, history] = await Promise.all([
     settle(getTokenBurns(mint)),
     settle(getTokenRewards(mint)),
     settle(getTokenFees(mint)),
     settle(getTokenBacking(mint)),
     settle(getTokenHistory(mint, 7)),
-    settle(getCoinHolderDelta(mint)),
   ]);
   const hist = history.data;
   const img = resolveImage(t.imageUrl);
@@ -59,13 +58,10 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
   const distributedUsdNow = quotePrice != null ? rw!.distributedTokens * quotePrice : null;
   const fe = fees.data;
   const avgPerHolder = rw && rw.holderCount > 0 && m.marketCapUsd ? m.marketCapUsd / rw.holderCount : null;
-  const hd = holderDelta.data;
   // Backing (Pump launches only): flatten the API's object into label · value rows; hidden when it returns nothing.
   const backingRows: [string, string][] = Object.entries(backing.data ?? {})
     .filter(([, v]) => v !== null && v !== undefined && typeof v !== "object")
     .map(([k, v]) => [k.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/_/g, " ").toLowerCase(), typeof v === "number" ? fmtNum(v, v < 100 ? 4 : 0) : String(v)]);
-  const signed = (n: number) => (n >= 0 ? `+${fmtNum(n)}` : `−${fmtNum(-n)}`);
-  const hdParts = hd ? ([["24h", hd.d1], ["7d", hd.d7], ["14d", hd.d14], ["30d", hd.d30]] as const).filter(([, v]) => v !== null).map(([k, v]) => `${signed(v as number)} ${k}`) : [];
 
   return (
     <div className="space-y-5">
@@ -119,6 +115,11 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
         )}
       </Section>
 
+      {/* HolderScan's holder profile (§6l): streamed, so a slow or rationed read never holds the page. */}
+      <Suspense fallback={<TokenHoldersSkeleton />}>
+        <TokenHolders token={t} now={now} />
+      </Suspense>
+
       <div className="grid md:grid-cols-2 gap-4">
         <Section title="Launch" action={<span className="num text-[11px] text-muted">StonkFun · 60s</span>}>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-[12.5px]">
@@ -161,16 +162,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
                 <Mini label="Holders paid" value={fmtNum(rw.holderCount)} />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
-                <Mini label="Avg per holder" value={avgPerHolder !== null ? fmtUsd(avgPerHolder) : "—"} />
-                {hdParts.length > 0 && (
-                  <div className="min-w-0 border border-border rounded-md px-3 py-2.5">
-                    <div className="label">Holders change · HolderScan</div>
-                    <div className="num text-xs mt-2 flex flex-wrap gap-x-2">
-                      {hdParts.map((x) => <span key={x} className={x.startsWith("+") ? "text-up" : "text-down"}>{x}</span>)}
-                      <span className="text-muted">· read {timeAgo(hd!.ts, now)}</span>
-                    </div>
-                  </div>
-                )}
+                <Mini label="Market cap per holder paid" value={avgPerHolder !== null ? fmtUsd(avgPerHolder) : "—"} />
               </div>
               <div className="method">
                 <strong>
@@ -178,9 +170,9 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
                     ? <>&quot;At today&apos;s price&quot; values every payout at the current {quote?.symbol} price, {fmtPrice(quotePrice)}, not the price at each payout.</>
                     : <>No current USD price for {quote?.symbol ?? "this quote asset"}, so payouts are in native units only.</>}
                 </strong>
-                <span className="num text-[11px] text-muted ml-auto">StonkFun rewards · 60s{rw ? " · Jupiter · 5 min" : ""}{hdParts.length ? " · HolderScan · daily" : ""}</span>
+                <span className="num text-[11px] text-muted ml-auto">StonkFun rewards · 60s{rw ? " · Jupiter · 5 min" : ""}</span>
               </div>
-              <p className="text-xs text-muted mt-2">Trading fees paid to holders in {quote?.symbol ?? "the quote asset"}, pro rata. Average per holder is market cap ÷ holders paid, so pool-held supply is in the numerator.</p>
+              <p className="text-xs text-muted mt-2">Trading fees paid to holders in {quote?.symbol ?? "the quote asset"}, pro rata. Market cap per holder paid is market cap ÷ holders paid (StonkFun&apos;s reward-eligible count, not HolderScan&apos;s), so pool-held supply is in the numerator.</p>
             </>
           ) : (
             <>
