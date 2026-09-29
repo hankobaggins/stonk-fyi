@@ -172,7 +172,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
                 </strong>
                 <span className="num text-[11px] text-muted ml-auto">StonkFun rewards · 60s{rw ? " · Jupiter · 5 min" : ""}</span>
               </div>
-              <p className="text-xs text-muted mt-2">Trading fees paid to holders in {quote?.symbol ?? "the quote asset"}, pro rata. Market cap per holder paid is market cap ÷ holders paid (StonkFun&apos;s reward-eligible count, not HolderScan&apos;s), so pool-held supply is in the numerator.</p>
+              <p className="text-xs text-muted mt-2">Trading fees paid to holders in {quote?.symbol ?? "the quote asset"}, pro rata. Market cap per holder paid is market cap ÷ holders paid (the reward-eligible count StonkFun reports for {t.symbol}, not HolderScan&apos;s), so pool-held supply is in the numerator.</p>
             </>
           ) : (
             <>

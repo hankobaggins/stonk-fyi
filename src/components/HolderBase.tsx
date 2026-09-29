@@ -142,12 +142,12 @@ export default function HolderBase({ h, mint, symbol = "STONK", marketCapUsd, pr
           <dt className="text-muted">Break-even price</dt><dd className="num text-right">{p.pnl?.breakEvenPrice ? `${fmtPrice(p.pnl.breakEvenPrice)}${priceUsd ? ` · now ${(priceUsd / p.pnl.breakEvenPrice).toFixed(2)}×` : ""}` : "—"}</dd>
           <dt className="text-muted">Unrealized PnL</dt><dd className={`num text-right ${cls(p.pnl?.unrealizedPnlUsd)}`}>{p.pnl?.unrealizedPnlUsd !== null && p.pnl?.unrealizedPnlUsd !== undefined ? `${p.pnl.unrealizedPnlUsd < 0 ? "−" : "+"}${fmtUsd(Math.abs(p.pnl.unrealizedPnlUsd))}` : "—"}</dd>
           <dt className="text-muted">Realized PnL</dt><dd className={`num text-right ${cls(p.pnl?.realizedPnlUsd)}`}>{p.pnl?.realizedPnlUsd !== null && p.pnl?.realizedPnlUsd !== undefined ? `${p.pnl.realizedPnlUsd < 0 ? "−" : "+"}${fmtUsd(Math.abs(p.pnl.realizedPnlUsd))}` : "—"}</dd>
-          {p.errors.length > 0 && (<><dt className="text-muted">Missing on this read</dt><dd className="text-right text-caution">{p.errors.map((e) => e.split(":")[0]).join(", ")}</dd></>)}
+          {p.errors.length > 0 && (<><dt className="text-muted">Missing on this read</dt><dd className="text-right text-caution" title={p.errors.join("\n")}>{p.errors.map((e) => e.split(":")[0]).join(", ")}</dd></>)}
         </dl>
       </div>
 
       <MethodStrip
-        lead={<>Counts are HolderScan&apos;s; average per holder is StonkFun&apos;s market cap ÷ that count, which a few large wallets pull up.</>}
+        lead={<>Counts are HolderScan&apos;s; average per holder is {symbol}&apos;s market cap (at StonkFun&apos;s price) ÷ that count, which a few large wallets pull up.</>}
         note={series.length > 1 ? "· includes the hourly charts" : undefined}
         href="/about#holderbase"
       >

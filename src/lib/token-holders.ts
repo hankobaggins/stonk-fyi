@@ -28,7 +28,7 @@ import type { Token } from "./types";
 export const TOKEN_HOLDERS_TTL_MIN = Math.max(5, Number(process.env.TOKEN_HOLDERS_TTL_MIN ?? 15));
 export const TOKEN_PROFILE_UNITS = 170;
 export const PAGE_UNITS_PER_H = Math.max(0, Number(process.env.HOLDERSCAN_PAGE_UNITS_PER_H ?? (HOLDERSCAN_ADVANCED ? 6000 : 0)));
-const LIVE_DEADLINE_MS = 8_000;
+const LIVE_DEADLINE_MS = 12_000; // eight paced calls ≈ 3–4 s; the cache still fills if a read outlasts this
 const NOT_LISTED_MS = 3 * 60_000;
 const NOT_LISTED = "NOT_LISTED";
 
@@ -39,17 +39,17 @@ export type TokenHolders =
   | { state: "unavailable"; reason: "disabled" | "budget" | "error"; detail?: string };
 
 // Per-instance accounting, on globalThis so every route bundle in an instance shares it (as the DB breaker does).
-type Meter = { hourStart: number; units: number; reads: number; refused: number; lastError: string | null; lastReadAt: string | null; notListed: Map<string, number> };
+type Meter = { hourStart: number; units: number; reads: number; refused: number; lastError: string | null; lastMissing: string | null; lastReadAt: string | null; notListed: Map<string, number> };
 const g = globalThis as typeof globalThis & { __hsPageMeter?: Meter };
 function meter(): Meter {
   const hour = Math.floor(Date.now() / 3.6e6) * 3.6e6;
-  const m = (g.__hsPageMeter ??= { hourStart: hour, units: 0, reads: 0, refused: 0, lastError: null, lastReadAt: null, notListed: new Map() });
+  const m = (g.__hsPageMeter ??= { hourStart: hour, units: 0, reads: 0, refused: 0, lastError: null, lastMissing: null, lastReadAt: null, notListed: new Map() });
   if (m.hourStart !== hour) Object.assign(m, { hourStart: hour, units: 0, reads: 0, refused: 0 });
   return m;
 }
 export function pageMeter() {
   const m = meter();
-  return { units: m.units, reads: m.reads, refused: m.refused, lastError: m.lastError, lastReadAt: m.lastReadAt, notListed: m.notListed.size };
+  return { units: m.units, reads: m.reads, refused: m.refused, lastError: m.lastError, lastMissing: m.lastMissing, lastReadAt: m.lastReadAt, notListed: m.notListed.size };
 }
 
 // The cached live read. Keyed by mint only — never pass a per-render value in (it would become the cache key). Top-N
@@ -66,13 +66,17 @@ const cachedRead = unstable_cache(
     const ts = new Date().toISOString();
     const supply = await getHolderscanToken(mint);
     if (!supply.data && supply.error === "not tracked by HolderScan") throw new Error(NOT_LISTED);
-    const p = await readHolderProfile(mint, ts, { priceUsd: null, marketCapUsd: null, circulating: supply.data?.supply ?? 0 }, { parallel: true });
+    // Sequential and paced, like the worker. The first build fired the six follow-up routes at once and production lost
+    // the last three (pnl, wallet-categories, supply-breakdown) on every coin while STONK's sequential worker read had
+    // all seven: HolderScan throttles bursts well below the per-minute limit, and the 429 retries fired in lock-step.
+    const p = await readHolderProfile(mint, ts, { priceUsd: null, marketCapUsd: null, circulating: supply.data?.supply ?? 0 });
     if (!p) throw new Error(supply.error ?? "HolderScan did not answer for the holder count");
     if (!supply.data) p.errors.push(`supply: ${supply.error}`);
     m.lastReadAt = ts;
+    m.lastMissing = p.errors.length ? `${mint.slice(0, 6)}…: ${p.errors.join("; ")}`.slice(0, 300) : null;
     return JSON.stringify(p);
   },
-  ["hs-token-profile"],
+  ["hs-token-profile-v2"], // v2: drops readings cached by the parallel build, which were missing three routes
   { revalidate: TOKEN_HOLDERS_TTL_MIN * 60 },
 );
 

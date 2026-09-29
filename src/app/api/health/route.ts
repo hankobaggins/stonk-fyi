@@ -189,7 +189,7 @@ export async function GET() {
       // request has spent this hour, not a site-wide total.
       if (!holderscanEnabled()) return "HOLDERSCAN_API_KEY unset — token pages show no holder base";
       const m = pageMeter();
-      const note = `budget ${PAGE_UNITS_PER_H} units/h per instance (${Math.floor(PAGE_UNITS_PER_H / TOKEN_PROFILE_UNITS)} reads of ${TOKEN_PROFILE_UNITS}), ${TOKEN_HOLDERS_TTL_MIN} min shared cache · this instance this hour: ${m.reads} reads, ${m.units} units, ${m.refused} refused over budget, ${m.notListed} mints remembered as not listed${m.lastReadAt ? ` · last read ${m.lastReadAt}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}`;
+      const note = `budget ${PAGE_UNITS_PER_H} units/h per instance (${Math.floor(PAGE_UNITS_PER_H / TOKEN_PROFILE_UNITS)} reads of ${TOKEN_PROFILE_UNITS}), ${TOKEN_HOLDERS_TTL_MIN} min shared cache · this instance this hour: ${m.reads} reads, ${m.units} units, ${m.refused} refused over budget, ${m.notListed} mints remembered as not listed${m.lastReadAt ? ` · last read ${m.lastReadAt}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}${m.lastMissing ? ` · last partial read: ${m.lastMissing}` : ""}`;
       if (PAGE_UNITS_PER_H === 0) return `${note} — disabled on the Standard plan (set HOLDERSCAN_PAGE_UNITS_PER_H to enable)`;
       return note;
     }),
