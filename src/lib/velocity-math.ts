@@ -18,10 +18,25 @@ export const VELOCITY_ALERT_THRESHOLD_PCT = Number(process.env.VELOCITY_ALERT_TH
 export const VELOCITY_ALERT_REARM_PCT = Number(process.env.VELOCITY_ALERT_REARM_PCT ?? 0.2);
 export const VELOCITY_ALERT_COOLDOWN_MIN = Number(process.env.VELOCITY_ALERT_COOLDOWN_MIN ?? 240);
 
+// Second tier (§6n, owner's ask 2026-09-29): "burns are on fire" above 0.5%/day, same state machine on its own
+// ledger (`fire_alerts`), re-armed below 0.4, same 4h cooldown. When both lines are crossed together the on-fire
+// post supersedes: a heating-up flip within VELOCITY_ALERT_COOLDOWN_MIN of an on-fire post is recorded quiet.
+export const FIRE_ALERT_THRESHOLD_PCT = Number(process.env.FIRE_ALERT_THRESHOLD_PCT ?? 0.5);
+export const FIRE_ALERT_REARM_PCT = Number(process.env.FIRE_ALERT_REARM_PCT ?? 0.4);
+export const FIRE_ALERT_COOLDOWN_MIN = Number(process.env.FIRE_ALERT_COOLDOWN_MIN ?? 240);
+
 export type VelocityState = "hot" | "cool";
 
 export type VelocityRules = { thresholdPct: number; rearmPct: number; cooldownMin: number };
 export const DEFAULT_RULES: VelocityRules = { thresholdPct: VELOCITY_ALERT_THRESHOLD_PCT, rearmPct: VELOCITY_ALERT_REARM_PCT, cooldownMin: VELOCITY_ALERT_COOLDOWN_MIN };
+export const FIRE_RULES: VelocityRules = { thresholdPct: FIRE_ALERT_THRESHOLD_PCT, rearmPct: FIRE_ALERT_REARM_PCT, cooldownMin: FIRE_ALERT_COOLDOWN_MIN };
+
+// A heating-up announcement is superseded when the on-fire rail announced within the heating-up cooldown
+// (the fire step runs first in the tick, so "the same tick" is covered). An earlier heating-up post never
+// blocks a later on-fire post.
+export function supersededByFire(lastFireAnnouncedAt: string | null, now: string, rules: VelocityRules = DEFAULT_RULES): boolean {
+  return lastFireAnnouncedAt !== null && Date.parse(now) - Date.parse(lastFireAnnouncedAt) < rules.cooldownMin * 60_000;
+}
 
 export type VelocityDecision =
   | { action: "seed"; state: VelocityState }
@@ -63,14 +78,14 @@ export function fmtSince(fromIso: string, toIso: string): string {
 export type VelocityTextInput = { ts: string; pct_day: number; prev_pct_day: number | null; prev_ts: string | null; window_hours: number | null; window_tokens: number | null; window_usd: number | null; window_burns: number | null; supply_burned_pct: number | null };
 
 // Two plain sentences, no links — the same voice as the burn, milestone and ATH posts.
-export function buildVelocityText(r: VelocityTextInput): string {
+function buildRateText(r: VelocityTextInput, phrase: string): string {
   const hours = r.window_hours ?? 4;
   const span = Math.abs(hours - Math.round(hours)) < 0.05 ? `${Math.round(hours)} hours` : `${hours.toFixed(1)} hours`;
   const detail: string[] = [];
   if (r.window_tokens !== null) detail.push(`${fmtNum(r.window_tokens)} tokens`);
   if (r.window_usd !== null) detail.push(`about ${fmtUsd(r.window_usd)} at StonkFun pricing`);
   if (r.window_burns !== null) detail.push(r.window_burns === 1 ? "1 burn" : `${r.window_burns} burns`);
-  const first = `$STONK burns are heating up: ${r.pct_day.toFixed(2)}% of supply a day over the last ${span}${detail.length ? ` (${detail.join(", ")})` : ""}.`;
+  const first = `$STONK burns are ${phrase}: ${r.pct_day.toFixed(2)}% of supply a day over the last ${span}${detail.length ? ` (${detail.join(", ")})` : ""}.`;
   const parts: string[] = [];
   if (r.prev_pct_day !== null && r.prev_ts) parts.push(`Up from ${r.prev_pct_day.toFixed(2)}%/day ${fmtSince(r.prev_ts, r.ts)} ago.`);
   if (r.supply_burned_pct !== null) {
@@ -81,3 +96,5 @@ export function buildVelocityText(r: VelocityTextInput): string {
   return parts.length ? `${first}\n\n${parts.join(" ")}` : first;
 }
 
+export const buildVelocityText = (r: VelocityTextInput): string => buildRateText(r, "heating up");
+export const buildFireText = (r: VelocityTextInput): string => buildRateText(r, "on fire");

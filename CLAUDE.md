@@ -61,6 +61,8 @@ src/app/                    routes
   ath-card/[id]/route.tsx   the same card from a stored `ath_alerts` row (what the worker's ath_alert step posts, §6d); seeded/quiet rows 404
   velocity-card/[id]/route.tsx  1200×1200 PNG for a "burns are heating up" post from a stored `velocity_alerts` row (§6i; /velocity-card/preview
                             renders the live rate). Card is the pure `lib/velocity-card.tsx`; seeded / cooled / quiet rows 404
+  fire-card/[id]/route.tsx  1200×1200 PNG for a "burns are on fire" post from a stored `fire_alerts` row (§6n; /fire-card/preview live).
+                            Card is the pure `lib/fire-card.tsx` (same frame as the velocity card, burn orange + flame); seeded / cooled / quiet rows 404
   milestone-card/[id]/route.tsx  1200×1200 PNG for a burn milestone (id = whole percent, e.g. /milestone-card/14; /milestone-card/preview
                             renders the current level live). Card is the pure `lib/milestone-card.tsx`; the worker step is §6c
   buyback-card/route.tsx    1200×1200 PNG: top 5 quote coins by USD spent buying STONK over `?hours=N` (default 1), from the
@@ -103,7 +105,7 @@ src/components/
 src/fixtures/*.json         real API responses captured 2026-09-06/07, served when DATA_SOURCE=fixture
 src/lib/burn-milestones.ts, milestone-math.ts   burn-milestone worker step (§6c) and its pure math (scripts/burn-milestone-check.ts)
 src/lib/ath-alerts.ts, ath-math.ts   all-time-high worker step (§6d) and its pure math (scripts/ath-alert-check.ts)
-src/lib/velocity-alerts.ts, velocity-math.ts   burn-velocity "heating up" worker step (§6i), its state machine + tweet text (scripts/velocity-alert-check.ts)
+src/lib/velocity-alerts.ts, velocity-math.ts   burn-velocity "heating up" (§6i) and "on fire" (§6n) worker steps — one state machine, two ledgers — and tweet text (scripts/velocity-alert-check.ts, scripts/fire-alert-check.ts)
 supabase/migrations/0001_init.sql   full schema incl. RLS (see §6) — applied to production 2026-09-07
 supabase/migrations/0005_reward_snapshots.sql   reward_snapshots table — paste into the SQL editor by hand
 supabase/migrations/0006_reward_snapshots_scoped.sql   reward_payout_window(win_hours, mints) + reward_snapshots_prune() + one-off cleanup of 0005's 1.2M rows (2026-09-10) — by hand too
@@ -125,6 +127,7 @@ supabase/migrations/0019_runner_backfill.sql   dates crossings from token_snapsh
 supabase/migrations/0020_launches_total.sql   platform_snapshots.launches_total (the /launches ledger total; launch velocity reads it first) — paste by hand
 src/lib/runners.ts, runner-math.ts, runners-card.tsx   the runners rail (§6k): worker step, memo'd page reads, pure math (scripts/runners-check.ts), card
 supabase/migrations/0016_velocity_alerts.sql   velocity_alerts table (§6i) — paste into the SQL editor by hand
+supabase/migrations/0021_fire_alerts.sql   fire_alerts table (§6n, same shape as 0016) — paste into the SQL editor by hand
 supabase/migrations/0017_views_security_invoker.sql   launches_per_day + volume_by_quote_latest as security_invoker (lint 0010; unused convenience views from 0001) — by hand
 supabase/migrations/0002_gmgn_snapshots.sql   gmgn_snapshots table (holder count etc. per tick) — apply in the SQL editor if the GitHub integration doesn't
 .github/workflows/snapshot.yml      the 5-minute snapshot tick (Vercel Hobby cron is daily-only)
@@ -414,6 +417,20 @@ Same tokens, same components where they worked; changes are IA, density and prov
 - `/api/health` → `velocity_alerts`: mode, the rules, current state since when (rate, status), last hot flip. Tick response `notes.velocity_alert` says `#12 posted at 0.34%/day` (or `seeded cool` / `cooled` / `quiet` / `dry_run`).
 - Re-post by hand: `/velocity-card/{id}` is reproducible from the row; `/velocity-card/preview` shows the live rate whatever the state.
 
+## 6n — Burns "on fire" alerts → X (added 2026-09-29)
+
+**Rule (owner's ask 2026-09-29):** a second tier on the §6i rail — when the rolling 4h burn rate goes above **0.5% of supply a day** (`FIRE_ALERT_THRESHOLD_PCT`), post a "burns are on fire" card. Owner's calls: re-arm below **0.4** (`FIRE_ALERT_REARM_PCT`), cooldown 240 min (`FIRE_ALERT_COOLDOWN_MIN`), and **on fire supersedes heating up**: when a surge crosses both lines only the on-fire post goes out. The scorecard is unchanged (0.3 stays the bullish line; 0.5 is not a cell state).
+
+**How:** the same state machine as §6i (`evaluateVelocity` with `FIRE_RULES`) on its own ledger, `fire_alerts` (0021, same columns and `prev_id` unique index as `velocity_alerts`). `lib/velocity-alerts.ts` now runs both through one `runRail(db, ctx, rail)` (table, rules, card path, text); `runVelocityAlert` / `runFireAlert` are the two entry points, the read helpers take an optional table. Tick order: `fire_alert` step, then `velocity_alert`. Supersede rule (`supersededByFire`, pure): a heating-up announcement is recorded `quiet` (with `error = superseded by the on-fire post at …`) when `fire_alerts` has a posted / pending / dry_run row within the heating-up cooldown — that covers "same tick" and "fire posted an hour ago, now heating flips". An earlier heating-up post never blocks a later on-fire post (0.35 at 14:00 → heating up; 0.55 at 15:00 → on fire). If 0021 is missing the lookup is caught and heating-up behaves as before.
+
+**Card** (`lib/fire-card.tsx`, square, approved by the owner 2026-09-29 from `Claude outputs/fire-card-sample.png`): the heating-up frame with the heat carried by `C.burn` — a drawn two-tone flame (not an emoji: next/og would fetch the glyph from a CDN) beside the rate in burn orange, "$STONK burns are **on fire.**", a faint ember glow behind the hero and a green→amber→orange edge along the top, a gauge (0 → max(1.0, 1.25× the rate)) whose fill is a heat gradient keyed to the lines (green at 0, amber at the 0.3 heating-up tick, orange from the 0.5 on-fire tick), previous reading as the grey mark, then the same 2×2 (up from, burned per hour, supply burned + next 1%, annualized in orange). Colour follows the state: below the line the hero is ink and the flame is ▽ (only /fire-card/preview can show that). Tweet (`buildFireText`, shares `buildRateText` with `buildVelocityText`): `$STONK burns are on fire: 0.62% of supply a day over the last 4 hours (24.88M tokens, about $3.87M at StonkFun pricing, 67 burns).` / `Up from 0.36%/day 2h 35m ago. 15.41% of supply is now gone; at this pace 16% is ~23h away.` ("up from" = this ledger's previous transition, usually its last cool row.) Offline sample render: `Claude outputs/render-fire-card-sample.tsx`.
+
+**Ops**
+- Same env as §6a; unset or `?dry=1` → `dry_run`. `FIRE_ALERT_THRESHOLD_PCT` / `FIRE_ALERT_REARM_PCT` / `FIRE_ALERT_COOLDOWN_MIN` optional.
+- **Migration `0021_fire_alerts.sql` must be pasted into the SQL editor by hand**; until then `fire_alert` fails in isolation and `/api/health` → `fire_alerts` reports the error. The first tick after that seeds (`seeded cool` unless the rate is already above 0.5).
+- `/api/health` → `fire_alerts`: mode, rules, current state since when, last on-fire flip. Tick `notes.fire_alert` = `#3 posted at 0.62%/day` / `seeded cool` / `cooled` / `quiet`; `notes.velocity_alert` says `quiet (superseded by on fire)` when the rule bit.
+- Re-post by hand: `/fire-card/{id}`; `/fire-card/preview` renders the live rate. Checks: `npx tsx scripts/fire-alert-check.ts`.
+
 ## 6j — Top coins by market cap: holder profiles, and the census blocks' HolderScan backfill (added 2026-09-15)
 
 **Owner's asks (2026-09-15):** (1) backdate the 7d / 30d change on /holders — the census tiles said "from Sep 17 / Oct 5"; (2) a table of the top 10 coins by market cap with live holder count, 24h / 7d / 30d change and average hold time, over time.
@@ -464,7 +481,7 @@ Same tokens, same components where they worked; changes are IA, density and prov
 6. **Yield:** `/yield` is live-computed; once a week of `reward_snapshots` exists, consider a 7d column and a per-coin payout sparkline on the token page.
 7. **Holders (§6e, §6f, §6g, §6h, §6j):** HolderScan profiles shipped 2026-09-12 (§6h); ~~profile the largest coins too~~ done 2026-09-15 (§6j, top 20 by market cap) — next: a "holders added, 7d" ranking from HolderScan's deltas, revisit the diamond / $1K thresholds after a month. The ecosystem view shipped 2026-09-12 (§6g); once a week of daily readings exists, add the per-asset "holders added, 7d" ranking and a "StonkFun wallets vs holders" chart per asset. Earlier ask — holder count by quote asset over time (`wallet_mint_counts` is accumulating it; build the per-asset chart). Then per-asset sparklines in the table and a "holders added, 7d" ranking.
 8. **Runners (§6k, 2026-09-17):** shipped. Next: 30d window after a month, crossings-per-day chart, a weekly "runners" post on the alert rail, and a "runners by quote asset" split.
-9. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. ~~Burn velocity turning green~~ done 2026-09-13, §6i (the first indicator-flip post; the same state-machine shape fits any other cell). Next on the same rail: other indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
+9. **Alerts:** ~~big-burn card to X~~ (done 2026-09-08, §6a). ~~Burn milestones (every 1% of supply)~~ done 2026-09-10, §6c. ~~All-time-high market cap~~ done 2026-09-10, §6d. ~~Burn velocity turning green~~ done 2026-09-13, §6i (the first indicator-flip post; the same state-machine shape fits any other cell). ~~Burns on fire (0.5%/day tier)~~ done 2026-09-29, §6n. Next on the same rail: other indicator flips, daily revenue records. `/buyback-card?hours=1` (2026-09-09) and `/yield-card` (2026-09-10) are hand-posted cards for now; an hourly or daily "who paid for the buybacks" post could reuse it.
 
 ---
 
@@ -487,6 +504,7 @@ HOLDERSCAN_PAGE_UNITS_PER_H=6000|0, TOKEN_HOLDERS_TTL_MIN=15   # §6l token-page
 HOLDERSCAN_PLAN=standard|advanced                      # §6h: advanced = STONK profile every tick, universe + stock counts hourly, deltas daily, 100 ms pacing; HOLDERSCAN_RETENTION_DAYS=90
 ATH_ALERT_COOLDOWN_MIN=60                              # all-time-high posts (§6d): at most one per this many minutes
 VELOCITY_ALERT_THRESHOLD_PCT=0.3, VELOCITY_ALERT_REARM_PCT=0.2, VELOCITY_ALERT_COOLDOWN_MIN=240   # "burns are heating up" posts (§6i)
+FIRE_ALERT_THRESHOLD_PCT=0.5, FIRE_ALERT_REARM_PCT=0.4, FIRE_ALERT_COOLDOWN_MIN=240   # "burns are on fire" posts (§6n; supersede heating up)
 NEXT_PUBLIC_SITE_URL                # optional; canonical origin, defaults to https://stonk.fyi
 DB_PAGE_TIMEOUT_MS=4000, DB_WORKER_TIMEOUT_MS=120000, UPSTREAM_TIMEOUT_MS=10000, DB_BREAKER_MS=30000   # render-path deadlines + breaker (rules 14-15)
 ```

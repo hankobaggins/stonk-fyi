@@ -5,7 +5,7 @@ import { DB_BREAKER_MS, dbBreakerOpen, getDb, getLaunchVelocity, getRewardWindow
 import { BURN_ALERT_COOLDOWN_MIN, BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
 import { latestMilestone } from "@/lib/burn-milestones";
 import { ATH_ALERT_COOLDOWN_MIN, highestAth, lastAthPost } from "@/lib/ath-alerts";
-import { lastVelocityPost, lastVelocityRow, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT } from "@/lib/velocity-alerts";
+import { FIRE_ALERT_COOLDOWN_MIN, FIRE_ALERT_REARM_PCT, FIRE_ALERT_THRESHOLD_PCT, lastVelocityPost, lastVelocityRow, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT } from "@/lib/velocity-alerts";
 import { getGmgnStonk, lastGmgnError } from "@/lib/gmgn";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
 import { getRewardCoinsByMcap } from "@/lib/yield";
@@ -270,6 +270,17 @@ export async function GET() {
       const state = `${row.state} since ${row.ts} (${row.pct_day.toFixed(2)}%/day, ${row.status})`;
       const last = post ? `last flip #${post.id} ${post.status} at ${post.ts}` : "no hot flip yet";
       return `burn velocity → X · ${mode} · ${rules} · ${state} · ${last}`;
+    }),
+    run("fire_alerts", async () => {
+      const db = getDb();
+      if (!db) return "not configured (needs supabase)";
+      const [row, post] = await Promise.all([lastVelocityRow(db, "fire_alerts"), lastVelocityPost(db, "fire_alerts")]); // throws if migration 0021 is missing
+      const mode = process.env.SOCIALBU_TOKEN && process.env.SOCIALBU_ACCOUNT_ID ? "posting" : "dry-run";
+      const rules = `on fire above ${FIRE_ALERT_THRESHOLD_PCT}%/day, re-arm below ${FIRE_ALERT_REARM_PCT}, cooldown ${FIRE_ALERT_COOLDOWN_MIN} min, supersedes heating-up`;
+      if (!row) return `burns on fire → X · ${mode} · ${rules} · not seeded yet (first tick seeds the current state)`;
+      const state = `${row.state} since ${row.ts} (${row.pct_day.toFixed(2)}%/day, ${row.status})`;
+      const last = post ? `last flip #${post.id} ${post.status} at ${post.ts}` : "no on-fire flip yet";
+      return `burns on fire → X · ${mode} · ${rules} · ${state} · ${last}`;
     }),
   ]);
 

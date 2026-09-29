@@ -4,7 +4,7 @@ import { DB_WORKER_TIMEOUT_MS, getDb, pruneRewardSnapshots } from "@/lib/db";
 import { runAthAlert } from "@/lib/ath-alerts";
 import { runBurnAlert } from "@/lib/burn-alerts";
 import { runBurnMilestone } from "@/lib/burn-milestones";
-import { runVelocityAlert } from "@/lib/velocity-alerts";
+import { lastAnnounced, runFireAlert, runVelocityAlert, type VelocityContext } from "@/lib/velocity-alerts";
 import { getGmgnStonk } from "@/lib/gmgn";
 import { getPoolInfo, poolSides } from "@/lib/raydium";
 import { getStonkData, STONK_POOL } from "@/lib/stonk";
@@ -24,7 +24,7 @@ import type { Token } from "@/lib/types";
 //   GET /api/cron/snapshot            -> platform stats, revenue, buybacks, launches, revenue_daily, STONK + top 100 tokens by volume
 //   GET /api/cron/snapshot?hourly=1   -> same, but top 500 tokens
 //   GET /api/cron/snapshot?full=1     -> walks the entire token list, then prunes non-STONK snapshots older than 30 days
-//   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert / velocity_alert steps record but never post to X
+//   ...&dry=1                         -> the burn_alert / burn_milestone / ath_alert / fire_alert / velocity_alert steps record but never post to X
 //   ...&census=1 | &census=coins      -> kick off the quote-asset / reward-coin census now (/api/cron/census)
 //   ...&universe=1                    -> run the daily HolderScan universe_holders step now
 //   ...&deltas=1                      -> run the HolderScan universe_deltas step (7/14/30-day changes) now
@@ -263,13 +263,11 @@ export async function GET(req: Request) {
     return r.created;
   });
 
-  await step("velocity_alert", async () => {
-    // Burn velocity (rolling 4h, % of supply a day) crossing above the bullish line (0.3%/day) from a re-armed
-    // state → /velocity-card/{id} posted to X, at most once per cooldown; falling below the re-arm level writes
-    // a cool row. First run seeds the current state and posts nothing. See src/lib/velocity-alerts.ts.
+  // Both burn-velocity rails read the same figure: the scorecard's rolling 4h burn rate (% of supply a day).
+  const velocityCtx = async (): Promise<VelocityContext> => {
     const d = await getStonkData();
     const b = d.burnRate;
-    const r = await runVelocityAlert(db, {
+    return {
       pctDay: b?.pctSupplyPerDay ?? null,
       estimate: b?.estimate ?? false,
       windowHours: b?.windowHours ?? null,
@@ -280,8 +278,28 @@ export async function GET(req: Request) {
       supplyBurnedPct: d.supply.burnedPct,
       priceUsd: d.token.market?.priceUsd ?? null,
       marketCapUsd: d.token.market?.marketCapUsd ?? null,
-    }, { dry });
-    if (r.status) notes.velocity_alert = `${r.id ? `#${r.id} ` : ""}${r.status}${r.pctDay !== undefined ? ` at ${r.pctDay.toFixed(2)}%/day` : ""}`;
+    };
+  };
+  const velocityNote = (r: { id?: number; status?: string; pctDay?: number }) => `${r.id ? `#${r.id} ` : ""}${r.status}${r.pctDay !== undefined ? ` at ${r.pctDay.toFixed(2)}%/day` : ""}`;
+
+  await step("fire_alert", async () => {
+    // "Burns are on fire" (§6n): the same rate crossing 0.5%/day from a re-armed state (below 0.4) →
+    // /fire-card/{id} posted to X, at most once per cooldown. Runs before velocity_alert so that when both lines
+    // are crossed together only this post goes out. First run seeds and posts nothing. See src/lib/velocity-alerts.ts.
+    const r = await runFireAlert(db, await velocityCtx(), { dry });
+    if (r.status) notes.fire_alert = velocityNote(r);
+    return r.created;
+  });
+
+  await step("velocity_alert", async () => {
+    // Burn velocity (rolling 4h, % of supply a day) crossing above the bullish line (0.3%/day) from a re-armed
+    // state → /velocity-card/{id} posted to X, at most once per cooldown; falling below the re-arm level writes
+    // a cool row. First run seeds the current state and posts nothing. A flip within the cooldown of an on-fire
+    // announcement is recorded quiet (superseded). See src/lib/velocity-alerts.ts.
+    let supersededAt: string | null = null;
+    try { supersededAt = (await lastAnnounced(db, "fire_alerts"))?.ts ?? null; } catch { /* fire_alerts missing (0021 not applied): no supersede */ }
+    const r = await runVelocityAlert(db, await velocityCtx(), { dry, supersededAt });
+    if (r.status) notes.velocity_alert = velocityNote(r);
     return r.created;
   });
 

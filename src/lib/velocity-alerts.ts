@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { postCardToX } from "./burn-alerts";
 import { SITE_URL } from "./site";
-import { buildVelocityText, DEFAULT_RULES, evaluateVelocity, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT, type VelocityRules, type VelocityState } from "./velocity-math";
+import { buildFireText, buildVelocityText, DEFAULT_RULES, evaluateVelocity, FIRE_ALERT_COOLDOWN_MIN, FIRE_ALERT_REARM_PCT, FIRE_ALERT_THRESHOLD_PCT, FIRE_RULES, supersededByFire, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT, type VelocityRules, type VelocityState, type VelocityTextInput } from "./velocity-math";
 
 // "Burns are heating up" → X. Every snapshot tick reads the scorecard's burn velocity (rolling 4h burn rate,
 // % of supply a day) and compares it with the last state in `velocity_alerts`. Crossing above 0.3%/day — the
@@ -10,8 +10,17 @@ import { buildVelocityText, DEFAULT_RULES, evaluateVelocity, VELOCITY_ALERT_COOL
 // SocialBu, at most once per cooldown. Falling below the re-arm level (0.2%/day) writes a `cool` row and
 // posts nothing (the ledger keeps both directions so the story is honest; only the way up is announced).
 // An empty table is seeded with the current state and posts nothing. Without SOCIALBU_TOKEN rows are dry_run.
+//
+// "Burns are on fire" (§6n) is the same state machine on its own ledger, `fire_alerts`: above 0.5%/day, re-armed
+// below 0.4, card /fire-card/{id}. The tick runs it first; a heating-up flip within the heating-up cooldown of an
+// on-fire announcement is recorded quiet (the hotter post supersedes — never two tweets for one surge).
 
-export { buildVelocityText, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT };
+export { buildFireText, buildVelocityText, FIRE_ALERT_COOLDOWN_MIN, FIRE_ALERT_REARM_PCT, FIRE_ALERT_THRESHOLD_PCT, VELOCITY_ALERT_COOLDOWN_MIN, VELOCITY_ALERT_REARM_PCT, VELOCITY_ALERT_THRESHOLD_PCT };
+
+export type VelocityTable = "velocity_alerts" | "fire_alerts";
+type Rail = { table: VelocityTable; rules: VelocityRules; cardPath: string; fileTag: string; text: (r: VelocityTextInput) => string };
+const HEATING_RAIL: Rail = { table: "velocity_alerts", rules: DEFAULT_RULES, cardPath: "velocity-card", fileTag: "velocity", text: buildVelocityText };
+const FIRE_RAIL: Rail = { table: "fire_alerts", rules: FIRE_RULES, cardPath: "fire-card", fileTag: "fire", text: buildFireText };
 
 export type VelocityContext = {
   pctDay: number | null;            // burn velocity now; null = no burns in the window
@@ -51,42 +60,58 @@ export type VelocityRow = {
   error: string | null;
 };
 
-export async function getVelocityAlert(db: SupabaseClient, id: number): Promise<VelocityRow | null> {
-  const { data, error } = await db.from("velocity_alerts").select("*").eq("id", id).maybeSingle();
+export async function getVelocityAlert(db: SupabaseClient, id: number, table: VelocityTable = "velocity_alerts"): Promise<VelocityRow | null> {
+  const { data, error } = await db.from(table).select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as VelocityRow | null) ?? null;
 }
 
 // The newest transition — the state the rail is in.
-export async function lastVelocityRow(db: SupabaseClient): Promise<VelocityRow | null> {
-  const { data, error } = await db.from("velocity_alerts").select("*").order("id", { ascending: false }).limit(1).maybeSingle();
+export async function lastVelocityRow(db: SupabaseClient, table: VelocityTable = "velocity_alerts"): Promise<VelocityRow | null> {
+  const { data, error } = await db.from(table).select("*").order("id", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as VelocityRow | null) ?? null;
 }
 
 // Newest row that counts as a post for the cooldown (quiet flips count too: a flip is a flip; failed posts don't).
-export async function lastVelocityPost(db: SupabaseClient): Promise<VelocityRow | null> {
-  const { data, error } = await db.from("velocity_alerts").select("*").in("status", ["posted", "pending", "dry_run", "quiet"]).order("ts", { ascending: false }).limit(1).maybeSingle();
+export async function lastVelocityPost(db: SupabaseClient, table: VelocityTable = "velocity_alerts"): Promise<VelocityRow | null> {
+  const { data, error } = await db.from(table).select("*").in("status", ["posted", "pending", "dry_run", "quiet"]).order("ts", { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(error.message);
   return (data as VelocityRow | null) ?? null;
 }
 
-export async function recentVelocityAlerts(db: SupabaseClient, limit = 20): Promise<VelocityRow[]> {
-  const { data, error } = await db.from("velocity_alerts").select("*").order("ts", { ascending: false }).limit(limit);
+export async function recentVelocityAlerts(db: SupabaseClient, limit = 20, table: VelocityTable = "velocity_alerts"): Promise<VelocityRow[]> {
+  const { data, error } = await db.from(table).select("*").order("ts", { ascending: false }).limit(limit);
   if (error) throw new Error(error.message);
   return (data ?? []) as VelocityRow[];
 }
 
-export async function runVelocityAlert(
-  db: SupabaseClient,
-  ctx: VelocityContext,
-  opts: { dry?: boolean; now?: string; rules?: VelocityRules } = {}
-): Promise<{ created: number; id?: number; pctDay?: number; status?: string }> {
+// Newest row that was (or would have been) announced — not quiet, not failed. Used for the supersede rule.
+export async function lastAnnounced(db: SupabaseClient, table: VelocityTable): Promise<VelocityRow | null> {
+  const { data, error } = await db.from(table).select("*").in("status", ["posted", "pending", "dry_run"]).order("ts", { ascending: false }).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  return (data as VelocityRow | null) ?? null;
+}
+
+type RunOpts = { dry?: boolean; now?: string; rules?: VelocityRules };
+type RunResult = { created: number; id?: number; pctDay?: number; status?: string };
+
+// "Burns are heating up" (0.3%/day). `supersededAt` = the on-fire rail's last announcement (see supersededByFire).
+export function runVelocityAlert(db: SupabaseClient, ctx: VelocityContext, opts: RunOpts & { supersededAt?: string | null } = {}): Promise<RunResult> {
+  return runRail(db, ctx, HEATING_RAIL, opts);
+}
+
+// "Burns are on fire" (0.5%/day).
+export function runFireAlert(db: SupabaseClient, ctx: VelocityContext, opts: RunOpts = {}): Promise<RunResult> {
+  return runRail(db, ctx, FIRE_RAIL, opts);
+}
+
+async function runRail(db: SupabaseClient, ctx: VelocityContext, rail: Rail, opts: RunOpts & { supersededAt?: string | null }): Promise<RunResult> {
   const now = opts.now ?? new Date().toISOString();
-  const rules = opts.rules ?? DEFAULT_RULES;
+  const rules = opts.rules ?? rail.rules;
   if (ctx.estimate) return { created: 0, status: "skipped: rate is an API-tail estimate (no burn ledger)" };
 
-  const [last, lastPost] = await Promise.all([lastVelocityRow(db), lastVelocityPost(db)]);
+  const [last, lastPost] = await Promise.all([lastVelocityRow(db, rail.table), lastVelocityPost(db, rail.table)]);
   const d = evaluateVelocity(ctx.pctDay, last?.state ?? null, lastPost?.ts ?? null, now, rules);
   if (d.action === "none") return { created: 0 };
 
@@ -110,7 +135,7 @@ export async function runVelocityAlert(
 
   // Every insert claims prev_id; the unique index makes a concurrent tick's insert fail instead of double-posting.
   const insert = async (row: Record<string, unknown>): Promise<number> => {
-    const { data, error } = await db.from("velocity_alerts").insert(row).select("id").single();
+    const { data, error } = await db.from(rail.table).insert(row).select("id").single();
     if (error) throw new Error(error.message);
     return data.id as number;
   };
@@ -127,20 +152,24 @@ export async function runVelocityAlert(
     const id = await insert({ ...base, state: "hot", status: "quiet" });
     return { created: 0, id, pctDay: base.pct_day, status: "quiet" };
   }
+  if (supersededByFire(opts.supersededAt ?? null, now, rules)) {
+    const id = await insert({ ...base, state: "hot", status: "quiet", error: `superseded by the on-fire post at ${opts.supersededAt}` });
+    return { created: 0, id, pctDay: base.pct_day, status: "quiet (superseded by on fire)" };
+  }
 
   const dry = opts.dry || !process.env.SOCIALBU_TOKEN;
-  const postText = buildVelocityText(base);
+  const postText = rail.text(base);
   const id = await insert({ ...base, state: "hot", post_text: postText, status: dry ? "dry_run" : "pending" });
-  const cardUrl = `${SITE_URL}/velocity-card/${id}`;
-  await db.from("velocity_alerts").update({ card_url: cardUrl }).eq("id", id);
+  const cardUrl = `${SITE_URL}/${rail.cardPath}/${id}`;
+  await db.from(rail.table).update({ card_url: cardUrl }).eq("id", id);
   if (dry) return { created: 1, id, pctDay: base.pct_day, status: "dry_run" };
 
   try {
-    const postId = await postCardToX(cardUrl, postText, `stonk-velocity-${id}.png`);
-    await db.from("velocity_alerts").update({ status: "posted", socialbu_post_id: postId }).eq("id", id);
+    const postId = await postCardToX(cardUrl, postText, `stonk-${rail.fileTag}-${id}.png`);
+    await db.from(rail.table).update({ status: "posted", socialbu_post_id: postId }).eq("id", id);
     return { created: 1, id, pctDay: base.pct_day, status: "posted" };
   } catch (e) {
-    await db.from("velocity_alerts").update({ status: "failed", error: (e as Error).message }).eq("id", id);
+    await db.from(rail.table).update({ status: "failed", error: (e as Error).message }).eq("id", id);
     throw e;
   }
 }
