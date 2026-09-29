@@ -35,11 +35,12 @@ const usd = (n: number | null): string => {
 const tokens = (n: number | null): string => (n === null ? "—" : n >= 1e6 ? `${(n / 1e6).toFixed(2)}M` : n.toLocaleString("en-US", { maximumFractionDigits: 0 }));
 
 // Two-tone flame, drawn (not an emoji: next/og would fetch emoji glyphs from a CDN at render time).
-function Flame({ size }: { size: number }) {
+// Exported for the heating-up card, which draws the same flame in its own colours.
+export function Flame({ size, outer = C.burn, inner = C.caution }: { size: number; outer?: string; inner?: string }) {
   return (
     <svg width={size * 0.8} height={size} viewBox="0 0 64 80">
-      <path d="M32 2 C35 16 50 24 54 42 C58 60 47 78 32 78 C17 78 6 66 10 48 C12 38 18 32 22 25 C22 33 25 38 29 41 C27 28 28 14 32 2 Z" fill={C.burn} />
-      <path d="M33 36 C35 47 45 52 45 62 C45 71 39 77 32 77 C25 77 19 71 20 63 C21 56 26 52 28 46 C30 51 32 53 34 54 C32 48 32 42 33 36 Z" fill={C.caution} />
+      <path d="M32 2 C35 16 50 24 54 42 C58 60 47 78 32 78 C17 78 6 66 10 48 C12 38 18 32 22 25 C22 33 25 38 29 41 C27 28 28 14 32 2 Z" fill={outer} />
+      <path d="M33 36 C35 47 45 52 45 62 C45 71 39 77 32 77 C25 77 19 71 20 63 C21 56 26 52 28 46 C30 51 32 53 34 54 C32 48 32 42 33 36 Z" fill={inner} />
     </svg>
   );
 }
