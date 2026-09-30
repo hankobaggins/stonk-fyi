@@ -52,7 +52,6 @@ export function VelocityCard(p: VelocityCardProps) {
   const max = Math.max(1, p.pctDay * 1.25, (p.prevPctDay ?? 0) * 1.25);
   const x = (v: number) => `${Math.min(100, Math.max(0, (v / max) * 100))}%`;
   const heat = `linear-gradient(90deg, ${C.bull} 0%, ${C.caution} ${x(p.thresholdPct)}, ${C.burn} ${x(fire)}, ${C.burn} 100%)`;
-  const edge = `linear-gradient(90deg, ${C.bull} 0%, ${C.caution} 60%, ${C.caution} 100%)`;
   const warm = C.caution; // the gradient's colour at the heating-up line
   const tickLine = (v: number, color: string) => <div style={{ position: "absolute", left: x(v), top: 0, width: 2, height: 44, background: color, display: "flex" }} />;
   const tickLabel = (v: number, label: string, color: string) => (
@@ -74,9 +73,6 @@ export function VelocityCard(p: VelocityCardProps) {
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: C.bg, color: C.ink, fontFamily: "Geist", position: "relative" }}>
-      {/* heat: a faint green glow behind the headline and a warming edge along the top */}
-      {hot && <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 900, display: "flex", backgroundImage: "radial-gradient(ellipse 70% 45% at 30% 40%, rgba(224,165,60,0.13) 0%, rgba(224,165,60,0) 100%)" }} />}
-      {hot && <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 6, display: "flex", backgroundImage: edge }} />}
 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "0 72px" }}>
       {/* masthead */}

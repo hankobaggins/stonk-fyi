@@ -59,7 +59,6 @@ export function FireCard(p: FireCardProps) {
   const x = (v: number) => `${Math.min(100, Math.max(0, (v / max) * 100))}%`;
   // Heat gradient keyed to the gauge: green at 0, amber at the heating-up line, full burn orange from the on-fire line.
   const heat = `linear-gradient(90deg, ${C.bull} 0%, ${C.caution} ${x(p.heatingPct)}, ${C.burn} ${x(p.thresholdPct)}, ${C.burn} 100%)`;
-  const edge = `linear-gradient(90deg, ${C.bull} 0%, ${C.caution} 30%, ${C.burn} 60%, ${C.burn} 100%)`;
   const tickLine = (v: number, color: string) => <div style={{ position: "absolute", left: x(v), top: 0, width: 2, height: 44, background: color, display: "flex" }} />;
   const tickLabel = (v: number, label: string, color: string) => (
     <div style={{ position: "absolute", left: x(v), top: 0, display: "flex", transform: "translateX(-50%)", ...mono, fontSize: 16, color, letterSpacing: 1, whiteSpace: "nowrap" }}>{label}</div>
@@ -80,9 +79,6 @@ export function FireCard(p: FireCardProps) {
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: C.bg, color: C.ink, fontFamily: "Geist", position: "relative" }}>
-      {/* heat: a faint ember glow behind the headline and a hot edge along the top */}
-      {fire && <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 900, display: "flex", backgroundImage: "radial-gradient(ellipse 70% 45% at 30% 40%, rgba(217,89,38,0.16) 0%, rgba(217,89,38,0) 100%)" }} />}
-      {fire && <div style={{ position: "absolute", left: 0, top: 0, width: 1200, height: 6, display: "flex", backgroundImage: edge }} />}
 
       <div style={{ display: "flex", flexDirection: "column", flex: 1, padding: "0 72px" }}>
         {/* masthead */}
