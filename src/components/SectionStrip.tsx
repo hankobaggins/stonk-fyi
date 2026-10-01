@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { childActive, groupOf } from "@/lib/nav";
+import { NavLabel } from "./Nav";
 
 // 38px strip under the ticker on grouped pages (Platform, Ecosystem): the group label and its sibling pages
 // as chips, so the second nav level never depends on a hover. Absent on / and /about.
@@ -16,7 +17,7 @@ export default function SectionStrip() {
         <span className="label mr-2.5 shrink-0">{g.label}</span>
         {g.menu.map((m) => (
           <Link key={m.href} href={m.href} aria-current={childActive(m.href, path) ? "page" : undefined}>
-            {m.label}
+            <NavLabel m={m} />
           </Link>
         ))}
       </nav>

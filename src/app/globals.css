@@ -231,6 +231,8 @@ span.apr3 { color: var(--series-4); }
 .menu::before { content: ""; position: absolute; left: 0; right: 0; top: -8px; height: 8px; }
 .menu a { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 7px 10px; border-radius: 4px; font-size: 13px; color: var(--text-secondary); }
 .menu a:hover, .menu a[aria-current="page"] { background: var(--surface-1); color: var(--text-primary); }
+/* "New" box beside a nav label (menu, mobile panel, section strip). */
+.nav-badge { display: inline-block; padding: 2px 4px; border: 1px solid color-mix(in oklab, var(--accent) 55%, transparent); border-radius: 3px; background: color-mix(in oklab, var(--accent) 12%, transparent); color: var(--accent); font-size: 9px; font-weight: 600; line-height: 1; letter-spacing: 0.06em; text-transform: uppercase; }
 
 /* KPI row variant: five across on large screens (category tiles on /holders). */
 @media (min-width: 1024px) {

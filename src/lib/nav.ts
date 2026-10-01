@@ -1,7 +1,8 @@
 // Information architecture (redesign 2026-09-13, Rationale §1): four top-level items — the token, the platform it
 // depends on, everything else, and the method. Grouped pages get a section strip under the ticker listing their
 // siblings, so the second level is always visible without a hover. Shared by Nav (client) and SectionStrip.
-export type NavChild = { href: string; label: string };
+// badge: a short tag shown in a small box beside the label (e.g. "New"), so the label itself stays one line.
+export type NavChild = { href: string; label: string; badge?: string };
 export type NavGroup = { label: string; href?: string; menu?: NavChild[] };
 
 export const NAV: NavGroup[] = [
@@ -20,7 +21,7 @@ export const NAV: NavGroup[] = [
       { href: "/pairs", label: "Pairs" },
       { href: "/launches", label: "Launches" },
       { href: "/runners", label: "Runners" },
-      { href: "/rewards", label: "Rewards & wallet check" },
+      { href: "/rewards", label: "Rewards", badge: "New" },
       { href: "/holders", label: "Holders" },
     ],
   },

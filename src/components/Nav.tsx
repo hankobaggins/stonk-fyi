@@ -7,7 +7,17 @@ import LiveRefresh from "./LiveRefresh";
 import BurnRing from "./BurnRing";
 import BuyButton, { PerpsButton } from "./BuyButton";
 import { STONK_MINT_PUBLIC } from "@/lib/jtx";
-import { childActive, groupOf, NAV } from "@/lib/nav";
+import { childActive, groupOf, NAV, type NavChild } from "@/lib/nav";
+
+// Child label plus its optional badge box, kept on one line.
+export function NavLabel({ m }: { m: NavChild }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      {m.label}
+      {m.badge && <span className="nav-badge">{m.badge}</span>}
+    </span>
+  );
+}
 
 // Sticky 52px bar: mark + wordmark, four nav items (two with hover/focus dropdowns), the refresh pill, the one
 // Buy button. Below lg the items move into a panel under the bar (groups as headings, children indented, 44px
@@ -89,7 +99,7 @@ export default function Nav({ mark }: { mark?: ReactNode }) {
                   <div className="menu" role="menu">
                     {g.menu.map((m) => (
                       <Link key={m.href} href={m.href} role="menuitem" aria-current={childActive(m.href, path) ? "page" : undefined} onClick={() => setMenu(null)}>
-                        {m.label}
+                        <NavLabel m={m} />
                       </Link>
                     ))}
                   </div>
@@ -151,7 +161,7 @@ export default function Nav({ mark }: { mark?: ReactNode }) {
                       const cur = childActive(m.href, path);
                       return (
                         <Link key={m.href} href={m.href} aria-current={cur ? "page" : undefined} onClick={() => setOpen(false)} className={`flex items-center justify-between min-h-11 pl-[26px] pr-2.5 rounded-md ${cur ? "bg-surface-2 text-primary" : "text-secondary hover:text-primary hover:bg-surface-2/60"}`}>
-                          {m.label}
+                          <NavLabel m={m} />
                         </Link>
                       );
                     })}
