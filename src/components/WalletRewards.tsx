@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { fmtNum, fmtUsd, shortAddr, timeAgo } from "@/lib/format";
-import { shareText, type WalletView } from "@/lib/wallet-rewards-math";
+import type { WalletView } from "@/lib/wallet-rewards-math";
 
 // The wallet rewards check (§6o), client side: streams the scan from /api/rewards/{wallet}, counts the total up as
 // pages arrive, then shows the two share cards (PNG from /rewards-card/{wallet}) with copy / download / post / share,
@@ -127,7 +127,6 @@ export default function WalletRewards({ wallet, initial }: { wallet: string; ini
   const finished = view?.complete ?? false;
   const v = view?.scannedAt ? Date.parse(view.scannedAt) : 0;
   const cardUrl = (kind: "total" | "breakdown") => `/rewards-card/${wallet}?kind=${kind}${anon ? "&anon=1" : ""}&v=${v}`;
-  const text = view ? shareText(view, usd) : "";
 
   return (
     <div className="space-y-5">
@@ -163,17 +162,16 @@ export default function WalletRewards({ wallet, initial }: { wallet: string; ini
       {paid && !scanning && reason !== "no-db" && (
         <section className="card p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-            <h2 className="text-[13px] font-semibold">Share it</h2>
+            <h2 className="text-[13px] font-semibold">Share image</h2>
             <label className="inline-flex items-center gap-2 text-xs text-secondary cursor-pointer select-none">
               <input type="checkbox" checked={!anon} onChange={(e) => setAnon(!e.target.checked)} className="accent-[var(--accent)]" />
               Show wallet address on the cards
             </label>
           </div>
           <div className="grid lg:grid-cols-2 gap-5">
-            <ShareCard src={cardUrl("total")} name={`stonk-rewards-${wallet.slice(0, 4)}-total.png`} alt="Total rewards card" text={text} />
-            <ShareCard src={cardUrl("breakdown")} name={`stonk-rewards-${wallet.slice(0, 4)}-by-asset.png`} alt="Rewards by asset card" text={text} />
+            <ShareCard src={cardUrl("total")} name={`stonk-rewards-${wallet.slice(0, 4)}-total.png`} alt="Total rewards card" />
+            <ShareCard src={cardUrl("breakdown")} name={`stonk-rewards-${wallet.slice(0, 4)}-by-asset.png`} alt="Rewards by asset card" />
           </div>
-          <p className="text-xs text-muted mt-3">Posts carry the card image and a line of text, no link{anon ? "; the address is hidden on the cards" : ""}. On a computer, Post on X opens the post with the text and copies the image: paste it in.</p>
         </section>
       )}
 
@@ -220,39 +218,13 @@ function StatusLine({ phase, reason, error, view, now, onRescan }: { phase: Phas
   );
 }
 
-// Share row for one card. Posts never carry a link (owner's call 2026-10-01).
-// - "Post / share…" (any device whose browser can share files — phones, and Safari/Chrome on macOS): the share sheet
-//   hands the PNG and the text to X / Telegram / Messages. On phones this is the only share button.
-// - "Post on X" (desktop only: a fine pointer that can hover): copies the PNG to the clipboard at the click (the PNG is
-//   prefetched when the card renders, so the write is instant), then counts down X_DELAY_S seconds in the help line —
-//   so the reader sees "paste it with ⌘V" before X takes focus — and opens a new X post with the text only (X's web
-//   intent cannot attach a file). Chrome and Firefox allow the delayed tab (user activation lasts ~5 s); a browser that
-//   blocks it (Safari) gets an "Open X" link in the help line, and "Open now" / "Cancel" are there during the countdown.
-const X_DELAY_S = 3;
-function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: string; text: string }) {
-  const [note, setNote] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
-  const [canShare, setCanShare] = useState(false);
-  const [desktop, setDesktop] = useState(false);
-  const [paste, setPaste] = useState("Ctrl+V");
-  // The desktop X flow: counting down, opened, or blocked by the browser's pop-up rules.
-  const [xFlow, setXFlow] = useState<{ phase: "count" | "opened" | "blocked"; left: number; copied: boolean } | null>(null);
-  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
+// Two buttons under each card, Blockworks' share-image pattern (owner's call 2026-10-01): Save Image downloads the PNG,
+// Copy Image puts it on the clipboard to paste into a post. The PNG is prefetched when the card renders, so the copy is
+// instant and stays inside the click's user activation.
+type CopyState = "idle" | "copied" | "failed";
+function ShareCard({ src, name, alt }: { src: string; name: string; alt: string }) {
+  const [copied, setCopied] = useState<CopyState>("idle");
   const blob = useRef<Blob | null>(null);
-  useEffect(() => () => {
-    if (tick.current) clearInterval(tick.current);
-  }, []);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      setDesktop(window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? false);
-      if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) setPaste("⌘V");
-      try {
-        setCanShare(typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] }));
-      } catch {
-        setCanShare(false);
-      }
-    }, 0);
-    return () => clearTimeout(t);
-  }, []);
   useEffect(() => {
     blob.current = null;
     let live = true;
@@ -266,96 +238,35 @@ function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: s
       live = false;
     };
   }, [src]);
-  const flash = (t: string, tone: "ok" | "warn" = "ok", ms = 2600) => {
-    setNote({ text: t, tone });
-    setTimeout(() => setNote(null), ms);
-  };
-  const png = (): Blob | Promise<Blob> => blob.current ?? fetch(src).then((r) => r.blob());
-  const copyImage = async (): Promise<boolean> => {
+  const copy = async () => {
+    let ok = false;
     try {
       // A ready Blob when prefetched; the promise form otherwise keeps Safari's user-gesture window open.
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": png() })]);
-      return true;
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob.current ?? fetch(src).then((r) => r.blob()) })]);
+      ok = true;
     } catch {
-      return false;
+      ok = false;
     }
-  };
-  const copy = async () => {
-    flash((await copyImage()) ? "Image copied — paste it into your post" : "This browser can't copy images — use Download", "ok");
-  };
-  const shareSheet = async () => {
-    try {
-      const b = await png();
-      await navigator.share({ files: [new File([b], name, { type: "image/png" })], text });
-    } catch {
-      // dismissed
-    }
-  };
-  const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
-  const stopTick = () => {
-    if (tick.current) clearInterval(tick.current);
-    tick.current = null;
-  };
-  const openX = (copied: boolean) => {
-    stopTick();
-    // No "noopener" in the features: with it window.open always returns null and a blocked tab can't be detected.
-    const w = window.open(intent, "_blank");
-    if (w) {
-      try {
-        w.opener = null;
-      } catch {
-        // cross-origin already
-      }
-      setXFlow({ phase: "opened", left: 0, copied });
-      setTimeout(() => setXFlow((f) => (f?.phase === "opened" ? null : f)), 12_000);
-    } else setXFlow({ phase: "blocked", left: 0, copied });
-  };
-  const postToX = async () => {
-    stopTick();
-    const copied = await copyImage();
-    let left = X_DELAY_S;
-    setXFlow({ phase: "count", left, copied });
-    tick.current = setInterval(() => {
-      left -= 1;
-      if (left <= 0) openX(copied);
-      else setXFlow({ phase: "count", left, copied });
-    }, 1000);
-  };
-  const cancelX = () => {
-    stopTick();
-    setXFlow(null);
+    setCopied(ok ? "copied" : "failed");
+    setTimeout(() => setCopied("idle"), ok ? 2000 : 3500);
   };
   return (
     <figure className="flex flex-col gap-3 min-w-0">
       <CardImage key={src} src={src} alt={alt} />
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={copy} className="btn-check rounded-md h-9 px-3.5 text-[13px] font-medium">Copy image</button>
-        <a href={src} download={name} className="btn-ghost h-9">Download</a>
-        {desktop && <button type="button" onClick={postToX} className="btn-ghost h-9">Post on X</button>}
-        {canShare && <button type="button" onClick={shareSheet} className="btn-ghost h-9">{desktop ? "Share…" : "Post / share…"}</button>}
-        {!desktop && !canShare && <button type="button" onClick={postToX} className="btn-ghost h-9">Post on X</button>}
-        {note && <span className={`num text-xs ${note.tone === "ok" ? "text-up" : "text-caution"}`}>{note.text}</span>}
+      <div className="grid grid-cols-2 gap-3">
+        <a href={src} download={name} className="inline-flex items-center justify-center gap-2 h-11 rounded-md border border-border-strong text-[14px] font-medium text-primary hover:bg-surface-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
+          Save Image
+        </a>
+        <button type="button" onClick={copy} className="btn-check inline-flex items-center justify-center gap-2 h-11 rounded-md text-[14px] font-medium" aria-live="polite">
+          {copied === "copied" ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
+          ) : (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>
+          )}
+          {copied === "copied" ? "Copied" : copied === "failed" ? "Can't copy here: use Save" : "Copy Image"}
+        </button>
       </div>
-      {xFlow && (
-        <div className={`rounded-md border px-3 py-2.5 text-[13px] space-y-1.5 ${xFlow.copied ? "border-up/40" : "border-caution/40"}`} role="status" aria-live="polite">
-          <p className={xFlow.copied ? "text-up" : "text-caution"}>
-            {xFlow.copied ? <>Image copied. In the X post, press <kbd className="num font-semibold">{paste}</kbd> to attach it.</> : <>Couldn&apos;t copy the image in this browser: Download it and attach it to the post.</>}
-          </p>
-          <div className="num text-xs flex flex-wrap items-center gap-x-3 gap-y-1 text-secondary">
-            {xFlow.phase === "count" && (
-              <>
-                <span>Opening X in <span className="text-primary font-semibold">{xFlow.left}</span>…</span>
-                <button type="button" onClick={() => openX(xFlow.copied)} className="underline underline-offset-2 hover:text-primary">Open now</button>
-                <button type="button" onClick={cancelX} className="underline underline-offset-2 text-muted hover:text-primary">Cancel</button>
-              </>
-            )}
-            {xFlow.phase === "blocked" && (
-              <a href={intent} target="_blank" rel="noopener noreferrer" onClick={() => setXFlow({ ...xFlow, phase: "opened" })} className="underline underline-offset-2 text-primary">Your browser held the X tab back: open the X post →</a>
-            )}
-            {xFlow.phase === "opened" && <span>X opened in a new tab.</span>}
-          </div>
-        </div>
-      )}
     </figure>
   );
 }
