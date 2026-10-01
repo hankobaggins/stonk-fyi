@@ -223,17 +223,28 @@ function StatusLine({ phase, reason, error, view, now, onRescan }: { phase: Phas
 // Share row for one card. Posts never carry a link (owner's call 2026-10-01).
 // - "Post / share…" (any device whose browser can share files — phones, and Safari/Chrome on macOS): the share sheet
 //   hands the PNG and the text to X / Telegram / Messages. On phones this is the only share button.
-// - "Post on X" (desktop only: a fine pointer that can hover): opens a new X post with the text only. X's web intent
-//   cannot attach a file, so the PNG also goes to the clipboard and the note says to paste it (⌘V / Ctrl+V). The PNG is
-//   fetched when the card renders so the clipboard write is instant and the tab opens inside the click's activation.
+// - "Post on X" (desktop only: a fine pointer that can hover): copies the PNG to the clipboard at the click (the PNG is
+//   prefetched when the card renders, so the write is instant), then counts down X_DELAY_S seconds in the help line —
+//   so the reader sees "paste it with ⌘V" before X takes focus — and opens a new X post with the text only (X's web
+//   intent cannot attach a file). Chrome and Firefox allow the delayed tab (user activation lasts ~5 s); a browser that
+//   blocks it (Safari) gets an "Open X" link in the help line, and "Open now" / "Cancel" are there during the countdown.
+const X_DELAY_S = 3;
 function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: string; text: string }) {
   const [note, setNote] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
   const [canShare, setCanShare] = useState(false);
   const [desktop, setDesktop] = useState(false);
+  const [paste, setPaste] = useState("Ctrl+V");
+  // The desktop X flow: counting down, opened, or blocked by the browser's pop-up rules.
+  const [xFlow, setXFlow] = useState<{ phase: "count" | "opened" | "blocked"; left: number; copied: boolean } | null>(null);
+  const tick = useRef<ReturnType<typeof setInterval> | null>(null);
   const blob = useRef<Blob | null>(null);
+  useEffect(() => () => {
+    if (tick.current) clearInterval(tick.current);
+  }, []);
   useEffect(() => {
     const t = setTimeout(() => {
       setDesktop(window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? false);
+      if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) setPaste("⌘V");
       try {
         setCanShare(typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] }));
       } catch {
@@ -280,11 +291,39 @@ function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: s
       // dismissed
     }
   };
+  const intent = `https://x.com/intent/post?text=${encodeURIComponent(text)}`;
+  const stopTick = () => {
+    if (tick.current) clearInterval(tick.current);
+    tick.current = null;
+  };
+  const openX = (copied: boolean) => {
+    stopTick();
+    // No "noopener" in the features: with it window.open always returns null and a blocked tab can't be detected.
+    const w = window.open(intent, "_blank");
+    if (w) {
+      try {
+        w.opener = null;
+      } catch {
+        // cross-origin already
+      }
+      setXFlow({ phase: "opened", left: 0, copied });
+      setTimeout(() => setXFlow((f) => (f?.phase === "opened" ? null : f)), 12_000);
+    } else setXFlow({ phase: "blocked", left: 0, copied });
+  };
   const postToX = async () => {
+    stopTick();
     const copied = await copyImage();
-    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
-    if (copied) flash("Image copied: press ⌘V / Ctrl+V in the X post to attach it", "ok", 9000);
-    else flash("Couldn't copy the image in this browser: Download it and attach it to the post", "warn", 9000);
+    let left = X_DELAY_S;
+    setXFlow({ phase: "count", left, copied });
+    tick.current = setInterval(() => {
+      left -= 1;
+      if (left <= 0) openX(copied);
+      else setXFlow({ phase: "count", left, copied });
+    }, 1000);
+  };
+  const cancelX = () => {
+    stopTick();
+    setXFlow(null);
   };
   return (
     <figure className="flex flex-col gap-3 min-w-0">
@@ -297,6 +336,26 @@ function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: s
         {!desktop && !canShare && <button type="button" onClick={postToX} className="btn-ghost h-9">Post on X</button>}
         {note && <span className={`num text-xs ${note.tone === "ok" ? "text-up" : "text-caution"}`}>{note.text}</span>}
       </div>
+      {xFlow && (
+        <div className={`rounded-md border px-3 py-2.5 text-[13px] space-y-1.5 ${xFlow.copied ? "border-up/40" : "border-caution/40"}`} role="status" aria-live="polite">
+          <p className={xFlow.copied ? "text-up" : "text-caution"}>
+            {xFlow.copied ? <>Image copied. In the X post, press <kbd className="num font-semibold">{paste}</kbd> to attach it.</> : <>Couldn&apos;t copy the image in this browser: Download it and attach it to the post.</>}
+          </p>
+          <div className="num text-xs flex flex-wrap items-center gap-x-3 gap-y-1 text-secondary">
+            {xFlow.phase === "count" && (
+              <>
+                <span>Opening X in <span className="text-primary font-semibold">{xFlow.left}</span>…</span>
+                <button type="button" onClick={() => openX(xFlow.copied)} className="underline underline-offset-2 hover:text-primary">Open now</button>
+                <button type="button" onClick={cancelX} className="underline underline-offset-2 text-muted hover:text-primary">Cancel</button>
+              </>
+            )}
+            {xFlow.phase === "blocked" && (
+              <a href={intent} target="_blank" rel="noopener noreferrer" onClick={() => setXFlow({ ...xFlow, phase: "opened" })} className="underline underline-offset-2 text-primary">Your browser held the X tab back: open the X post →</a>
+            )}
+            {xFlow.phase === "opened" && <span>X opened in a new tab.</span>}
+          </div>
+        </div>
+      )}
     </figure>
   );
 }
