@@ -1,16 +1,6 @@
 import type { StonkData } from "@/lib/stonk";
 import { fmtNum, fmtPrice, fmtUsd, nowMs, timeAgo } from "@/lib/format";
-
-// Is the US equity market open right now? SPYx tracks an ETF, so STONK's USD price only has a
-// live reference during these hours (Mon–Fri 09:30–16:00 America/New_York; holidays ignored).
-function usMarketOpen(ts: number): boolean {
-  const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "2-digit", minute: "2-digit", hour12: false }).formatToParts(new Date(ts));
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  const wd = get("weekday");
-  if (wd === "Sat" || wd === "Sun") return false;
-  const mins = Number(get("hour")) * 60 + Number(get("minute"));
-  return mins >= 9 * 60 + 30 && mins < 16 * 60;
-}
+import { usMarketOpen } from "@/lib/quote-math";
 
 // One mono line under the nav on every page: eight segments at most (redesign 2026-09-13, Rationale §6), the
 // last burn merged into one, the market-hours note as an amber chip on the SPYx segment. Server-rendered; never throws.

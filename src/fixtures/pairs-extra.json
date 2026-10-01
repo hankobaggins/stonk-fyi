@@ -1,0 +1,25 @@
+{
+ "_note": "Two real /pairs rows (captured 2026-09-29) added to the fixture pair list, which is otherwise derived from tokens.json, so the cross-issuer price check has pairs to compare offline.",
+ "pairs": [
+  {
+   "mint": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua",
+   "symbol": "KALSHI",
+   "name": "KALSHI",
+   "category": "prestock",
+   "categoryLabel": "PreStock",
+   "logoUrl": "/api/asset/quote-logo/PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua?v=59b2f6c3",
+   "launchable": true,
+   "launchLabReady": true
+  },
+  {
+   "mint": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF",
+   "symbol": "OPENAI",
+   "name": "OPENAI",
+   "category": "prestock",
+   "categoryLabel": "PreStock",
+   "logoUrl": "/api/asset/quote-logo/PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF?v=f6dce61d",
+   "launchable": true,
+   "launchLabReady": true
+  }
+ ]
+}

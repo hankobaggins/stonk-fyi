@@ -5,6 +5,7 @@ import { fmtNum, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { ExplorerLink, KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
 import { CountBarChart, HBarChart } from "@/components/charts";
 import { TradeLink } from "@/components/BuyButton";
+import RewardsLookup from "@/components/RewardsLookup";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Holder rewards" };
@@ -36,6 +37,19 @@ export default async function RewardsPage() {
       >
         <Link href="/tokens?mode=reward&by=apr3" className="num text-xs text-secondary hover:text-primary whitespace-nowrap">APR per coin → Tokens &amp; yield</Link>
       </PageHeader>
+
+      <section id="check" className="card anchor p-5 sm:p-6">
+        <div className="grid lg:grid-cols-[1fr_1.15fr] gap-x-8 gap-y-4 items-center">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight">What has your wallet been paid?</h2>
+            <p className="text-[13px] text-secondary mt-1.5 max-w-[60ch]">
+              Paste a wallet: every StonkFun reward payout it has received, read from the chain, in total and by asset, with a card to share. Rewards are sent to
+              holders automatically; there is nothing to claim.
+            </p>
+          </div>
+          <RewardsLookup big />
+        </div>
+      </section>
 
       <div className="kpis">
         <KpiTile label="Paid out, at today's prices" value={fmtUsd(o.usdNow)} sub={`${(o.usdPricedShare * 100).toFixed(0)}% of payouts priced · Jupiter · 5 min`} />

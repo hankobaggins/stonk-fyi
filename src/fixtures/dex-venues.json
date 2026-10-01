@@ -1,0 +1,12 @@
+{
+ "_note": "api.dexscreener.com/token-pairs/v1/solana/<SPYx>, captured 2026-09-29, summed by dexId (USD liquidity, both sides of each pair).",
+ "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W": {
+  "pairs": 30,
+  "dex": {
+   "raydium": 7941772,
+   "orca": 588996,
+   "meteora": 38580,
+   "pumpfun": 0
+  }
+ }
+}

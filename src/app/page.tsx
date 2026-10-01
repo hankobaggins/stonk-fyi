@@ -49,6 +49,9 @@ export default async function StonkPage() {
             Fee revenue buys STONK and burns it, on-chain.{" "}
             <span className="whitespace-nowrap"><ExplorerLink addr={STONK_MINT} kind="token" label={shortAddr(STONK_MINT, 6)} /></span>
           </p>
+          <Link href="/rewards" className="inline-flex items-center gap-2 mt-3 num text-[13px] text-up hover:text-primary">
+            Hold StonkFun reward coins? See what your wallet has been paid →
+          </Link>
         </div>
         <div className="order-1 md:order-2 flex flex-col items-start md:items-end md:text-right gap-2">
           <div className="num text-[44px] md:text-[54px] leading-none font-medium tracking-tighter">{fmtPrice(m.priceUsd)}</div>

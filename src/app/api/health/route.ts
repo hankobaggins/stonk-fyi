@@ -15,7 +15,9 @@ import { HOLDERSCAN_ADVANCED, holderscanEnabled, lastHolderscanError } from "@/l
 import { getHolderHistory, PROFILE_EVERY_MIN } from "@/lib/stonk-holders";
 import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, getCoinProfiles, TOP_COINS_SHOWN } from "@/lib/coin-profiles";
 import { runnersHealth } from "@/lib/runners";
+import { getJupiterTokens, getPythFeeds, getQuoteBoard, lastQuoteAssetError } from "@/lib/quote-assets";
 import { PAGE_UNITS_PER_H, pageMeter, TOKEN_HOLDERS_TTL_MIN, TOKEN_PROFILE_UNITS } from "@/lib/token-holders";
+import { REWARD_DISTRIBUTORS, REWARDS_CREDITS_PER_H, REWARDS_REFRESH_MIN, rewardsMeter } from "@/lib/wallet-rewards";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -61,6 +63,24 @@ export async function GET() {
     run("stonkfun:/tokens?quoteMint=STONK", async () => `${(await getTokens({ quoteMint: STONK_MINT, pageSize: 1 })).data.pagination.total} quoted`),
     run("stonkfun:/launches", async () => `${(await getLaunches({ pageSize: 1 })).data.pagination.total} launches`),
     run("stonkfun:/pairs", async () => `${(await getPairs()).length} pairs`),
+    run("pyth:feed_list", async () => {
+      const f = await getPythFeeds();
+      if (!f) throw new Error(lastQuoteAssetError() ?? "null");
+      return `${f.us.length} US session feeds · ${f.index.length} always-on · ${f.crypto.length} crypto`;
+    }),
+    run("jupiter:tokens", async () => {
+      const m = await getJupiterTokens([STONK_MINT]);
+      const t = m.get(STONK_MINT);
+      if (!t) throw new Error(lastQuoteAssetError() ?? "STONK missing");
+      return `STONK liquidity $${((t.liquidityUsd ?? 0) / 1e6).toFixed(2)}M · ${t.holders} holders`;
+    }),
+    run("quote_board", async () => {
+      // The /pairs page's own read: stock quote assets, Jupiter coverage, oracle gap.
+      const b = await getQuoteBoard();
+      const priced = b.rows.filter((r) => r.priceUsd != null).length;
+      if (!b.jupOk) throw new Error(`no Jupiter data for ${b.rows.length} stock quote assets (${lastQuoteAssetError() ?? "?"})`);
+      return `${b.rows.length} stock quote assets, ${priced} priced · ${b.gap ? `${b.gap.dark} of ${b.gap.equities} used have no price after the close` : "Pyth list unavailable"} · ${b.groups.length} multi-issuer groups`;
+    }),
     run("raydium:pool", async () => {
       const p = await getPoolInfo(STONK_POOL);
       if (!p) throw new Error("null (blocked or shape changed)");
@@ -192,6 +212,18 @@ export async function GET() {
       const note = `budget ${PAGE_UNITS_PER_H} units/h per instance (${Math.floor(PAGE_UNITS_PER_H / TOKEN_PROFILE_UNITS)} reads of ${TOKEN_PROFILE_UNITS}), ${TOKEN_HOLDERS_TTL_MIN} min shared cache · this instance this hour: ${m.reads} reads, ${m.units} units, ${m.refused} refused over budget, ${m.notListed} mints remembered as not listed${m.lastReadAt ? ` · last read ${m.lastReadAt}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}${m.lastMissing ? ` · last partial read: ${m.lastMissing}` : ""}`;
       if (PAGE_UNITS_PER_H === 0) return `${note} — disabled on the Standard plan (set HOLDERSCAN_PAGE_UNITS_PER_H to enable)`;
       return note;
+    }),
+    run("wallet_rewards", async () => {
+      // §6o: the wallet rewards check. Per-instance meter (this instance, this hour) + the stored scans.
+      if (!process.env.HELIUS_API_KEY) throw new Error("HELIUS_API_KEY unset — /rewards/{wallet} cannot read the chain");
+      const m = rewardsMeter();
+      const head = `distributors ${[...REWARD_DISTRIBUTORS].map((d) => d.slice(0, 4) + "…").join(", ")} · budget ${REWARDS_CREDITS_PER_H} credits/h per instance, refresh ≥${REWARDS_REFRESH_MIN} min · this instance this hour: ${m.scans} scans, ${m.credits} credits, ${m.refused} paused over budget${m.lastScan ? ` · last scan ${m.lastScan}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}`;
+      const db = getDb();
+      if (!db) return `${head} · no DB (scans are not stored; cards need the DB)`;
+      const { data, count, error } = await db.from("wallet_rewards").select("wallet, scanned_at, payouts, error", { count: "exact" }).order("scanned_at", { ascending: false, nullsFirst: false }).limit(1);
+      if (error) throw new Error(`wallet_rewards unreadable (migration 0022 applied?): ${error.message}`);
+      const last = data?.[0];
+      return `${head} · ${count ?? 0} wallets stored${last ? ` · newest ${last.wallet.slice(0, 4)}… ${last.scanned_at ?? "unscanned"}, ${last.payouts} payouts${last.error ? `, error: ${last.error}` : ""}` : ""}`;
     }),
     run("coin_profiles", async () => {
       // §6j: HolderScan profiles of the top coins by market cap — the /holders table's own read.

@@ -1,0 +1,47 @@
+{
+ "_note": "Subset of hermes.pyth.network/v2/price_feeds?asset_type=equity|crypto, captured 2026-09-29: every Equity.Index (24/7) ticker, and the Equity.US / Crypto tickers matching the fixture's quote assets. Tickers only.",
+ "us": [
+  "AAPL",
+  "MCD",
+  "SPY",
+  "BOT"
+ ],
+ "index": [
+  "TSLA",
+  "CRCL",
+  "MSTR",
+  "NVDA",
+  "HOOD",
+  "COIN",
+  "AAPL",
+  "AMZN",
+  "PLTR",
+  "GOOGL",
+  "ORCL",
+  "MSFT",
+  "INTC",
+  "META",
+  "MU",
+  "SNDK",
+  "EWY",
+  "US500",
+  "US100",
+  "US30",
+  "SPCX",
+  "ANTHROPIC",
+  "OPENAI",
+  "SOXL",
+  "SOXS",
+  "NBIS",
+  "SKHY",
+  "SAMSUNG"
+ ],
+ "crypto": [
+  "XRP",
+  "TAO",
+  "RAY",
+  "ZEC",
+  "HYPE",
+  "BP"
+ ]
+}

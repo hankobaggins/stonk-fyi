@@ -1,0 +1,516 @@
+{
+"_note": "Normalized subset of lite-api.jup.ag/tokens/v2/search, captured live 2026-09-29 ~19:15 UTC (quote assets in full; launched coins liquidity + holders only). Not the raw response.",
+"tokens": [
+{
+"mint": "A7bdiYdS5GjqGFtxf17ppRHtDKPkkRqbKtR27dxvQXaS",
+"symbol": "ZEC",
+"name": "Zcash",
+"priceUsd": 1421.6,
+"liquidityUsd": 4339520,
+"holders": 113770,
+"mcapUsd": 142399000,
+"volume24hUsd": 45719400,
+"priceChange24h": -4.56132,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": false
+},
+{
+"mint": "98sMhvDwXj1RQi5c5Mndm3vPe9cBqPrbLaufMXFNMh5g",
+"symbol": "HYPE",
+"name": "HYPE",
+"priceUsd": 86.4578,
+"liquidityUsd": 2776350,
+"holders": 53871,
+"mcapUsd": 62718100,
+"volume24hUsd": 17071200,
+"priceChange24h": -1.92209,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": false
+},
+{
+"mint": "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W",
+"symbol": "SPYx",
+"name": "SP500 xStock",
+"priceUsd": 764.811,
+"liquidityUsd": 5011000,
+"holders": 77218,
+"mcapUsd": 73249900,
+"volume24hUsd": 10982500,
+"priceChange24h": -0.165807,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "Pren1FvFX6J3E4kXhJuCiAD5aDmGEb7qJRncwA8Lkhw",
+"symbol": "ANTHROPIC",
+"name": "Anthropic PreStocks",
+"priceUsd": 1123.09,
+"liquidityUsd": 1064170,
+"holders": 39495,
+"mcapUsd": 8290290,
+"volume24hUsd": 4196700,
+"priceChange24h": 2.52928,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "taoC6xyv2v8tDLcev4uaGUgV4vdQsWJrGft2kcBRrBY",
+"symbol": "TAO",
+"name": "Bittensor",
+"priceUsd": 310.666,
+"liquidityUsd": 554532,
+"holders": 11516,
+"mcapUsd": 3144360,
+"volume24hUsd": 734799,
+"priceChange24h": 2.67377,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": false
+},
+{
+"mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+"symbol": "USELESS",
+"name": "USELESS COIN",
+"priceUsd": 0.246174,
+"liquidityUsd": 3917450,
+"holders": 64358,
+"mcapUsd": 245947000,
+"volume24hUsd": 15085000,
+"priceChange24h": 1.5818,
+"verified": true,
+"mintAuthority": false,
+"freezeAuthority": false
+},
+{
+"mint": "3NZ9JMVBmGAqocybic2c7LQCJScmgsAZ6vQqTDzcqmJh",
+"symbol": "WBTC",
+"name": "Wrapped BTC (Portal)",
+"priceUsd": 83590.3,
+"liquidityUsd": 38722600,
+"holders": 136139,
+"mcapUsd": 205488000,
+"volume24hUsd": 11583900,
+"priceChange24h": 0.00310325,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": false
+},
+{
+"mint": "6UpQcMAb5xMzxc7ZfPaVMgx3KqsvKZdT5U718BzD5We2",
+"symbol": "wXRP",
+"name": "Wrapped XRP",
+"priceUsd": 1.53218,
+"liquidityUsd": 1007250,
+"holders": 16528,
+"mcapUsd": 1890950,
+"volume24hUsd": 390198,
+"priceChange24h": 1.23416,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R",
+"symbol": "RAY",
+"name": "Raydium",
+"priceUsd": 1.90313,
+"liquidityUsd": 18589900,
+"holders": 265814,
+"mcapUsd": 513587000,
+"volume24hUsd": 12635600,
+"priceChange24h": -0.351591,
+"verified": true,
+"mintAuthority": false,
+"freezeAuthority": false
+},
+{
+"mint": "XsfCC9VL4DamVGNgdJpfLXB3sBVa158Gbx8sh7NzmTk",
+"symbol": "VIDAx",
+"name": "Vida Global xStock",
+"priceUsd": 1.63991,
+"liquidityUsd": 20500.7,
+"holders": 4700,
+"mcapUsd": 7103380,
+"volume24hUsd": 215649,
+"priceChange24h": -1.55775,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "XsqE9cRRpzxcGKDXj1BJ7Xmg4GRhZoyY1KpmGSxAWT2",
+"symbol": "MCDx",
+"name": "McDonald's xStock",
+"priceUsd": 234.457,
+"liquidityUsd": 356574,
+"holders": 21820,
+"mcapUsd": 13081800,
+"volume24hUsd": 1168730,
+"priceChange24h": 0.303656,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "BoTx8y9ynfdxf5ZjWtCoBVkff52qKA82ysaLU8ZM6d8T",
+"symbol": "BOT",
+"name": "RoboStrategy - Backpack Securities",
+"priceUsd": 26.7184,
+"liquidityUsd": 138785,
+"holders": 6625,
+"mcapUsd": 1713550,
+"volume24hUsd": 927800,
+"priceChange24h": -2.28426,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "XsbEhLAtcf6HdfpFZ5xEMdqW8nfAvcsP5bdudRLJzJp",
+"symbol": "AAPLx",
+"name": "Apple xStock",
+"priceUsd": 332.047,
+"liquidityUsd": 499795,
+"holders": 35140,
+"mcapUsd": 51223400,
+"volume24hUsd": 473761,
+"priceChange24h": -2.00966,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "CARDSccUMFKoPRZxt5vt3ksUbxEFEcnZ3H2pd3dKxYjp",
+"symbol": "CARDS",
+"name": "Collector Crypt",
+"priceUsd": 0.229273,
+"liquidityUsd": 3288970,
+"holders": 37256,
+"mcapUsd": 206396000,
+"volume24hUsd": 27270000,
+"priceChange24h": 27.4733,
+"verified": true,
+"mintAuthority": false,
+"freezeAuthority": false
+},
+{
+"mint": "oPAiAikWTaFj9RYoRFD35ccfwhnMcB3ThgBZRHSkjTZ",
+"symbol": "tOpenAI",
+"name": "T-OpenAI",
+"priceUsd": 2158.12,
+"liquidityUsd": 1140920,
+"holders": 19068,
+"mcapUsd": 1477440,
+"volume24hUsd": 24983200,
+"priceChange24h": 72.6612,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+"symbol": "STONK",
+"name": "STONK",
+"priceUsd": 0.262983,
+"liquidityUsd": 6293640,
+"holders": 95546,
+"mcapUsd": 213536000,
+"volume24hUsd": 28746100,
+"priceChange24h": 2.67737,
+"verified": true,
+"mintAuthority": false,
+"freezeAuthority": false
+},
+{
+"mint": "Pre8AREmFPtoJFT8mQSXQLh56cwJmM7CFDRuoGBZiUP",
+"symbol": "POLYMARKET",
+"name": "Polymarket PreStocks",
+"priceUsd": 146.733,
+"liquidityUsd": 166817,
+"holders": 9812,
+"mcapUsd": 706763,
+"volume24hUsd": 33154.3,
+"priceChange24h": 0.886712,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy",
+"symbol": "BP",
+"name": "Backpack",
+"priceUsd": 1.22714,
+"liquidityUsd": 4525480,
+"holders": 25257,
+"mcapUsd": 306784000,
+"volume24hUsd": 12031600,
+"priceChange24h": -2.87611,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "TKLSidmLVt3cqGaaodG8tyRzoANfQwoh67AccjmubeZ",
+"symbol": "tKalshi",
+"name": "T-Kalshi",
+"priceUsd": 453.366,
+"liquidityUsd": 236599,
+"holders": 3109,
+"mcapUsd": 706290,
+"volume24hUsd": 958281,
+"priceChange24h": 1.38589,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+"symbol": "USDC",
+"name": "USD Coin",
+"priceUsd": 0.999872,
+"liquidityUsd": 472098000,
+"holders": 5248202,
+"mcapUsd": 7974600000,
+"volume24hUsd": 1857790000,
+"priceChange24h": 0.000582046,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "PreLWGkkeqG1s4HEfFZSy9moCrJ7btsHuUtfcCeoRua",
+"symbol": "KALSHI",
+"name": "Kalshi PreStocks",
+"priceUsd": 882.042,
+"liquidityUsd": 74964.5,
+"holders": 4689,
+"mcapUsd": 798125,
+"volume24hUsd": 9047.95,
+"priceChange24h": 0.652816,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "PreweJYECqtQwBtpxHL171nL2K6umo692gTm7Q3rpgF",
+"symbol": "OPENAI",
+"name": "OpenAI PreStocks",
+"priceUsd": 1431.46,
+"liquidityUsd": 866405,
+"holders": 33187,
+"mcapUsd": 4045640,
+"volume24hUsd": 3188730,
+"priceChange24h": 2.24355,
+"verified": true,
+"mintAuthority": true,
+"freezeAuthority": true
+},
+{
+"mint": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+"symbol": "ZCAT",
+"name": "Anonymous Cat",
+"liquidityUsd": 619581,
+"holders": 28657
+},
+{
+"mint": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
+"symbol": "PURR",
+"name": "Hypurr",
+"liquidityUsd": 137083,
+"holders": 14198
+},
+{
+"mint": "CaWZeUM4FvX9dPkjGc2xHS6tSN3qJfTWyvaG77aM5o7h",
+"symbol": "AGI",
+"name": "artificial gooner intelligence",
+"liquidityUsd": 9397,
+"holders": 4062
+},
+{
+"mint": "2pouN3by7twkiZGy5aEKYUpf78ALDpKRTNu2WsQkpkqt",
+"symbol": "BUTT",
+"name": "Buttensor",
+"liquidityUsd": 57993,
+"holders": 2934
+},
+{
+"mint": "GWTP6M5bxhaJ1k2Kxvf8hhYaHE6jZMhh4cKzFuCpnc83",
+"symbol": "USEFUL",
+"name": "USEFUL COIN",
+"liquidityUsd": 2109,
+"holders": 3011
+},
+{
+"mint": "E4Ap4icMLwKot8rkkTbq5JkS5kZxt5XCE3yfxbzYBjHx",
+"symbol": "BTC",
+"name": "Buy The Cat",
+"liquidityUsd": 112706,
+"holders": 5920
+},
+{
+"mint": "HHig4peAgZqdAV17XuuAdojYSYLhsctjTEvT2kq9FkNA",
+"symbol": "UBER",
+"name": "Uber Driver",
+"liquidityUsd": 18150,
+"holders": 1905
+},
+{
+"mint": "CFNRDaxFcvRwRSNnA5cHrCCr6AHhk9dNkHWpRUjNupFL",
+"symbol": "RAYCAT",
+"name": "Raydium Cat",
+"liquidityUsd": 19771,
+"holders": 7882
+},
+{
+"mint": "8K5X85PAJHAAVSvYaAzgVPPAPsqqHmvx16ZyBiscYF8L",
+"symbol": "CTO",
+"name": "Vida Global CTO",
+"liquidityUsd": 5260,
+"holders": 6641
+},
+{
+"mint": "7hGgx1VtNTj193fFXXuMEkp1MRV6JbWYgMBhHRYxaxu2",
+"symbol": "FRIES",
+"name": "Fries",
+"liquidityUsd": 47525,
+"holders": 4970
+},
+{
+"mint": "EbT2jpoeRJVFNWAFJE97EGfQF3iwHsEY8sh17fGbL5ER",
+"symbol": "ZDOG",
+"name": "Anonymous Dog",
+"liquidityUsd": 157,
+"holders": 1413
+},
+{
+"mint": "7LA4wwjoXU4hAdwX1eT5ouuSsMrHq9wHQBfAyPfJK1eQ",
+"symbol": "CLANKER",
+"name": "Clanker",
+"liquidityUsd": 10186,
+"holders": 1338
+},
+{
+"mint": "8xH8ikqGXNTSYmmUVakCE2tVwU7aYJwz2JZkqAjW88sG",
+"symbol": "TREE",
+"name": "Tree",
+"liquidityUsd": 22143,
+"holders": 2172
+},
+{
+"mint": "B5ANwoWkptDv1QszdPHXjCF2gTWdo27FGLffdfXzzoe6",
+"symbol": "POKEMON",
+"name": "POK\u00c9MON CARDS",
+"liquidityUsd": 39919,
+"holders": 1304
+},
+{
+"mint": "GhuEi5AWtZaWuAda4ysJwMTzU8oMdjiL1bz6eziptT2p",
+"symbol": "FROGE",
+"name": "Froge",
+"liquidityUsd": 573,
+"holders": 2333
+},
+{
+"mint": "752meQjs65b2c9wu49kd35tT9Y5AHMQ8haPLcyyd8XrT",
+"symbol": "zolana",
+"name": "zolana",
+"liquidityUsd": 4111,
+"holders": 417
+},
+{
+"mint": "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS",
+"symbol": "KNOTS",
+"name": "KNOTS",
+"liquidityUsd": 445456,
+"holders": 15835
+},
+{
+"mint": "AWJ54kUTVtGAfGVw3Wup58NBsFA4dGToZCKSZLrJAwH7",
+"symbol": "INSIDOOR",
+"name": "insidoor",
+"liquidityUsd": 242,
+"holders": 880
+},
+{
+"mint": "DHLqUh8wJjJCnfdZpjFkeKhdic9nTpMxzD1Vkx8DG17U",
+"symbol": "SWIFT",
+"name": "Settlement Layer",
+"liquidityUsd": 4592,
+"holders": 481
+},
+{
+"mint": "9MawPz1a7kZdTahid7TP19icddSYkPLngtKQoBynHjWq",
+"symbol": "WAO",
+"name": "Brick",
+"liquidityUsd": 8257,
+"holders": 342
+},
+{
+"mint": "7ssJZGFT3twGqeYA1kvpoMWwZYvMZvrMEbjRaWgg46BL",
+"symbol": "BUTTHOLE",
+"name": "BUTTHOLE",
+"liquidityUsd": 58048,
+"holders": 6199
+},
+{
+"mint": "9GyRGm8GGmRZyyQ2hEnazDvCSV8mXiMAHmjKwVHMvVpo",
+"symbol": "YES",
+"name": "Will This Coin Go Up?",
+"liquidityUsd": 312,
+"holders": 699
+},
+{
+"mint": "Ga5ErptAQ5oHwB7G195UEq9FeJ5UNDoV9SCRCpebFeG7",
+"symbol": "REDACTED",
+"name": "\u2588\u2588\u2588\u2588\u2588\u2588\u2588\u2588",
+"liquidityUsd": 320,
+"holders": 1628
+},
+{
+"mint": "4ytoC4JhuZsqyLC9jTYGxLvwGu4vELA9w4xWc4qRgHik",
+"symbol": "BAG",
+"name": "Paper Bag Cult",
+"liquidityUsd": 4496,
+"holders": 267
+},
+{
+"mint": "C5nG72gUFJz6wewcgTPjcBmpSq4BwFLHy5j8heo9d7rZ",
+"symbol": "USDC",
+"name": "Upside Down Cat",
+"liquidityUsd": 14062,
+"holders": 544
+},
+{
+"mint": "EXinYuNbxamDtbpkqR6RQJ9XWgUb5y2rCBMkAWxEazYt",
+"symbol": "SNP500",
+"name": "Sock and pussy 500",
+"liquidityUsd": 6084,
+"holders": 316
+},
+{
+"mint": "EdsFuTw5W18iLpXdrbBS336iacLVd3fCEoDfoutFMbG7",
+"symbol": "AICOIN",
+"name": "AICOIN",
+"liquidityUsd": 123,
+"holders": 398
+},
+{
+"mint": "DC6HP2A7SUy49WeazfeWgbwxVpzKdEPuB46mtb7XBzWx",
+"symbol": "STONKS",
+"name": "STONKS",
+"liquidityUsd": 585,
+"holders": 592
+},
+{
+"mint": "2vjkizBL53JaATBq5naBNDpewMTJYDu5Thj2HrTeyrwt",
+"symbol": "BITCAT",
+"name": "First Cat In Crypto",
+"liquidityUsd": 1757,
+"holders": 387
+}
+]
+}

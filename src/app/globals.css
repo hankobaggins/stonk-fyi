@@ -168,6 +168,12 @@ table.data th button { font: inherit; color: inherit; letter-spacing: inherit; t
 .btn-perps:hover { background: color-mix(in oklab, var(--accent) 14%, transparent); }
 .btn-perps:active { transform: translateY(1px); }
 .btn-perps:focus-visible { outline: 2px solid var(--text-primary); outline-offset: 2px; }
+/* Wallet rewards check (§6o): ink-filled, so the accent fill stays unique to .btn-buy. */
+.btn-check { background: var(--text-primary); color: var(--bg); border: 1px solid transparent; transition: background 120ms ease, transform 120ms ease; }
+.btn-check:hover { background: color-mix(in oklab, var(--text-primary) 86%, var(--bg)); }
+.btn-check:active { transform: translateY(1px); }
+.btn-check:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-check:disabled { opacity: .5; cursor: default; }
 
 .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); animation: pulse-dot 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
