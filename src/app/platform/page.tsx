@@ -5,10 +5,11 @@ import { KpiTile, PageHeader, Section } from "@/components/ui";
 import { CountBarChart, CumulativeChart, RevenueChart, ShareBar } from "@/components/charts";
 import { getLaunchVelocity, getRevenuePace } from "@/lib/db";
 import TokenTable from "@/components/TokenTable";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
 
-export const metadata = { title: "Platform" };
+export const metadata = pageMetadata("platform", "Platform");
 
 export default async function PlatformPage() {
   const now = nowMs();

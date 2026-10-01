@@ -7,9 +7,10 @@ import { PageHeader, Section } from "@/components/ui";
 import TokenTable, { DEFAULT_DIR, SORT_KEYS, sortTokens, type SortKey } from "@/components/TokenTable";
 import ColumnsSwitch from "@/components/ColumnsSwitch";
 import MethodStrip from "@/components/MethodStrip";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tokens & yield" };
+export const metadata = pageMetadata("tokens", "Tokens & yield");
 
 const PAGE_SIZE = 50;
 // StonkFun sorts only by these three, 100 a page. The page loads a pool of the first POOL tokens in that

@@ -13,9 +13,10 @@ import { COIN_CENSUS_EVERY_H, getWalletCensus, WALLET_CENSUS_EVERY_H } from "@/l
 import { Empty, PageHeader, Section } from "@/components/ui";
 import Populations, { Swatch } from "@/components/Populations";
 import MethodStrip from "@/components/MethodStrip";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Holders across the StonkFun ecosystem" };
+export const metadata = pageMetadata("holders", "Holders across the StonkFun ecosystem");
 
 const hhmm = (iso: string) => iso.slice(11, 16) + " UTC";
 const dmy = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" });

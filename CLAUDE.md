@@ -81,6 +81,15 @@ src/app/                    routes
   og/route.tsx              social card (next/og; carries the live tally bar). A route, not the opengraph-image file convention: that
                             convention hashes the URL per build and scrapers cache by URL, so shares showed a stale price. layout.tsx
                             `generateMetadata` points og:image/twitter:image at `/og?v=<5-min bucket>` (`ogImageUrl` in site.ts)
+  og/[page]/route.tsx       static 1200×630 title cards for the static pages (platform, flywheel, tokens, pairs, launches, runners,
+                            rewards, holders, about; added 2026-10-01). No live figures by the owner's choice, so they prerender at build
+                            (`force-static`, `generateStaticParams`, unknown keys 404) and need no version param. Card is the pure
+                            `lib/page-card.tsx` (shared frame + a schematic motif per page, shapes only); the page list, card copy and
+                            `pageMetadata(key, title)` live in `lib/page-meta.ts`. Each of those pages exports `metadata = pageMetadata(...)`,
+                            which sets its own description, canonical and full openGraph/twitter blocks — Next replaces, not merges, a
+                            child's openGraph, and before this every page inherited the home card, home's og text and a canonical of "/".
+                            A new static page gets a PAGE_SPECS entry + a motif, or it shows the home card. Satori widens a plain space
+                            before "&"; the card swaps in a no-break space. Offline render: `Claude outputs/og-pages/render-page-cards-sample.tsx`
   icon.svg (burn ring favicon), robots.ts, sitemap.ts
   error.tsx                 error boundary
 src/lib/

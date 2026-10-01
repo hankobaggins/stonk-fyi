@@ -6,9 +6,10 @@ import { HBarChart, ShareBar } from "@/components/charts";
 import { getQuoteBoard, type QuoteAssetRow } from "@/lib/quote-assets";
 import { darkAfterClose, ORACLE_LABEL, usMarketOpen, type OracleState } from "@/lib/quote-math";
 import IssuerGroupTable from "@/components/IssuerGroupTable";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Pairs" };
+export const metadata = pageMetadata("pairs", "Pairs");
 
 type Agg = { key: string; label: string; category?: string; tokens: number; volume: number; mcap: number; graduated: number; topSymbol?: string; topMint?: string; topMcap: number };
 

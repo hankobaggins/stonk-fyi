@@ -4,9 +4,10 @@ import { fmtNum, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { ExplorerLink, KpiTile, ModePill, PageHeader, Section, TokenLink } from "@/components/ui";
 import { CountBarChart, ShareBar } from "@/components/charts";
 import { TradeLink } from "@/components/BuyButton";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Launches" };
+export const metadata = pageMetadata("launches", "Launches");
 
 export default async function LaunchesPage() {
   const now = nowMs();

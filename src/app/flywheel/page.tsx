@@ -4,9 +4,10 @@ import { cumulative, fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
 import { CountBarChart, CumulativeChart, HBarChart } from "@/components/charts";
 import BuybackFeed from "@/components/BuybackFeed";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Flywheel" };
+export const metadata = pageMetadata("flywheel", "Flywheel");
 
 export default async function FlywheelPage() {
   const now = nowMs();

@@ -5,9 +5,10 @@ import { fmtDate, fmtNum, fmtUsd, nowMs, timeAgo } from "@/lib/format";
 import { Empty, KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
 import { TradeLink } from "@/components/BuyButton";
 import MethodStrip from "@/components/MethodStrip";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Runners", description: "StonkFun tokens crossing $1M, $5M, $10M, $25M, $50M and $100M market cap, counted once each, from the moment they cross." };
+export const metadata = pageMetadata("runners", "Runners");
 
 // How tight the crossing time is: the crossing lies between this site's previous reading of the token and
 // the reading that saw the new peak.

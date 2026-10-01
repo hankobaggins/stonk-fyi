@@ -6,9 +6,10 @@ import { ExplorerLink, KpiTile, PageHeader, Section, TokenLink } from "@/compone
 import { CountBarChart, HBarChart } from "@/components/charts";
 import { TradeLink } from "@/components/BuyButton";
 import RewardsLookup from "@/components/RewardsLookup";
+import { pageMetadata } from "@/lib/page-meta";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Holder rewards" };
+export const metadata = pageMetadata("rewards", "Holder rewards");
 
 export default async function RewardsPage() {
   const now = nowMs();

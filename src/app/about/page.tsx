@@ -1,16 +1,12 @@
-import type { Metadata } from "next";
 import { Fragment } from "react";
 import Link from "next/link";
 import { STONK_MINT } from "@/lib/api";
 import { STONK_LAUNCHED_AT, STONK_POOL } from "@/lib/stonk";
 import { ExplorerLink, PageHeader, Section } from "@/components/ui";
 import { SITE_NAME } from "@/lib/site";
+import { pageMetadata } from "@/lib/page-meta";
 
-export const metadata: Metadata = {
-  title: "Methodology & data sources",
-  description: "How stonk.fyi computes every number: data sources, the bull-case scorecard thresholds, the projection model, and what the site does not know.",
-  alternates: { canonical: "/about" },
-};
+export const metadata = pageMetadata("about", "Methodology & data sources");
 
 const INDICATORS: { group: string; rows: [string, string, string][] }[] = [
   {
