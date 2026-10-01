@@ -62,16 +62,14 @@ export function CoinCard(p: CoinCardData) {
   const lead = p.coins[0];
   const group = p.coins.length > 1;
   const names = group ? `${lead.symbol} + ${p.coins.length - 1} more` : lead.symbol;
-  const coinPaid = p.coins.reduce((s, c) => s + (c.paidUsd ?? 0), 0);
-  const coinHolders = p.coins.reduce((s, c) => s + (c.holders ?? 0), 0);
   const hero = p.usd !== null ? fmtUsd(p.usd) : `${fmtAmt(p.amount)}`;
   const heroSize = hero.length <= 5 ? 260 : hero.length <= 6 ? 236 : hero.length <= 7 ? 204 : hero.length <= 8 ? 180 : 150;
   const perDay = p.last7dUsd !== null && p.last7dUsd > 0 ? p.last7dUsd / 7 : null;
   const stat = (label: string, value: string, sub: string, left = false) => (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: 1, ...(left ? { paddingLeft: 28, borderLeft: `1px solid ${C.line}` } : {}) }}>
-      <div style={{ ...mono, display: "flex", fontSize: 18, letterSpacing: 2, color: C.ink3, whiteSpace: "nowrap" }}>{label}</div>
-      <div style={{ ...mono, display: "flex", fontSize: 58, fontWeight: 500, letterSpacing: -2, lineHeight: 1, whiteSpace: "nowrap" }}>{value}</div>
-      <div style={{ ...mono, display: "flex", fontSize: 19, color: C.ink2, whiteSpace: "nowrap" }}>{sub}</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1, ...(left ? { paddingLeft: 40, borderLeft: `1px solid ${C.line}` } : {}) }}>
+      <div style={{ ...mono, display: "flex", fontSize: 22, letterSpacing: 2.5, color: C.ink3, whiteSpace: "nowrap" }}>{label}</div>
+      <div style={{ ...mono, display: "flex", fontSize: 84, fontWeight: 500, letterSpacing: -3, lineHeight: 1, whiteSpace: "nowrap" }}>{value}</div>
+      <div style={{ ...mono, display: "flex", fontSize: 24, color: C.ink2, whiteSpace: "nowrap" }}>{sub}</div>
     </div>
   );
 
@@ -129,10 +127,9 @@ export function CoinCard(p: CoinCardData) {
       </div>
 
       {/* stats */}
-      <div style={{ display: "flex", gap: 28, padding: "30px 0", borderTop: `1px solid ${C.line}` }}>
-        {stat("PAYOUTS", p.payouts.toLocaleString("en-US"), `in ${p.reward.symbol}`)}
+      <div style={{ display: "flex", gap: 40, padding: "28px 0", borderTop: `1px solid ${C.line}` }}>
+        {stat("PAYOUTS", p.payouts.toLocaleString("en-US"), `transfers in ${p.reward.symbol}`)}
         {stat("FIRST PAID", p.firstAt ? day(p.firstAt) : "—", p.firstAt ? `${Math.max(1, Math.round((Date.parse(p.at) - Date.parse(p.firstAt)) / 86_400_000))} days ago` : " ", true)}
-        {stat(group ? "COINS PAID HOLDERS" : lead.symbol.length <= 8 ? `${lead.symbol} PAID HOLDERS` : "COIN PAID HOLDERS", coinPaid > 0 ? fmtUsd(coinPaid) : "—", coinHolders > 0 ? `across ${coinHolders.toLocaleString("en-US")} holders` : "lifetime", true)}
       </div>
 
       {/* footer */}
