@@ -78,6 +78,8 @@ export type TxPage = { txs: RawTx[]; paginationToken: string | null; credits: nu
 // (10 minimum). `slotGt` resumes after the last slot already read; `withAddress` narrows to token transfers with one
 // counterparty (off by default — its matching rules are not documented precisely enough to trust for a "0 payouts"
 // answer, and native SOL transfers would not match it).
+// maxSupportedTransactionVersion 1 (2026-10-01): wallets that have sent a version-1 transaction made the call fail with
+// -32015 at 0; the v1 JSON keeps accountKeys / header / pre- and postTokenBalances, which is all payoutsIn reads.
 export async function getTransactionsForAddress(address: string, opts: { paginationToken?: string | null; slotGt?: number | null; limit?: number; withAddress?: string | null } = {}): Promise<TxPage> {
   const limit = opts.limit ?? 1000;
   const filters: Record<string, unknown> = { status: "succeeded", tokenAccounts: "balanceChanged" };
@@ -85,7 +87,7 @@ export async function getTransactionsForAddress(address: string, opts: { paginat
   if (opts.withAddress) filters.tokenTransfer = { with: opts.withAddress, direction: "in" };
   const result = await rpc<unknown>(
     "getTransactionsForAddress",
-    [address, { transactionDetails: "full", encoding: "json", maxSupportedTransactionVersion: 0, sortOrder: "asc", limit, filters, ...(opts.paginationToken ? { paginationToken: opts.paginationToken } : {}) }],
+    [address, { transactionDetails: "full", encoding: "json", maxSupportedTransactionVersion: 1, sortOrder: "asc", limit, filters, ...(opts.paginationToken ? { paginationToken: opts.paginationToken } : {}) }],
     60_000,
   );
   const r = result as { data?: RawTx[]; transactions?: RawTx[]; paginationToken?: string | null } | RawTx[];
