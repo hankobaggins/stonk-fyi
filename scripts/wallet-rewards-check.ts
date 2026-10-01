@@ -88,6 +88,11 @@ assert(v.assets[0].symbol === "GOLD" && v.assets[0].from[0] === "GILD" && v.asse
 assert(v.series.length === 7 && Math.abs(v.series[v.series.length - 1].usd - v.totalUsd) < 1e-9, "cumulative daily series ends at the total");
 assert(v.last7dUsd !== null && Math.abs(v.last7dUsd - v.totalUsd) < 1e-9, "last 7 days covers Sep 25 – Oct 1");
 assert(buildView(agg, { [GOLD]: 4000 }, {}, "2026-10-01T17:00:00Z").pricedShare < 1, "unpriced asset → priced share < 1");
+assert(v.groups.length === 1 && v.groups[0].asset === GOLD && v.groups[0].coins[0].symbol === "GILD" && Math.abs((v.groups[0].usd ?? 0) - 0.00171 * 4000) < 1e-9, "coin cards: one per received asset a held coin pays in (SOL has no held coin → no card)");
+agg.coins.push({ mint: "COIN2", quote: GOLD, symbol: "AUREUS" });
+const vg = buildView(agg, { [GOLD]: 4000, [SOL]: 150 }, {}, "2026-10-01T17:00:00Z");
+assert(vg.groups.length === 1 && vg.groups[0].coins.length === 2, "two held coins paying in the same asset → one grouped card, never a split");
+assert(vg.groups[0].last7dUsd !== null && Math.abs(vg.groups[0].last7dUsd - 0.00171 * 4000) < 1e-9, "coin card: last 7 days in that asset");
 assert(distKey([HUBME, OPS]) === distKey([OPS, HUBME]) && distKey([HUBME]) !== distKey([HUBME, OPS]), "distKey: order-free, changes with the set");
 assert(isWalletAddress(W) && !isWalletAddress("0OIl") && !isWalletAddress(W + "x".repeat(5)), "address validation");
 console.log("all wallet rewards checks passed");

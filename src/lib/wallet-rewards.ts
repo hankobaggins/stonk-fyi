@@ -1,5 +1,7 @@
 import "server-only";
-import { getPairs, getRewards, getToken, STONK_MINT, USE_FIXTURES } from "./api";
+import { getPairs, getRewards, getToken, resolveImage, STONK_MINT, USE_FIXTURES } from "./api";
+import { logoDataUri } from "./logo";
+import type { CoinCardData } from "./coin-card";
 import { getDb } from "./db";
 import { getOwnerMints, getTransaction, getTransactionsForAddress } from "./helius";
 import { getJupiterTokens } from "./quote-assets";
@@ -103,7 +105,7 @@ export async function loadWalletAgg(wallet: string): Promise<WalletAgg | null> {
 }
 
 // ---- Reference data: reward coins, symbols, prices ----
-type CoinRef = { quote: string; quoteSymbol: string; lastPayoutAt: string };
+type CoinRef = { quote: string; quoteSymbol: string; lastPayoutAt: string; holders: number; distributed: number };
 const gi = globalThis as typeof globalThis & { __rewardIndex?: { at: number; map: Map<string, CoinRef> } };
 // Reward coin mint → its quote asset, from StonkFun's /rewards ledger (45K launches, ~10 MB: over Next's 2 MB data-cache
 // limit, so it is kept per instance for 15 min instead).
@@ -111,7 +113,7 @@ async function rewardIndex(): Promise<Map<string, CoinRef>> {
   if (gi.__rewardIndex && Date.now() - gi.__rewardIndex.at < 15 * 60_000) return gi.__rewardIndex.map;
   const r = await getRewards();
   const map = new Map<string, CoinRef>();
-  for (const l of r.data.launches) map.set(l.mint, { quote: l.quote.mint, quoteSymbol: l.quote.symbol, lastPayoutAt: l.lastPayoutAt });
+  for (const l of r.data.launches) map.set(l.mint, { quote: l.quote.mint, quoteSymbol: l.quote.symbol, lastPayoutAt: l.lastPayoutAt, holders: l.holderCount, distributed: l.distributedTokens });
   gi.__rewardIndex = { at: Date.now(), map };
   return map;
 }
@@ -155,6 +157,55 @@ async function heldCoins(wallet: string): Promise<{ coins: HeldCoin[]; credits: 
   });
   coins.sort((a, b) => (b.lastPayoutAt ?? "").localeCompare(a.lastPayoutAt ?? ""));
   return { coins: coins.slice(0, 50), credits };
+}
+
+// ---- Per-coin cards (§6o gallery) ----
+// Everything one coin card shows, for the reward asset `asset` this wallet received: the held coin(s) that pay in it
+// (name, logo, StonkFun's holder count and lifetime payout at today's price), the reward token (symbol, logo) and the
+// wallet's figures for that asset. null when the wallet has no card for that asset.
+export async function coinCardData(agg: WalletAgg, asset: string, hideWallet: boolean, supplyBurnedPct: number, at: string): Promise<CoinCardData | null> {
+  const view = await viewOf(agg, at);
+  const g = view.groups.find((x) => x.asset === asset);
+  if (!g) return null;
+  const [idx, pairs] = await Promise.all([USE_FIXTURES ? Promise.resolve(new Map<string, CoinRef>()) : rewardIndex().catch(() => new Map<string, CoinRef>()), getPairs().catch(() => [])]);
+  const ordered = [...g.coins].sort((x, y) => (idx.get(y.mint)?.holders ?? 0) - (idx.get(x.mint)?.holders ?? 0));
+  const coinMints = ordered.slice(0, 3).map((c) => c.mint);
+  const quoteMints = [...new Set(ordered.map((c) => idx.get(c.mint)?.quote).filter((m): m is string => !!m))];
+  const [tokens, jup, prices] = await Promise.all([
+    Promise.all(coinMints.map((m) => getToken(m).catch(() => null))),
+    getJupiterTokens([...coinMints, asset]).catch(() => new Map()),
+    pricesFor([...quoteMints, asset]),
+  ]);
+  const pair = pairs.find((p) => p.mint === asset);
+  const [rewardImg, ...coinImgs] = await Promise.all([
+    logoDataUri(resolveImage(pair?.logoUrl) ?? jup.get(asset)?.icon),
+    ...coinMints.map((m, i) => logoDataUri(resolveImage(tokens[i]?.data.token.imageUrl) ?? jup.get(m)?.icon)),
+  ]);
+  const coins = ordered.slice(0, 3).map((c, i) => {
+    const ref = idx.get(c.mint);
+    const t = tokens[i]?.data.token;
+    const qp = ref ? prices[ref.quote] : undefined;
+    return { mint: c.mint, symbol: t?.symbol ?? c.symbol, name: t?.name ?? null, image: coinImgs[i] ?? null, holders: ref?.holders ?? null, paidUsd: ref && qp !== undefined ? ref.distributed * qp : null };
+  });
+  // Every coin in the group counts toward the totals, not just the three drawn.
+  for (const c of ordered.slice(3)) {
+    const ref = idx.get(c.mint);
+    const qp = ref ? prices[ref.quote] : undefined;
+    coins.push({ mint: c.mint, symbol: c.symbol, name: null, image: null, holders: ref?.holders ?? null, paidUsd: ref && qp !== undefined ? ref.distributed * qp : null });
+  }
+  return {
+    wallet: agg.wallet,
+    hideWallet,
+    coins,
+    reward: { mint: asset, symbol: pair?.symbol ?? g.symbol, image: rewardImg },
+    amount: g.amount,
+    usd: g.usd,
+    payouts: g.payouts,
+    firstAt: g.first,
+    last7dUsd: g.last7dUsd,
+    supplyBurnedPct,
+    at,
+  };
 }
 
 // ---- The scan ----
@@ -396,6 +447,9 @@ export function sampleAgg(wallet: string): WalletAgg {
   a.coins = [
     { mint: "CN8aRKzBX7x4pu8kjb1EWJmUXDk5Ff7VNYZw56pJ8AWC", quote: "GoLDppdjB1vDTPSGxyMJFqdnj134yH6Prg9eqsGDiw6A", symbol: "GILD", quoteSymbol: "GOLD", lastPayoutAt: new Date(end - 4 * 60_000).toISOString() },
     { mint: "8RVBk8vxLiUHueLUW1f4izFVqN3nWippLhkohKg6EGkS", quote: STONK_MINT, symbol: "MOONCAT", quoteSymbol: "STONK", lastPayoutAt: new Date(end - 11 * 60_000).toISOString() },
+    { mint: "4DDZYqRUPBFT31uteeXKpHdFUbVoesGhKDBt3qD2nb2c", quote: "XsoCS1TfEyfFhfvj8EtZ528L3CaKBDBRqRapnBbDF2W", symbol: "SP500", quoteSymbol: "SPYx", lastPayoutAt: new Date(end - 30 * 60_000).toISOString() },
+    { mint: "HgcxVs6kJhPAaGqnPNGaa7zYgNT49hJrLufiqcNMuYZT", quote: "So11111111111111111111111111111111111111112", symbol: "BONKY", quoteSymbol: "SOL", lastPayoutAt: new Date(end - 50 * 60_000).toISOString() },
+    { mint: "HTmQz7My6MehV7bjhJ6jde8nDND1yvsz68d24LP7YgUQ", quote: "GoLDppdjB1vDTPSGxyMJFqdnj134yH6Prg9eqsGDiw6A", symbol: "AUREUS", quoteSymbol: "GOLD", lastPayoutAt: new Date(end - 70 * 60_000).toISOString() },
   ];
   return a;
 }

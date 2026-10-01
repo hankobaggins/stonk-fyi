@@ -172,6 +172,25 @@ export default function WalletRewards({ wallet, initial }: { wallet: string; ini
             <ShareCard src={cardUrl("total")} name={`stonk-rewards-${wallet.slice(0, 4)}-total.png`} alt="Total rewards card" />
             <ShareCard src={cardUrl("breakdown")} name={`stonk-rewards-${wallet.slice(0, 4)}-by-asset.png`} alt="Rewards by asset card" />
           </div>
+          {view && view.groups.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-border">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 mb-4">
+                <h3 className="text-[13px] font-semibold">Your coins <span className="num text-muted font-normal">· top {view.groups.length} by rewards</span></h3>
+                <span className="text-xs text-muted">One card per reward token. Coins paying in the same token share a card; the chain can&apos;t split them.</span>
+              </div>
+              <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                {view.groups.map((g) => (
+                  <ShareCard
+                    key={g.asset}
+                    square
+                    src={`/rewards-card/${wallet}/coin/${g.asset}?${anon ? "anon=1&" : ""}v=${v}`}
+                    name={`stonk-rewards-${wallet.slice(0, 4)}-${(g.coins[0]?.symbol ?? g.symbol).replace(/[^A-Za-z0-9]/g, "")}.png`}
+                    alt={`${g.coins.map((c) => c.symbol).join(" + ")} rewards in ${g.symbol}`}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
@@ -222,22 +241,19 @@ function StatusLine({ phase, reason, error, view, now, onRescan }: { phase: Phas
 // Copy Image puts it on the clipboard to paste into a post. The PNG is prefetched when the card renders, so the copy is
 // instant and stays inside the click's user activation.
 type CopyState = "idle" | "copied" | "failed";
-function ShareCard({ src, name, alt }: { src: string; name: string; alt: string }) {
+function ShareCard({ src, name, alt, square = false }: { src: string; name: string; alt: string; square?: boolean }) {
   const [copied, setCopied] = useState<CopyState>("idle");
   const blob = useRef<Blob | null>(null);
-  useEffect(() => {
-    blob.current = null;
-    let live = true;
+  // Prefetch the PNG for Copy once the image has loaded (a cache hit, not a second render), so the clipboard write is
+  // instant and stays inside the click's user activation. Gallery cards load lazily, so nothing renders off-screen.
+  const prefetch = () => {
     fetch(src)
       .then((r) => (r.ok ? r.blob() : null))
       .then((b) => {
-        if (live && b) blob.current = b;
+        if (b) blob.current = b;
       })
       .catch(() => {});
-    return () => {
-      live = false;
-    };
-  }, [src]);
+  };
   const copy = async () => {
     let ok = false;
     try {
@@ -252,7 +268,7 @@ function ShareCard({ src, name, alt }: { src: string; name: string; alt: string 
   };
   return (
     <figure className="flex flex-col gap-3 min-w-0">
-      <CardImage key={src} src={src} alt={alt} />
+      <CardImage key={src} src={src} alt={alt} square={square} onLoaded={prefetch} />
       <div className="grid grid-cols-2 gap-3">
         <a href={src} download={name} className="inline-flex items-center justify-center gap-2 h-11 rounded-md border border-border-strong text-[14px] font-medium text-primary hover:bg-surface-2">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 4v11" /><path d="m7 10 5 5 5-5" /><path d="M5 20h14" /></svg>
@@ -272,13 +288,26 @@ function ShareCard({ src, name, alt }: { src: string; name: string; alt: string 
 }
 
 // Keyed by src, so a new version starts from the skeleton again.
-function CardImage({ src, alt }: { src: string; alt: string }) {
-  const [loaded, setLoaded] = useState(false);
+function CardImage({ src, alt, square, onLoaded }: { src: string; alt: string; square: boolean; onLoaded: () => void }) {
+  const [state, setState] = useState<"loading" | "ok" | "failed">("loading");
   return (
-    <div className="relative rounded-md overflow-hidden border border-border bg-surface-2" style={{ aspectRatio: "16 / 9" }}>
-      {!loaded && <div className="skeleton absolute inset-0" />}
+    <div className="relative rounded-md overflow-hidden border border-border bg-surface-2" style={{ aspectRatio: square ? "1 / 1" : "16 / 9" }}>
+      {state === "loading" && <div className="skeleton absolute inset-0" />}
+      {state === "failed" && <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">Couldn&apos;t draw this card. Check again in a minute.</div>}
       {/* eslint-disable-next-line @next/next/no-img-element -- a generated PNG the reader copies and downloads as-is */}
-      <img src={src} alt={alt} width={1600} height={900} onLoad={() => setLoaded(true)} className="w-full h-full object-cover" />
+      <img
+        src={src}
+        alt={alt}
+        width={square ? 1080 : 1600}
+        height={square ? 1080 : 900}
+        loading={square ? "lazy" : "eager"}
+        onLoad={() => {
+          setState("ok");
+          onLoaded();
+        }}
+        onError={() => setState("failed")}
+        className="w-full h-full object-cover"
+      />
     </div>
   );
 }

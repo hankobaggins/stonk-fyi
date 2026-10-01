@@ -224,6 +224,11 @@ export const toAmount = (raw: string | bigint, decimals: number): number => {
   return Number(r / base) + Number(r % base) / Number(base);
 };
 
+// One per-coin card (§6o gallery): a reward asset this wallet received, with the held coin(s) that pay in it. One coin
+// → its card is exact; several held coins paying in the same asset → one grouped card (the chain can't split them).
+export const COIN_CARDS_MAX = 10;
+export type CoinGroupView = { asset: string; symbol: string; coins: { mint: string; symbol: string }[]; amount: number; usd: number | null; payouts: number; first: string; last7dUsd: number | null };
+
 export type AssetView = { mint: string; symbol: string; amount: number; usd: number | null; payouts: number; first: string; last: string; from: string[] };
 export type WalletView = {
   wallet: string;
@@ -240,6 +245,7 @@ export type WalletView = {
   series: { t: string; usd: number }[];
   recent: (RecentPayout & { symbol: string; amount: number })[];
   coins: HeldCoin[];
+  groups: CoinGroupView[];   // the per-coin cards, ranked by USD received, at most COIN_CARDS_MAX
   error: string | null;
 };
 
@@ -280,6 +286,18 @@ export function buildView(agg: WalletAgg, prices: Record<string, number>, symbol
   const cut = new Date(Date.parse(now.slice(0, 10)) - 6 * 86_400_000).toISOString().slice(0, 10);
   const last7dUsd = agg.firstAt ? Object.entries(agg.days).filter(([d]) => d >= cut).reduce((s, [, v]) => s + dayUsd(v), 0) : null;
 
+  // Per-coin cards: every received asset that a held coin pays in (its quote, or the coin itself for coins that pay in
+  // their own token), ranked by USD received.
+  const groups: CoinGroupView[] = [];
+  for (const a of assets) {
+    const held = agg.coins.filter((c) => c.mint === a.mint || c.quote === a.mint);
+    if (!held.length) continue;
+    const mintUsd = (d: Record<string, string>) => (d[a.mint] && prices[a.mint] !== undefined ? toAmount(d[a.mint], dec(a.mint)) * prices[a.mint] : 0);
+    const l7 = prices[a.mint] !== undefined ? Object.entries(agg.days).filter(([d]) => d >= cut).reduce((s, [, v]) => s + mintUsd(v), 0) : null;
+    groups.push({ asset: a.mint, symbol: a.symbol, coins: held.map((c) => ({ mint: c.mint, symbol: c.symbol ?? `${c.mint.slice(0, 4)}…` })), amount: a.amount, usd: a.usd, payouts: a.payouts, first: a.first, last7dUsd: l7 });
+    if (groups.length >= COIN_CARDS_MAX) break;
+  }
+
   return {
     wallet: agg.wallet,
     scannedAt: agg.scannedAt,
@@ -295,6 +313,7 @@ export function buildView(agg: WalletAgg, prices: Record<string, number>, symbol
     series,
     recent: agg.recent.map((r) => ({ ...r, symbol: sym(r.mint), amount: toAmount(r.raw, r.decimals) })),
     coins: agg.coins,
+    groups,
     error: agg.error,
   };
 }
