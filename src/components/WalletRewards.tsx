@@ -173,7 +173,7 @@ export default function WalletRewards({ wallet, initial }: { wallet: string; ini
             <ShareCard src={cardUrl("total")} name={`stonk-rewards-${wallet.slice(0, 4)}-total.png`} alt="Total rewards card" text={text} />
             <ShareCard src={cardUrl("breakdown")} name={`stonk-rewards-${wallet.slice(0, 4)}-by-asset.png`} alt="Rewards by asset card" text={text} />
           </div>
-          <p className="text-xs text-muted mt-3">Posts carry the card image and a line of text, no link{anon ? "; the address is hidden on the cards" : ""}. On a computer, Post on X copies the image first: paste it into the post.</p>
+          <p className="text-xs text-muted mt-3">Posts carry the card image and a line of text, no link{anon ? "; the address is hidden on the cards" : ""}. On a computer, Post on X opens the post with the text and copies the image: paste it in.</p>
         </section>
       )}
 
@@ -220,17 +220,20 @@ function StatusLine({ phase, reason, error, view, now, onRescan }: { phase: Phas
   );
 }
 
-// Share row for one card. The post carries the image, never a link (owner's call 2026-10-01):
-// - phones (Web Share with files): the share sheet hands the PNG and the text to X / Telegram / Messages;
-// - desktop: X's web intent cannot attach a file, so the PNG goes to the clipboard first and the composer opens with the
-//   text; the reader pastes (⌘V / Ctrl+V) to attach it. The PNG is fetched when the card renders so the clipboard write
-//   is instant and the new tab still opens inside the click's user-activation window.
+// Share row for one card. Posts never carry a link (owner's call 2026-10-01).
+// - "Post / share…" (any device whose browser can share files — phones, and Safari/Chrome on macOS): the share sheet
+//   hands the PNG and the text to X / Telegram / Messages. On phones this is the only share button.
+// - "Post on X" (desktop only: a fine pointer that can hover): opens a new X post with the text only. X's web intent
+//   cannot attach a file, so the PNG also goes to the clipboard and the note says to paste it (⌘V / Ctrl+V). The PNG is
+//   fetched when the card renders so the clipboard write is instant and the tab opens inside the click's activation.
 function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: string; text: string }) {
   const [note, setNote] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
   const [canShare, setCanShare] = useState(false);
+  const [desktop, setDesktop] = useState(false);
   const blob = useRef<Blob | null>(null);
   useEffect(() => {
     const t = setTimeout(() => {
+      setDesktop(window.matchMedia?.("(hover: hover) and (pointer: fine)").matches ?? false);
       try {
         setCanShare(typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] }));
       } catch {
@@ -278,7 +281,6 @@ function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: s
     }
   };
   const postToX = async () => {
-    if (canShare) return shareSheet();
     const copied = await copyImage();
     window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
     if (copied) flash("Image copied: press ⌘V / Ctrl+V in the X post to attach it", "ok", 9000);
@@ -290,7 +292,9 @@ function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: s
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={copy} className="btn-check rounded-md h-9 px-3.5 text-[13px] font-medium">Copy image</button>
         <a href={src} download={name} className="btn-ghost h-9">Download</a>
-        <button type="button" onClick={postToX} className="btn-ghost h-9">{canShare ? "Post / share…" : "Post on X"}</button>
+        {desktop && <button type="button" onClick={postToX} className="btn-ghost h-9">Post on X</button>}
+        {canShare && <button type="button" onClick={shareSheet} className="btn-ghost h-9">{desktop ? "Share…" : "Post / share…"}</button>}
+        {!desktop && !canShare && <button type="button" onClick={postToX} className="btn-ghost h-9">Post on X</button>}
         {note && <span className={`num text-xs ${note.tone === "ok" ? "text-up" : "text-caution"}`}>{note.text}</span>}
       </div>
     </figure>
