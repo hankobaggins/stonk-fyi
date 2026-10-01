@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { isWalletAddress } from "@/lib/wallet-rewards-math";
 import { loadWalletAgg, viewOf } from "@/lib/wallet-rewards";
 import { fmtUsd, nowMs, shortAddr } from "@/lib/format";
-import { OG_VERSION_MS, SITE_URL } from "@/lib/site";
+import { OG_VERSION_MS } from "@/lib/site";
 import RewardsLookup from "@/components/RewardsLookup";
 import WalletRewards from "@/components/WalletRewards";
 
@@ -52,7 +52,7 @@ export default async function WalletRewardsPage({ params }: PageProps<"/rewards/
         </div>
         <div className="w-full sm:w-[440px]"><RewardsLookup /></div>
       </div>
-      <WalletRewards wallet={wallet} initial={initial} siteUrl={SITE_URL} />
+      <WalletRewards wallet={wallet} initial={initial} />
     </div>
   );
 }

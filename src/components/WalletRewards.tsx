@@ -45,7 +45,7 @@ function useCountUp(target: number): number {
   return shown;
 }
 
-export default function WalletRewards({ wallet, initial, siteUrl }: { wallet: string; initial: WalletView | null; siteUrl: string }) {
+export default function WalletRewards({ wallet, initial }: { wallet: string; initial: WalletView | null }) {
   const [view, setView] = useState<WalletView | null>(initial);
   const [phase, setPhase] = useState<Phase>("idle");
   const [reason, setReason] = useState<string | null>(null);
@@ -127,7 +127,6 @@ export default function WalletRewards({ wallet, initial, siteUrl }: { wallet: st
   const finished = view?.complete ?? false;
   const v = view?.scannedAt ? Date.parse(view.scannedAt) : 0;
   const cardUrl = (kind: "total" | "breakdown") => `/rewards-card/${wallet}?kind=${kind}${anon ? "&anon=1" : ""}&v=${v}`;
-  const link = anon ? `${siteUrl}/rewards` : `${siteUrl}/rewards/${wallet}`;
   const text = view ? shareText(view, usd) : "";
 
   return (
@@ -171,10 +170,10 @@ export default function WalletRewards({ wallet, initial, siteUrl }: { wallet: st
             </label>
           </div>
           <div className="grid lg:grid-cols-2 gap-5">
-            <ShareCard src={cardUrl("total")} name={`stonk-rewards-${wallet.slice(0, 4)}-total.png`} alt="Total rewards card" text={text} link={link} />
-            <ShareCard src={cardUrl("breakdown")} name={`stonk-rewards-${wallet.slice(0, 4)}-by-asset.png`} alt="Rewards by asset card" text={text} link={link} />
+            <ShareCard src={cardUrl("total")} name={`stonk-rewards-${wallet.slice(0, 4)}-total.png`} alt="Total rewards card" text={text} />
+            <ShareCard src={cardUrl("breakdown")} name={`stonk-rewards-${wallet.slice(0, 4)}-by-asset.png`} alt="Rewards by asset card" text={text} />
           </div>
-          <p className="text-xs text-muted mt-3">{anon ? "Address hidden on the cards; Post on X links to the lookup page, not this wallet." : "The link in a post opens this wallet's page, and its preview is the total card."}</p>
+          <p className="text-xs text-muted mt-3">Posts carry the card image and a line of text, no link{anon ? "; the address is hidden on the cards" : ""}. On a computer, Post on X copies the image first: paste it into the post.</p>
         </section>
       )}
 
@@ -221,11 +220,16 @@ function StatusLine({ phase, reason, error, view, now, onRescan }: { phase: Phas
   );
 }
 
-function ShareCard({ src, name, alt, text, link }: { src: string; name: string; alt: string; text: string; link: string }) {
-  const [note, setNote] = useState<string | null>(null);
+// Share row for one card. The post carries the image, never a link (owner's call 2026-10-01):
+// - phones (Web Share with files): the share sheet hands the PNG and the text to X / Telegram / Messages;
+// - desktop: X's web intent cannot attach a file, so the PNG goes to the clipboard first and the composer opens with the
+//   text; the reader pastes (⌘V / Ctrl+V) to attach it. The PNG is fetched when the card renders so the clipboard write
+//   is instant and the new tab still opens inside the click's user-activation window.
+function ShareCard({ src, name, alt, text }: { src: string; name: string; alt: string; text: string }) {
+  const [note, setNote] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
   const [canShare, setCanShare] = useState(false);
+  const blob = useRef<Blob | null>(null);
   useEffect(() => {
-    // Phones: the share sheet attaches the PNG itself (X, Telegram, Messages). Desktop browsers mostly can't share files.
     const t = setTimeout(() => {
       try {
         setCanShare(typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.png", { type: "image/png" })] }));
@@ -235,37 +239,59 @@ function ShareCard({ src, name, alt, text, link }: { src: string; name: string; 
     }, 0);
     return () => clearTimeout(t);
   }, []);
-  const flash = (m: string) => {
-    setNote(m);
-    setTimeout(() => setNote(null), 2200);
+  useEffect(() => {
+    blob.current = null;
+    let live = true;
+    fetch(src)
+      .then((r) => (r.ok ? r.blob() : null))
+      .then((b) => {
+        if (live && b) blob.current = b;
+      })
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [src]);
+  const flash = (t: string, tone: "ok" | "warn" = "ok", ms = 2600) => {
+    setNote({ text: t, tone });
+    setTimeout(() => setNote(null), ms);
   };
-  const copy = async () => {
+  const png = (): Blob | Promise<Blob> => blob.current ?? fetch(src).then((r) => r.blob());
+  const copyImage = async (): Promise<boolean> => {
     try {
-      // The promise form keeps Safari's user-gesture window open while the PNG downloads.
-      await navigator.clipboard.write([new ClipboardItem({ "image/png": fetch(src).then((r) => r.blob()) })]);
-      flash("Image copied — paste it into your post");
+      // A ready Blob when prefetched; the promise form otherwise keeps Safari's user-gesture window open.
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": png() })]);
+      return true;
     } catch {
-      flash("This browser can't copy images — use Download");
+      return false;
     }
   };
-  const share = async () => {
+  const copy = async () => {
+    flash((await copyImage()) ? "Image copied — paste it into your post" : "This browser can't copy images — use Download", "ok");
+  };
+  const shareSheet = async () => {
     try {
-      const blob = await fetch(src).then((r) => r.blob());
-      await navigator.share({ files: [new File([blob], name, { type: "image/png" })], text: `${text} ${link}` });
+      const b = await png();
+      await navigator.share({ files: [new File([b], name, { type: "image/png" })], text });
     } catch {
       // dismissed
     }
   };
-  const x = `https://x.com/intent/post?text=${encodeURIComponent(text)}&url=${encodeURIComponent(link)}`;
+  const postToX = async () => {
+    if (canShare) return shareSheet();
+    const copied = await copyImage();
+    window.open(`https://x.com/intent/post?text=${encodeURIComponent(text)}`, "_blank", "noopener,noreferrer");
+    if (copied) flash("Image copied: press ⌘V / Ctrl+V in the X post to attach it", "ok", 9000);
+    else flash("Couldn't copy the image in this browser: Download it and attach it to the post", "warn", 9000);
+  };
   return (
     <figure className="flex flex-col gap-3 min-w-0">
       <CardImage key={src} src={src} alt={alt} />
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" onClick={copy} className="btn-check rounded-md h-9 px-3.5 text-[13px] font-medium">Copy image</button>
         <a href={src} download={name} className="btn-ghost h-9">Download</a>
-        <a href={x} target="_blank" rel="noopener noreferrer" className="btn-ghost h-9">Post on X</a>
-        {canShare && <button type="button" onClick={share} className="btn-ghost h-9">Share…</button>}
-        {note && <span className="num text-xs text-up">{note}</span>}
+        <button type="button" onClick={postToX} className="btn-ghost h-9">{canShare ? "Post / share…" : "Post on X"}</button>
+        {note && <span className={`num text-xs ${note.tone === "ok" ? "text-up" : "text-caution"}`}>{note.text}</span>}
       </div>
     </figure>
   );

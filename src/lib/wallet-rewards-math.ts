@@ -301,5 +301,5 @@ export function buildView(agg: WalletAgg, prices: Record<string, number>, symbol
 
 export function shareText(v: Pick<WalletView, "totalUsd" | "assets">, fmt: (n: number) => string): string {
   const n = v.assets.length;
-  return `I've been paid ${fmt(v.totalUsd)} in StonkFun holder rewards across ${n} ${n === 1 ? "asset" : "assets"}, straight to my wallet. Check yours:`;
+  return `I've been paid ${fmt(v.totalUsd)} in StonkFun holder rewards across ${n} ${n === 1 ? "asset" : "assets"}, straight to my wallet.`;
 }
