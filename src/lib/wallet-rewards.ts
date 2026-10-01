@@ -1,10 +1,11 @@
 import "server-only";
 import { getPairs, getRewards, getToken, STONK_MINT, USE_FIXTURES } from "./api";
 import { getDb } from "./db";
-import { getOwnerMints, getTransactionsForAddress } from "./helius";
+import { getOwnerMints, getTransaction, getTransactionsForAddress } from "./helius";
 import { getJupiterTokens } from "./quote-assets";
 import { getUsdPrices } from "./jupiter";
-import { addPayouts, buildView, emptyAgg, payoutsIn, type HeldCoin, type WalletAgg, type WalletView } from "./wallet-rewards-math";
+import { addPayouts, buildView, classifyTx, distKey, emptyAgg, noteUnexplained, plainTransferSource, type HeldCoin, type Payout, type WalletAgg, type WalletView } from "./wallet-rewards-math";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Wallet rewards check (CLAUDE.md §6o, 2026-10-01): what StonkFun's holder-reward distributor has paid one wallet.
 // StonkFun's API has no per-wallet figure, so this reads the chain: Helius getTransactionsForAddress over the
@@ -19,13 +20,33 @@ import { addPayouts, buildView, emptyAgg, payoutsIn, type HeldCoin, type WalletA
 //    budget, the pass stops where it is, keeps its cursor and the page says so; the next request continues it.
 //    A request also stops after REWARDS_SCAN_BUDGET_MS (240 s) and the page re-requests to continue.
 //
-// Distributors: REWARD_DISTRIBUTORS (comma list). Default is the one wallet seen signing every payout on 2026-10-01.
-// Earlier payouts may have come from another — /api/rewards/probe lists who paid a wallet, by month.
+// Distributors (verified on-chain 2026-10-01, see wallet-rewards-math.ts): 5KXDF6… paid holders until 2026-09-20
+// 05:03 UTC, HuBMe… since. The set is the defaults ∪ REWARD_DISTRIBUTORS (env, comma list) ∪ the reward_distributors
+// table (migration 0023), which the worker's `reward_distributors` step keeps current by reading who paid StonkFun's
+// own latest distributions — so a new distributor is picked up within the hour without a deploy. Every stored wallet
+// remembers the set it was built with (`dist_key`); when the set changes it is re-read from the start on its next lookup.
 
-export const DEFAULT_DISTRIBUTOR = "HuBMeYW3aDn8BH65fo8xxbP4oiexyup8udzKyccgi8Ga";
-export const REWARD_DISTRIBUTORS: ReadonlySet<string> = new Set(
-  (process.env.REWARD_DISTRIBUTORS ?? DEFAULT_DISTRIBUTOR).split(",").map((s) => s.trim()).filter(Boolean),
-);
+export const KNOWN_DISTRIBUTORS = {
+  "5KXDF6QnqhBj72hDtJNkkpFaQVUfbFXNybMsp3DiK6tD": "StonkFun operations wallet; paid holders directly until 2026-09-20 05:03 UTC",
+  HuBMeYW3aDn8BH65fo8xxbP4oiexyup8udzKyccgi8Ga: "payout wallet funded by 5KXDF6…; pays holders since 2026-09-20 05:03 UTC",
+} as const;
+const ENV_DISTRIBUTORS = (process.env.REWARD_DISTRIBUTORS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+export const REWARD_DISTRIBUTORS: ReadonlySet<string> = new Set([...Object.keys(KNOWN_DISTRIBUTORS), ...ENV_DISTRIBUTORS]);
+
+// Defaults ∪ env ∪ table, cached per instance for 5 minutes. A missing table (0023 not applied) just means the defaults.
+const gd = globalThis as typeof globalThis & { __rewardDistributors?: { at: number; set: Set<string> } };
+export async function getDistributors(): Promise<ReadonlySet<string>> {
+  if (USE_FIXTURES) return REWARD_DISTRIBUTORS;
+  if (gd.__rewardDistributors && Date.now() - gd.__rewardDistributors.at < 5 * 60_000) return gd.__rewardDistributors.set;
+  const set = new Set(REWARD_DISTRIBUTORS);
+  const db = getDb();
+  if (db) {
+    const { data, error } = await db.from("reward_distributors").select("address");
+    if (!error) for (const r of data ?? []) if (r.address) set.add(r.address as string);
+  }
+  gd.__rewardDistributors = { at: Date.now(), set };
+  return set;
+}
 export const REWARDS_REFRESH_MIN = Math.max(1, Number(process.env.REWARDS_REFRESH_MIN ?? 10));
 export const REWARDS_CREDITS_PER_H = Math.max(0, Number(process.env.HELIUS_REWARDS_CREDITS_PER_H ?? 60_000));
 const SCAN_BUDGET_MS = Math.max(20_000, Number(process.env.REWARDS_SCAN_BUDGET_MS ?? 240_000));
@@ -48,17 +69,28 @@ type Row = {
   wallet: string; scanned_at: string | null; complete: boolean; last_slot: number | null; cursor: string | null; pass_from: number | null;
   txs_scanned: number; credits: number; payouts: number; first_at: string | null; last_at: string | null;
   assets: WalletAgg["assets"]; days: WalletAgg["days"]; recent: WalletAgg["recent"]; coins: HeldCoin[]; lock_until: string | null; error: string | null;
+  dist_key?: string | null; unexplained?: Record<string, number> | null; by_distributor?: Record<string, number> | null;
 };
 const fromRow = (r: Row): WalletAgg => ({
   wallet: r.wallet, scannedAt: r.scanned_at, complete: r.complete, lastSlot: r.last_slot === null ? null : Number(r.last_slot), cursor: r.cursor,
   passFrom: r.pass_from === null ? null : Number(r.pass_from), txsScanned: Number(r.txs_scanned), credits: Number(r.credits), payouts: r.payouts,
   firstAt: r.first_at, lastAt: r.last_at, assets: r.assets ?? {}, days: r.days ?? {}, recent: r.recent ?? [], coins: r.coins ?? [], error: r.error,
+  distKey: r.dist_key ?? null, unexplained: r.unexplained ?? {}, byDistributor: r.by_distributor ?? {},
 });
 const toRow = (a: WalletAgg) => ({
   wallet: a.wallet, scanned_at: a.scannedAt, complete: a.complete, last_slot: a.lastSlot, cursor: a.cursor, pass_from: a.passFrom,
   txs_scanned: a.txsScanned, credits: a.credits, payouts: a.payouts, first_at: a.firstAt, last_at: a.lastAt,
   assets: a.assets, days: a.days, recent: a.recent, coins: a.coins, error: a.error,
+  dist_key: a.distKey, unexplained: a.unexplained, by_distributor: a.byDistributor,
 });
+// 0023 adds dist_key / unexplained / by_distributor; without it the row is saved without them (and never re-read for a
+// changed distributor set, since it cannot remember one).
+let legacyRows = false;
+const legacyRow = (row: ReturnType<typeof toRow>) => {
+  const { dist_key: _k, unexplained: _u, by_distributor: _b, ...rest } = row;
+  void _k; void _u; void _b;
+  return rest;
+};
 
 // Stored aggregate for a wallet (page and card reads: the page deadline, no retries). null = never scanned / no DB.
 export async function loadWalletAgg(wallet: string): Promise<WalletAgg | null> {
@@ -146,8 +178,12 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
   let db = getDb({ timeoutMs: 15_000, retry: false });
   const now = () => new Date().toISOString();
   let agg = (db ? await loadWalletAgg(wallet) : null) ?? emptyAgg(wallet);
+  const distributors = await getDistributors();
+  const key = distKey(distributors);
+  // Built with another distributor set or rule version → read the wallet again from the start.
+  const stale = !legacyRows && agg.scannedAt !== null && agg.distKey !== key;
 
-  const fresh = agg.complete && agg.scannedAt && Date.now() - Date.parse(agg.scannedAt) < REWARDS_REFRESH_MIN * 60_000;
+  const fresh = !stale && agg.complete && agg.scannedAt && Date.now() - Date.parse(agg.scannedAt) < REWARDS_REFRESH_MIN * 60_000;
   if (fresh && !opts.force) {
     yield { type: "done", view: await viewOf(agg), reason: "fresh" };
     return;
@@ -190,9 +226,23 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
 
   const save = async (final: boolean) => {
     if (!db) return;
-    const { error } = await db.from("wallet_rewards").update({ ...toRow(agg), ...(final ? { lock_until: null } : { lock_until: new Date(Date.now() + LOCK_MS).toISOString() }) }).eq("wallet", wallet);
+    const lock = final ? { lock_until: null } : { lock_until: new Date(Date.now() + LOCK_MS).toISOString() };
+    const row = toRow(agg);
+    let { error } = await db.from("wallet_rewards").update({ ...(legacyRows ? legacyRow(row) : row), ...lock }).eq("wallet", wallet);
+    if (error && !legacyRows && /dist_key|unexplained|by_distributor/.test(error.message)) {
+      legacyRows = true;
+      console.error(`wallet_rewards without 0023 columns, saving without them: ${error.message}`);
+      ({ error } = await db.from("wallet_rewards").update({ ...legacyRow(row), ...lock }).eq("wallet", wallet));
+    }
     if (error) throw new Error(`save: ${error.message}`);
   };
+
+  if (stale) {
+    const credits = agg.credits;
+    agg = emptyAgg(wallet);
+    agg.credits = credits;
+  }
+  agg.distKey = key;
 
   const t0 = Date.now();
   let pages = 0;
@@ -211,7 +261,6 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
     const slotGt = token ? agg.passFrom : agg.lastSlot;
     agg.passFrom = slotGt;
     agg.complete = false;
-    const distributors = [...REWARD_DISTRIBUTORS];
     for (;;) {
       if (meter.credits + 100 > REWARDS_CREDITS_PER_H) {
         meter.refused++;
@@ -222,12 +271,17 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
         reason = "time";
         break;
       }
-      const page = await getTransactionsForAddress(wallet, { paginationToken: token, slotGt, withAddress: SCAN_FILTER_WITH ? distributors[0] : null });
+      const page = await getTransactionsForAddress(wallet, { paginationToken: token, slotGt, withAddress: SCAN_FILTER_WITH ? [...distributors][0] : null });
       pages++;
       meter.credits += page.credits;
       agg.credits += page.credits;
       agg.txsScanned += page.txs.length;
-      const payouts = page.txs.flatMap((tx) => payoutsIn(tx, wallet, REWARD_DISTRIBUTORS));
+      const payouts: Payout[] = [];
+      for (const tx of page.txs) {
+        const c = classifyTx(tx, wallet, distributors);
+        if (c.kind === "payout") payouts.push(...c.payouts);
+        else if (c.kind === "unexplained") noteUnexplained(agg, c.source);
+      }
       addPayouts(agg, payouts);
       for (const tx of page.txs) if (agg.lastSlot === null || tx.slot > agg.lastSlot) agg.lastSlot = tx.slot;
       token = page.paginationToken;
@@ -254,6 +308,53 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
   agg.scannedAt = now();
   await save(true).catch((e) => console.error(`wallet rewards save ${wallet}: ${(e as Error).message}`));
   yield { type: "done", view: await viewOf(agg), reason };
+}
+
+// ---- Distributor watch (worker step `reward_distributors`, hourly) ----
+// Reads who paid StonkFun's own latest distributions (/rewards `recentDistributions`, the only per-transaction record
+// StonkFun publishes) and records each payer in reward_distributors. A payer this site did not know becomes part of
+// the set the scan uses on the next lookup (and every stored wallet is re-read once). Only a plain single-asset transfer
+// out of one wallet that also signed it counts as "a payer" — the same shape classifyTx accepts.
+export function distributorWatchDue(ts: string): boolean {
+  const m = new Date(ts).getUTCMinutes();
+  return m >= 35 && m < 40;
+}
+export type DistributorWatch = { sampled: number; recognized: number; payers: Record<string, number>; added: string[]; unrecognized: string[] };
+export async function runDistributorWatch(db: SupabaseClient, sample = 6): Promise<DistributorWatch> {
+  const r = await getRewards();
+  const sigs = [...(r.data.recentDistributions ?? []).map((d) => d.signature)];
+  // Spread the sample across the list (newest first) so one busy coin does not fill it.
+  const step = Math.max(1, Math.floor(sigs.length / sample));
+  const pick = sigs.filter((_, i) => i % step === 0).slice(0, sample);
+  const out: DistributorWatch = { sampled: 0, recognized: 0, payers: {}, added: [], unrecognized: [] };
+  const known = await getDistributors();
+  for (const sig of pick) {
+    const tx = await getTransaction(sig).catch(() => null);
+    if (!tx) continue;
+    out.sampled++;
+    const plain = plainTransferSource(tx);
+    const keys = tx.transaction.message.accountKeys;
+    const n = tx.transaction.message.header?.numRequiredSignatures ?? 0;
+    const signed = plain && keys.some((k, i) => (typeof k === "string" ? i < n && k === plain.source : k.pubkey === plain.source && k.signer));
+    if (!plain || !signed) {
+      out.unrecognized.push(sig);
+      continue;
+    }
+    out.recognized++;
+    out.payers[plain.source] = (out.payers[plain.source] ?? 0) + 1;
+  }
+  const now = new Date().toISOString();
+  for (const [address, count] of Object.entries(out.payers)) {
+    const isNew = !known.has(address);
+    const { data: existing } = await db.from("reward_distributors").select("seen").eq("address", address).maybeSingle();
+    const { error } = existing
+      ? await db.from("reward_distributors").update({ last_seen: now, seen: (existing.seen ?? 0) + count }).eq("address", address)
+      : await db.from("reward_distributors").insert({ address, first_seen: now, last_seen: now, seen: count, source: isNew ? "worker: new payer of StonkFun distributions" : "worker", sample_sig: pick[0] });
+    if (error) throw new Error(`reward_distributors: ${error.message}`);
+    if (isNew) out.added.push(address);
+  }
+  if (out.added.length) gd.__rewardDistributors = undefined;
+  return out;
 }
 
 // ---- Fixture mode: a synthetic, labelled sample (no network in DATA_SOURCE=fixture) ----
@@ -283,7 +384,7 @@ export function sampleAgg(wallet: string): WalletAgg {
     for (let i = 0; i < n; i++) {
       const t = start + ((end - start) * (i + 0.5)) / n;
       const w = (i + 1) / ((n * (n + 1)) / 2); // rising
-      payouts.push({ sig: `sample${symbol}${i}`, slot: 1 + i, ts: new Date(t).toISOString(), mint, raw: BigInt(Math.round(total * w * 10 ** decimals)), decimals });
+      payouts.push({ sig: `sample${symbol}${i}`, slot: 1 + i, ts: new Date(t).toISOString(), mint, raw: BigInt(Math.round(total * w * 10 ** decimals)), decimals, by: t < Date.parse("2026-09-20T05:03:44Z") ? "5KXDF6QnqhBj72hDtJNkkpFaQVUfbFXNybMsp3DiK6tD" : "HuBMeYW3aDn8BH65fo8xxbP4oiexyup8udzKyccgi8Ga" });
     }
     addPayouts(a, payouts);
     a.assets[mint].symbol = symbol;

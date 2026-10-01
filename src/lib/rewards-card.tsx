@@ -172,7 +172,7 @@ export function RewardsTotalCard(p: RewardsCardData) {
         </div>
       </div>
 
-      <Footer note="On-chain transfers from StonkFun's distributor · USD at today's prices · not financial advice" />
+      <Footer note="On-chain transfers from StonkFun's reward wallets · USD at today's prices · not financial advice" />
     </div>
   );
 }

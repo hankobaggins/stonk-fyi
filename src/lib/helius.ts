@@ -111,3 +111,11 @@ export async function getOwnerMints(owner: string, maxPages = 5): Promise<{ mint
   }
   return { mints: [...mints], credits: pages * 10 };
 }
+
+// One transaction (1 credit). Version 1 accepted, as above.
+export async function getTransaction(signature: string): Promise<RawTx | null> {
+  return rpc<RawTx | null>("getTransaction", [signature, { encoding: "json", maxSupportedTransactionVersion: 1, commitment: "confirmed" }]).catch((e) => {
+    if (/empty result/.test((e as Error).message)) return null;
+    throw e;
+  });
+}

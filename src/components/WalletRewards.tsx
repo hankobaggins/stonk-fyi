@@ -182,7 +182,7 @@ export default function WalletRewards({ wallet, initial, siteUrl }: { wallet: st
       {view && !paid && finished && <EmptyState view={view} now={now} />}
 
       <p className="text-xs text-muted leading-relaxed max-w-[100ch]">
-        Read from the Solana chain: every transaction StonkFun&apos;s reward distributor signed in which this wallet&apos;s balance went up. Amounts are exact; USD is today&apos;s price
+        Read from the Solana chain: every plain token transfer into this wallet from StonkFun&apos;s reward wallets (5KXDF6… until Sep 20, HuBMe… since). Amounts are exact; USD is today&apos;s price
         (Jupiter; STONK at StonkFun&apos;s price), not the price on the day it landed. The chain records the asset paid, not the coin that earned it, so &quot;from&quot; is
         inferred from the reward coins this wallet holds now. Unofficial; not financial advice.{" "}
         <Link href="/about#wallet-rewards" className="text-secondary hover:text-primary">Method →</Link>
@@ -381,7 +381,7 @@ function EmptyState({ view, now }: { view: WalletView; now: number | null }) {
       <div>
         <h2 className="text-[15px] font-semibold">No StonkFun reward payouts to this wallet</h2>
         <p className="text-[13px] text-secondary mt-1.5 max-w-[80ch]">
-          {fmtNum(view.txsScanned)} transactions read, and none of them is a transfer from StonkFun&apos;s reward distributor. Rewards are pushed to holders
+          {fmtNum(view.txsScanned)} transactions read, and none of them is a payout from StonkFun&apos;s reward wallets. Rewards are pushed to holders
           automatically; there is nothing to claim. The usual reasons a holder sees nothing:
         </p>
       </div>

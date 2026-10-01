@@ -17,7 +17,8 @@ import { COIN_PROFILES_EVERY_H, COIN_PROFILES_TOP, getCoinProfiles, TOP_COINS_SH
 import { runnersHealth } from "@/lib/runners";
 import { getJupiterTokens, getPythFeeds, getQuoteBoard, lastQuoteAssetError } from "@/lib/quote-assets";
 import { PAGE_UNITS_PER_H, pageMeter, TOKEN_HOLDERS_TTL_MIN, TOKEN_PROFILE_UNITS } from "@/lib/token-holders";
-import { REWARD_DISTRIBUTORS, REWARDS_CREDITS_PER_H, REWARDS_REFRESH_MIN, rewardsMeter } from "@/lib/wallet-rewards";
+import { getDistributors, REWARDS_CREDITS_PER_H, REWARDS_REFRESH_MIN, rewardsMeter } from "@/lib/wallet-rewards";
+import { distKey } from "@/lib/wallet-rewards-math";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -214,16 +215,35 @@ export async function GET() {
       return note;
     }),
     run("wallet_rewards", async () => {
-      // §6o: the wallet rewards check. Per-instance meter (this instance, this hour) + the stored scans.
+      // §6o: the wallet rewards check. Per-instance meter (this instance, this hour) + the stored scans + who pays.
       if (!process.env.HELIUS_API_KEY) throw new Error("HELIUS_API_KEY unset — /rewards/{wallet} cannot read the chain");
       const m = rewardsMeter();
-      const head = `distributors ${[...REWARD_DISTRIBUTORS].map((d) => d.slice(0, 4) + "…").join(", ")} · budget ${REWARDS_CREDITS_PER_H} credits/h per instance, refresh ≥${REWARDS_REFRESH_MIN} min · this instance this hour: ${m.scans} scans, ${m.credits} credits, ${m.refused} paused over budget${m.lastScan ? ` · last scan ${m.lastScan}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}`;
+      const dist = await getDistributors();
+      const key = distKey(dist);
+      const head = `distributors ${[...dist].map((d) => d.slice(0, 6) + "…").join(", ")} · budget ${REWARDS_CREDITS_PER_H} credits/h per instance, refresh ≥${REWARDS_REFRESH_MIN} min · this instance this hour: ${m.scans} scans, ${m.credits} credits, ${m.refused} paused over budget${m.lastScan ? ` · last scan ${m.lastScan}` : ""}${m.lastError ? ` · last error: ${m.lastError}` : ""}`;
       const db = getDb();
       if (!db) return `${head} · no DB (scans are not stored; cards need the DB)`;
-      const { data, count, error } = await db.from("wallet_rewards").select("wallet, scanned_at, payouts, error", { count: "exact" }).order("scanned_at", { ascending: false, nullsFirst: false }).limit(1);
-      if (error) throw new Error(`wallet_rewards unreadable (migration 0022 applied?): ${error.message}`);
+      const { data, count, error } = await db.from("wallet_rewards").select("wallet, scanned_at, payouts, error, dist_key, unexplained", { count: "exact" }).order("scanned_at", { ascending: false, nullsFirst: false }).limit(1000);
+      if (error) throw new Error(`wallet_rewards unreadable (migrations 0022 + 0023 applied?): ${error.message}`);
       const last = data?.[0];
-      return `${head} · ${count ?? 0} wallets stored${last ? ` · newest ${last.wallet.slice(0, 4)}… ${last.scanned_at ?? "unscanned"}, ${last.payouts} payouts${last.error ? `, error: ${last.error}` : ""}` : ""}`;
+      const staleRows = (data ?? []).filter((r) => r.scanned_at && r.dist_key !== key).length;
+      // A payer this site does not know shows up as the same "unexplained" source across many looked-up wallets.
+      const bySource = new Map<string, { wallets: number; txs: number }>();
+      for (const r of data ?? []) for (const [src, n] of Object.entries((r.unexplained ?? {}) as Record<string, number>)) {
+        if (dist.has(src)) continue;
+        const e = bySource.get(src) ?? { wallets: 0, txs: 0 };
+        e.wallets++;
+        e.txs += n;
+        bySource.set(src, e);
+      }
+      const suspects = [...bySource].filter(([, e]) => e.wallets >= 5 && e.txs >= 50).sort((x, y) => y[1].txs - x[1].txs);
+      const { data: dRows } = await db.from("reward_distributors").select("address, last_seen, seen").order("last_seen", { ascending: false });
+      const active = dRows?.[0];
+      const watch = active ? `latest payer seen by the hourly watch: ${active.address.slice(0, 6)}… at ${active.last_seen}` : "reward_distributors empty (0023 applied? watch runs on the :35 tick)";
+      const note = `${head} · ${watch} · ${count ?? 0} wallets stored, ${staleRows} to re-read under the current distributor set${last ? ` · newest ${last.wallet.slice(0, 4)}… ${last.scanned_at ?? "unscanned"}, ${last.payouts} payouts${last.error ? `, error: ${last.error}` : ""}` : ""}`;
+      if (suspects.length) throw new Error(`possible unknown distributor: ${suspects.slice(0, 3).map(([s, e]) => `${s} (${e.txs} plain transfers into ${e.wallets} wallets)`).join("; ")} — check it and add it to reward_distributors · ${note}`);
+      if (active && Date.now() - Date.parse(active.last_seen) > 3 * 3.6e6) throw new Error(`distributor watch has not seen a payer for ${((Date.now() - Date.parse(active.last_seen)) / 3.6e6).toFixed(1)} h — the :35 step failing, or StonkFun paying in a new shape · ${note}`);
+      return note;
     }),
     run("coin_profiles", async () => {
       // §6j: HolderScan profiles of the top coins by market cap — the /holders table's own read.

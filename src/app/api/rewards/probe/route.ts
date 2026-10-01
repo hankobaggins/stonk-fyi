@@ -1,20 +1,14 @@
 import { NextResponse } from "next/server";
 import { getTransactionsForAddress } from "@/lib/helius";
-import { isWalletAddress, type RawTx } from "@/lib/wallet-rewards-math";
-import { REWARD_DISTRIBUTORS } from "@/lib/wallet-rewards";
+import { classifyTx, isWalletAddress } from "@/lib/wallet-rewards-math";
+import { getDistributors } from "@/lib/wallet-rewards";
 
-// GET /api/rewards/probe?wallet=…&pages=3 (Bearer CRON_SECRET) — who has paid this wallet, by month (§6o first-run check).
-// Reads the wallet's history from its first transaction and, for every transaction the wallet did not sign in which one
-// of its balances rose, tallies the signers by month. A distributor shows up as a signer with hundreds of rows; if one
-// other than REWARD_DISTRIBUTORS appears in the months before it, add it to the env list. Costs ~100 credits a page.
+// GET /api/rewards/probe?wallet=…&pages=3 (Bearer CRON_SECRET) — how the wallet rewards check reads one wallet (§6o).
+// Walks the wallet's history from its first transaction and reports, by month, the payouts it counts (by distributor)
+// and every other increase it does not count, by source and reason. A source with hundreds of plain transfers in the
+// months a known distributor is silent is a distributor this site is missing. Costs ~100 credits a page; stores nothing.
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
-
-const signers = (tx: RawTx): string[] => {
-  const keys = tx.transaction.message.accountKeys;
-  const n = tx.transaction.message.header?.numRequiredSignatures ?? 0;
-  return keys.flatMap((k, i) => (typeof k === "string" ? (i < n ? [k] : []) : k.signer ? [k.pubkey] : []));
-};
 
 export async function GET(req: Request) {
   if (req.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return new Response("unauthorized", { status: 401 });
@@ -22,7 +16,10 @@ export async function GET(req: Request) {
   const wallet = url.searchParams.get("wallet") ?? "";
   if (!isWalletAddress(wallet)) return new Response("wallet?", { status: 400 });
   const maxPages = Math.min(20, Number(url.searchParams.get("pages") ?? 3));
-  const tally: Record<string, Record<string, number>> = {};
+  const distributors = await getDistributors();
+  const payouts: Record<string, Record<string, number>> = {};
+  const unexplained: Record<string, Record<string, number>> = {};
+  const kinds: Record<string, number> = {};
   let token: string | null = null;
   let txs = 0;
   let pages = 0;
@@ -36,22 +33,20 @@ export async function GET(req: Request) {
       const ts = new Date((tx.blockTime ?? 0) * 1000).toISOString();
       first ??= ts;
       last = ts;
-      const s = signers(tx);
-      if (s.includes(wallet) || !tx.meta) continue;
-      const pre = new Map((tx.meta.preTokenBalances ?? []).map((b) => [b.accountIndex, BigInt(b.uiTokenAmount.amount)]));
-      const rose = (tx.meta.postTokenBalances ?? []).some((b) => b.owner === wallet && BigInt(b.uiTokenAmount.amount) > (pre.get(b.accountIndex) ?? BigInt(0)));
-      if (!rose) continue;
       const month = ts.slice(0, 7);
-      for (const k of s) {
-        tally[k] ??= {};
-        tally[k][month] = (tally[k][month] ?? 0) + 1;
+      const c = classifyTx(tx, wallet, distributors);
+      kinds[c.kind] = (kinds[c.kind] ?? 0) + 1;
+      if (c.kind === "payout") for (const p of c.payouts) ((payouts[p.by] ??= {})[month] = (payouts[p.by][month] ?? 0) + 1);
+      if (c.kind === "unexplained") {
+        const k = c.source ?? "(not a plain transfer: swap, aggregator, launchpad…)";
+        (unexplained[k] ??= {})[month] = (unexplained[k][month] ?? 0) + 1;
       }
     }
     token = page.paginationToken;
   } while (token && pages < maxPages);
-  const bySigner = Object.entries(tally)
-    .map(([signer, months]) => ({ signer, distributor: REWARD_DISTRIBUTORS.has(signer), total: Object.values(months).reduce((a, b) => a + b, 0), months }))
+  const top = Object.entries(unexplained)
+    .map(([source, months]) => ({ source, total: Object.values(months).reduce((a, b) => a + b, 0), months }))
     .sort((a, b) => b.total - a.total)
-    .slice(0, 25);
-  return NextResponse.json({ wallet, pages, txs, first, last, more: !!token, distributors: [...REWARD_DISTRIBUTORS], bySigner }, { headers: { "cache-control": "no-store" } });
+    .slice(0, 15);
+  return NextResponse.json({ wallet, pages, txs, first, last, more: !!token, distributors: [...distributors], kinds, payouts, unexplained: top }, { headers: { "cache-control": "no-store" } });
 }

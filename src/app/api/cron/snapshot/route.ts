@@ -18,6 +18,7 @@ import { HOLDERSCAN_ADVANCED } from "@/lib/holderscan";
 import { runRunners } from "@/lib/runners";
 import { peakOf, RUNNER_FLOOR } from "@/lib/runner-math";
 import type { Token } from "@/lib/types";
+import { distributorWatchDue, runDistributorWatch } from "@/lib/wallet-rewards";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
 // with ?hourly=1 at the top of each hour, and by Vercel Cron (vercel.json) once a day with ?full=1:
@@ -96,6 +97,7 @@ export async function GET(req: Request) {
   const coinDeltasTop = Number(params.get("top")) || undefined;
   const profile = params.get("profile") === "1";
   const coinProfiles = params.get("coinprofiles") === "1";
+  const distributorsNow = params.get("distributors") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -457,6 +459,22 @@ export async function GET(req: Request) {
   }
   if (full) {
     await step("holder_profile_prune", async () => pruneHolderProfiles(db));
+  }
+
+  // Who pays StonkFun's holder rewards (§6o): reads the payer of a sample of StonkFun's latest distributions, hourly on the
+  // :35 tick (or ?distributors=1), and adds a new one to reward_distributors, which the wallet rewards check reads.
+  if (distributorsNow || (!hourly && !full && distributorWatchDue(ts))) {
+    await step("reward_distributors", async () => {
+      if (!process.env.HELIUS_API_KEY) {
+        notes.reward_distributors = "skipped: HELIUS_API_KEY unset";
+        return 0;
+      }
+      const w = await runDistributorWatch(db);
+      const payers = Object.entries(w.payers).map(([a, n]) => `${a.slice(0, 6)}…×${n}`).join(", ") || "none";
+      notes.reward_distributors = `${w.recognized}/${w.sampled} distributions recognized · payers ${payers}${w.added.length ? ` · NEW DISTRIBUTOR ${w.added.join(", ")}` : ""}${w.unrecognized.length ? ` · unrecognized shape: ${w.unrecognized.slice(0, 2).join(", ")}` : ""}`;
+      if (w.sampled > 0 && w.recognized === 0) throw new Error(`no sampled distribution has the payout shape (${w.unrecognized.slice(0, 2).join(", ")}) — StonkFun changed how it pays`);
+      return w.recognized;
+    });
   }
 
   await step("gmgn", async () => {

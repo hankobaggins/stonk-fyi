@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: PageProps<"/rewards/[wallet]"
   const img = `/rewards-card/${wallet}?kind=total&v=${Math.floor(nowMs() / OG_VERSION_MS)}`;
   return {
     title,
-    description: "Every payout is an on-chain transfer from StonkFun's reward distributor. Check yours at stonk.fyi/rewards.",
+    description: "Every payout is an on-chain transfer from StonkFun's reward wallets. Check yours at stonk.fyi/rewards.",
     robots: { index: false },
     openGraph: { title, images: [{ url: img, width: 1600, height: 900 }] },
     twitter: { card: "summary_large_image", title, images: [img] },
