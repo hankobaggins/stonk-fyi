@@ -25,7 +25,7 @@ export function AprCol({ c, max, cls, why }: { c: AprCell; max: number; cls: str
   if (!c) return <span className="text-muted text-xs">{why ? WHY[why] : "—"}</span>;
   const w = max > 0 ? Math.max(2, (c.apr / max) * 100) : 0;
   return (
-    <span className="flex items-center gap-3 justify-end" title={`${fmtUsd(c.usd)} paid over ${c.hours.toFixed(1)}h · ${hhmm(c.from)} → ${hhmm(c.to)}`}>
+    <span className="flex items-center gap-3 justify-end" title={`${fmtUsd(c.usd)} paid to holders over ${c.hours.toFixed(1)}h · ${hhmm(c.from)} → ${hhmm(c.to)}${c.holderShare < 1 ? ` · Community Mode: the coin holders' ${Math.round(c.holderShare * 100)}% only` : ""}`}>
       <span className="aprbar w-[72px] shrink-0"><i className={cls} style={{ width: `${w}%` }} /></span>
       <span className="num text-[13px] font-medium min-w-[52px] text-right">{fmtApr(c.apr)}</span>
     </span>
@@ -150,7 +150,7 @@ export default function TokenTable({ tokens, startRank = 1, now, compact = false
                     <span className="flex items-center gap-2.5">
                       <TokenIcon src={img} symbol={t.symbol} size={24} />
                       <span className="flex flex-col leading-tight">
-                        <span className="font-medium text-[14px]">{t.symbol}</span>
+                        <span className="font-medium text-[14px]">{t.symbol}{t.communityMode && t.communityMode.shareBps > 0 ? <span className="pill cm ml-1.5 !text-[10px] !py-0" title={`Community Mode: ${t.communityMode.shareBps / 100}% of holder payouts go to holders of ${t.quote.symbol}`}>cm</span> : null}</span>
                         <span className="text-[11px] text-muted max-w-[160px] truncate">{t.name}</span>
                       </span>
                     </span>

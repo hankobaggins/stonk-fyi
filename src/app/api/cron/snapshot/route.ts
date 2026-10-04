@@ -19,6 +19,7 @@ import { runRunners } from "@/lib/runners";
 import { peakOf, RUNNER_FLOOR } from "@/lib/runner-math";
 import type { Token } from "@/lib/types";
 import { distributorWatchDue, runDistributorWatch } from "@/lib/wallet-rewards";
+import { communityTotalsDue, communityWalkDue, runCommunityModes, runCommunityTotals } from "@/lib/community";
 
 // Snapshot worker. Invoked by the GitHub Actions tick (.github/workflows/snapshot.yml) every 5 min,
 // with ?hourly=1 at the top of each hour, and by Vercel Cron (vercel.json) once a day with ?full=1:
@@ -32,6 +33,7 @@ import { distributorWatchDue, runDistributorWatch } from "@/lib/wallet-rewards";
 //   ...&coindeltas=1[&top=N]          -> run the HolderScan coin_deltas step (per reward coin) now
 //   ...&coinprofiles=1                -> run the HolderScan coin_profiles step (top coins by market cap, §6j) now
 //   ...&profile=1                     -> read the STONK HolderScan profile now (holder_profile step, §6h)
+//   ...&community=1                   -> Community Mode now: the hourly mode walk + totals + per-quote snapshot (§6p)
 // Cadence is tiered to keep token_snapshots small enough for Supabase's free tier (~8 MB/day).
 // Protected by CRON_SECRET.
 
@@ -98,6 +100,7 @@ export async function GET(req: Request) {
   const profile = params.get("profile") === "1";
   const coinProfiles = params.get("coinprofiles") === "1";
   const distributorsNow = params.get("distributors") === "1";
+  const communityNow = params.get("community") === "1";
   const maxPages = full ? Infinity : hourly ? 5 : 1;
   const ts = new Date().toISOString();
   const counts: Record<string, number> = {};
@@ -550,6 +553,24 @@ export async function GET(req: Request) {
     notes.runners = r.seeded && !r.crossed.length ? `seeded ${r.seeded} crossings over ${r.candidates} tokens` : r.crossed.length ? `crossed: ${r.crossed.slice(0, 8).join(", ")}${r.crossed.length > 8 ? ` +${r.crossed.length - 8}` : ""}${r.seeded ? ` (+${r.seeded} seeded)` : ""}` : `no new crossings (${r.candidates} tokens on the ladder)`;
     return r.created;
   });
+
+  // Community Mode (§6p): every tick, the newest reward launches (mode at launch) and the mode of every reward coin this
+  // tick fetched; hourly on the :50 tick, every reward coin with 24h volume (switches into / out of the mode after launch).
+  await step("community_modes", async () => {
+    const walk = communityNow || full || communityWalkDue(ts);
+    const r = await runCommunityModes(db, fetched, { walk });
+    const opened = r.opened.launch + r.opened.switch;
+    notes.community_modes = `${r.seeded ? "seeded · " : ""}${r.newLaunches} new reward launches (${r.newCommunity} in community mode) · ${r.observed} coins checked${walk ? " (hourly walk)" : ""}, ${r.community} in the mode · opened ${opened}${r.opened.switch ? ` (${r.opened.switch} SWITCHED in)` : ""}${r.closed ? ` · ${r.closed} LEFT the mode` : ""}${r.rate ? ` · ${r.rate} changed share` : ""}${r.notes.length ? ` · ${r.notes.join("; ")}` : ""}`;
+    return r.newLaunches + opened + r.closed + r.rate;
+  });
+  // Every 15 min (:05/:20/:35/:50): StonkFun's ledger × the mode periods → each community coin's split; hourly a per-quote snapshot.
+  if (communityNow || full || communityTotalsDue(ts)) {
+    await step("community_totals", async () => {
+      const r = await runCommunityTotals(db, ts, { snapshot: communityNow || full || communityWalkDue(ts), prune: full });
+      notes.community_totals = `${r.coins} community coins, ${r.written} updated, ${r.repriced} repriced${r.snapshot ? `, ${r.snapshot} quote assets snapshotted` : ""} · $${Math.round(r.toQuoteUsd).toLocaleString("en-US")} sent to quote-token holders${r.unpaid ? ` · ${r.unpaid} not paid yet` : ""}`;
+      return r.written;
+    });
+  }
 
   if (full) {
     await step("prune", async () => {

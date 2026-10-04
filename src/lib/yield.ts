@@ -24,7 +24,13 @@ export const YIELD_ROWS = 10;
 export const YIELD_TRACKED = 200;
 const MIN_COVERAGE = 0.8; // a window counts once ≥80% of it is covered by readings
 
-export type AprCell = { apr: number; usd: number; tokens: number; hours: number; from: string; to: string } | null;
+// `holderShare` < 1 for a Community Mode coin (§6p): StonkFun's payout total holds both shares, and only the coin
+// holders' share (67%) is their yield; the rest goes to holders of the quote token.
+export type AprCell = { apr: number; usd: number; tokens: number; hours: number; from: string; to: string; holderShare: number } | null;
+
+// The coin holders' share of a payout: 1 for plain reward coins, 1 − shareBps/10000 in Community Mode (the mode now —
+// a coin that switched inside the window is counted at its current split for the whole window).
+export const holderShareOf = (t: Pick<Token, "communityMode">): number => (t.communityMode && t.communityMode.shareBps > 0 ? 1 - t.communityMode.shareBps / 10_000 : 1);
 
 export type YieldRow = {
   mint: string;
@@ -77,12 +83,12 @@ export async function getRewardCoinsByMcap(n = YIELD_TRACKED): Promise<RewardCoi
   return out.slice(0, n);
 }
 
-function cell(w: RewardWindow | undefined, winHours: number, price: number | null, mcap: number): AprCell {
+function cell(w: RewardWindow | undefined, winHours: number, price: number | null, mcap: number, holderShare = 1): AprCell {
   if (!w || price === null || !(mcap > 0)) return null;
   if (w.hours < winHours * MIN_COVERAGE) return null;
-  const tokens = Math.max(0, w.toTokens - w.fromTokens);
+  const tokens = Math.max(0, w.toTokens - w.fromTokens) * holderShare;
   const usd = tokens * price;
-  return { apr: (usd / mcap) * (8760 / w.hours) * 100, usd, tokens, hours: w.hours, from: w.from, to: w.to };
+  return { apr: (usd / mcap) * (8760 / w.hours) * 100, usd, tokens, hours: w.hours, from: w.from, to: w.to, holderShare };
 }
 
 // Quote-asset USD prices for a set of quote mints: Jupiter, with STONK at StonkFun's own price.
@@ -126,8 +132,9 @@ export async function getAprForTokens(tokens: Token[]): Promise<AprLookup> {
     const mcap = t.market?.marketCapUsd ?? 0;
     const a = w24.get(t.mint);
     const b = w72.get(t.mint);
-    const d1 = cell(a, 24, price, mcap);
-    const d3 = cell(b, 72, price, mcap);
+    const share = holderShareOf(t);
+    const d1 = cell(a, 24, price, mcap, share);
+    const d3 = cell(b, 72, price, mcap, share);
     const why: AprReason | null = d1 || d3 ? null : !a && !b ? "untracked" : price === null ? "unpriced" : "collecting";
     byMint[t.mint] = { d1, d3, why };
   }
@@ -154,8 +161,8 @@ async function getYieldTableImpl(): Promise<YieldTable> {
   for (const { token: t, launch: l } of coins) {
     const price = prices[l.quote.mint] ?? null;
     const mcap = t.market!.marketCapUsd!;
-    const d1 = cell(w24?.get(t.mint), 24, price, mcap);
-    const d3 = cell(w72?.get(t.mint), 72, price, mcap);
+    const d1 = cell(w24?.get(t.mint), 24, price, mcap, holderShareOf(t));
+    const d3 = cell(w72?.get(t.mint), 72, price, mcap, holderShareOf(t));
     // Yield-paying = at least one recorded payout inside the longer window.
     if (!(d3?.tokens || d1?.tokens)) continue;
     rows.push({

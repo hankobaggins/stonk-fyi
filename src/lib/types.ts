@@ -37,6 +37,9 @@ export type Token = {
   mode?: "standard" | "reward" | string;
   quoteOnlyFees?: boolean;
   transferFee?: { bps: number };
+  // Community Mode (StonkFun, 2026-10-02): shareBps of every holder payout goes to holders of the QUOTE token instead
+  // (3300 = 33%). A coin can switch in after launch, so this is the coin's mode now, not at launch (lib/community.ts).
+  communityMode?: { shareBps: number } | null;
   flywheel?: { active: boolean };
   imageUrl?: string;
   metadataUri?: string;
@@ -127,6 +130,7 @@ export type Launch = {
   launchpad?: string;
   mode?: string;
   transferFee?: { bps: number };
+  communityMode?: { shareBps: number } | null; // on /tokens/{mint}'s launch record; not on the /launches list (checked 2026-10-03)
   logoUrl?: string;
   startMarketCapUsd?: number;
   targetMarketCapUsd?: number;
@@ -155,7 +159,11 @@ export type RewardDistribution = {
   distributedAt: string;
 };
 
-export type RewardsResponse = { launches: RewardLaunch[]; recentDistributions?: RewardDistribution[] };
+// "launches" / "recentDistributions" are quote-token amounts. For a Community Mode coin they hold BOTH legs (its holders'
+// share and the quote-token holders' share, under the coin's mint): checked on-chain 2026-10-03. Rewards a launch paid in
+// its OWN token are in "baseDistributions" / "recentBaseDistributions" (added by StonkFun ~2026-10; not used yet).
+export type RewardBaseLaunch = { mint: string; asset: { mint: string; symbol: string; decimals: number | null }; distributedRaw: string; distributedTokens: number | null; payoutCount: number; holderCount: number; lastPayoutAt: string };
+export type RewardsResponse = { launches: RewardLaunch[]; recentDistributions?: RewardDistribution[]; baseDistributions?: RewardBaseLaunch[] };
 
 export type Pair = {
   mint: string;

@@ -10,6 +10,8 @@ import TokenIcon from "@/components/TokenIcon";
 import CopyAddress from "@/components/CopyAddress";
 import { TradeLink } from "@/components/BuyButton";
 import { OG_VERSION_MS, SITE_URL } from "@/lib/site";
+import { getCommunityQuote } from "@/lib/community";
+import ShareCard from "@/components/ShareCard";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +34,7 @@ export async function generateMetadata({ params }: PageProps<"/pairs/[mint]">) {
 
 export default async function QuoteAssetPage({ params }: PageProps<"/pairs/[mint]">) {
   const { mint } = await params;
-  const d = await getQuoteAssetDetail(mint);
+  const [d, cm] = await Promise.all([getQuoteAssetDetail(mint), getCommunityQuote(mint, 5).catch(() => null)]);
   if (!d) notFound();
   const { row, pair, jup, venues, coins, group } = d;
   const now = nowMs();
@@ -153,7 +155,7 @@ export default async function QuoteAssetPage({ params }: PageProps<"/pairs/[mint
                     {c.platform ? <span className="pill accent ml-2">platform</span> : <span className="text-muted text-xs ml-2 hidden sm:inline">{c.name}</span>}
                   </td>
                   <td className="p3"><CopyAddress value={c.mint} /></td>
-                  <td className="p3"><ModePill mode={c.mode} /></td>
+                  <td className="p3"><ModePill mode={c.mode} cm={c.communityMode?.shareBps} /></td>
                   <td className="r num">{fmtUsd(c.marketCapUsd)}</td>
                   <td className="r num">{fmtUsd(c.volume24hUsd)}</td>
                   <td className="r num">{fmtUsd(c.liquidityUsd)}</td>
@@ -170,6 +172,22 @@ export default async function QuoteAssetPage({ params }: PageProps<"/pairs/[mint
           </table>
         </div>
       </Section>
+
+      {cm && (
+        <Section title={`Community Mode: sent to ${sym} holders`} action={<span className="src">stonk.fyi split of StonkFun payouts · 15 min</span>}>
+          <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(0,560px)] gap-5 items-start">
+            <div className="space-y-4">
+              <div className="kpis !border-b-0 !pb-0">
+                <KpiTile label={`Sent to ${sym} holders`} value={<span className="text-[var(--series-2)]">{cm.row.toQuoteUsd !== null ? fmtUsd(cm.row.toQuoteUsd) : "unpriced"}</span>} sub={`${fmtNum(cm.row.toQuoteTokens, cm.row.toQuoteTokens < 100 ? 2 : 0)} ${sym} · today's price`} />
+                <KpiTile label="Community coins" value={fmtNum(cm.row.coins)} sub={`${fmtNum(cm.row.active)} in the mode now · ${fmtNum(cm.row.graduated)} graduated`} />
+              </div>
+              <p className="text-[13px] text-secondary max-w-[70ch]">StonkFun coins launched in Community Mode against {sym} send 33% of every holder payout to wallets holding {sym}, pushed to them with nothing to claim. Top senders: {cm.coins.slice(0, 3).map((c, i) => <span key={c.mint}>{i ? ", " : ""}<Link href={`/tokens/${c.mint}`} className="text-primary hover:underline">{c.symbol ?? c.mint.slice(0, 4)}</Link>{c.toQuoteUsd !== null ? ` (${fmtUsd(c.toQuoteUsd)})` : ""}</span>)}.</p>
+              <Link href="/rewards?mode=community" className="num text-xs text-secondary hover:text-primary">Every quote token → Holder rewards · Community mode</Link>
+            </div>
+            <ShareCard src={`/community-card/${mint}?v=${Math.floor(now / 300_000)}`} name={`stonk-community-${sym.replace(/[^A-Za-z0-9]/g, "")}.png`} alt={`Community Mode: sent to ${sym} holders`} />
+          </div>
+        </Section>
+      )}
 
       <Section title="Share this" action={<span className="src">rendered live · URL changes every 5 min</span>}>
         <div className="grid lg:grid-cols-[minmax(0,560px)_1fr] gap-4 items-start">

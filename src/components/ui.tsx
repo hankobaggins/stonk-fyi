@@ -52,7 +52,9 @@ export function PageHeader({ title, sub, children }: { title: string; sub?: Reac
   );
 }
 
-export function ModePill({ mode, bps }: { mode?: string; bps?: number }) {
+// `cm` = Community Mode share (bps) when the coin is in the mode: its holder payouts are split with quote-token holders.
+export function ModePill({ mode, bps, cm }: { mode?: string; bps?: number; cm?: number | null }) {
+  if (mode === "reward" && cm) return <span className="pill cm" title={`Community Mode: ${cm / 100}% of holder payouts go to holders of the quote token`}>community {cm / 100}%</span>;
   if (mode === "reward") return <span className="pill accent">reward {bps ? `${bps / 100}%` : ""}</span>;
   if (mode === "standard") return <span className="pill">standard</span>;
   return <span className="pill">{mode ?? "—"}</span>;

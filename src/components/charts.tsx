@@ -197,6 +197,39 @@ export function CountBarChart({ data, height = 200, name = "Launches", fmt = "co
   );
 }
 
+// ---------- Two stacked count series per day (e.g. reward launches: plain + Community Mode) ----------
+
+export function StackedCountChart({ data, names, height = 200 }: { data: { date: string; a: number; b: number }[]; names: [string, string]; height?: number }) {
+  return (
+    <ResponsiveContainer width="100%" height={height}>
+      <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barCategoryGap="30%">
+        <CartesianGrid vertical={false} />
+        <XAxis dataKey="date" tickFormatter={fmtDay} tickLine={false} axisLine={false} minTickGap={28} />
+        <YAxis tickFormatter={(v) => fmtNum(v)} tickLine={false} axisLine={false} width={44} />
+        <Tooltip
+          cursor={{ fill: "var(--surface-2)" }}
+          content={({ label, payload }) =>
+            payload?.length ? (
+              <div className="rounded-lg border border-border-strong bg-surface-2 px-3 py-2 text-xs shadow-lg">
+                <div className="text-muted mb-1">{fmtDay(String(label))}</div>
+                {payload.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between gap-4">
+                    <span className="flex items-center gap-1.5 text-secondary"><span className="inline-block w-2 h-2 rounded-sm" style={{ background: p.color }} />{p.name}</span>
+                    <span className="num text-primary">{fmtNum(p.value as number)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null
+          }
+        />
+        <Legend iconType="square" iconSize={8} wrapperStyle={{ fontSize: 12, color: "var(--text-secondary)" }} />
+        <Bar dataKey="a" name={names[0]} stackId="s" fill={S[0]} stroke="var(--surface-1)" strokeWidth={1} />
+        <Bar dataKey="b" name={names[1]} stackId="s" fill={S[1]} stroke="var(--surface-1)" strokeWidth={1} radius={[3, 3, 0, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
 // ---------- Price history (line, single series) ----------
 
 export function PriceChart({ data, height = 280 }: { data: { ts: number; price: number }[]; height?: number }) {

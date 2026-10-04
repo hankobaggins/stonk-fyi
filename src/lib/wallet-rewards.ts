@@ -6,7 +6,8 @@ import { getDb } from "./db";
 import { getOwnerMints, getTransaction, getTransactionsForAddress } from "./helius";
 import { getJupiterTokens } from "./quote-assets";
 import { getUsdPrices } from "./jupiter";
-import { addPayouts, buildView, classifyTx, distKey, emptyAgg, noteUnexplained, plainTransferSource, type HeldCoin, type Payout, type WalletAgg, type WalletView } from "./wallet-rewards-math";
+import { addPayouts, buildView, classifyTx, distKey, emptyAgg, noteUnexplained, plainTransferSource, type CommunityQuotes, type HeldCoin, type Payout, type WalletAgg, type WalletView } from "./wallet-rewards-math";
+import { getCommunityOverview } from "./community";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Wallet rewards check (CLAUDE.md §6o, 2026-10-01): what StonkFun's holder-reward distributor has paid one wallet.
@@ -72,25 +73,27 @@ type Row = {
   txs_scanned: number; credits: number; payouts: number; first_at: string | null; last_at: string | null;
   assets: WalletAgg["assets"]; days: WalletAgg["days"]; recent: WalletAgg["recent"]; coins: HeldCoin[]; lock_until: string | null; error: string | null;
   dist_key?: string | null; unexplained?: Record<string, number> | null; by_distributor?: Record<string, number> | null;
+  quotes_held?: string[] | null;
 };
 const fromRow = (r: Row): WalletAgg => ({
   wallet: r.wallet, scannedAt: r.scanned_at, complete: r.complete, lastSlot: r.last_slot === null ? null : Number(r.last_slot), cursor: r.cursor,
   passFrom: r.pass_from === null ? null : Number(r.pass_from), txsScanned: Number(r.txs_scanned), credits: Number(r.credits), payouts: r.payouts,
   firstAt: r.first_at, lastAt: r.last_at, assets: r.assets ?? {}, days: r.days ?? {}, recent: r.recent ?? [], coins: r.coins ?? [], error: r.error,
-  distKey: r.dist_key ?? null, unexplained: r.unexplained ?? {}, byDistributor: r.by_distributor ?? {},
+  distKey: r.dist_key ?? null, unexplained: r.unexplained ?? {}, byDistributor: r.by_distributor ?? {}, quotesHeld: r.quotes_held ?? [],
 });
 const toRow = (a: WalletAgg) => ({
   wallet: a.wallet, scanned_at: a.scannedAt, complete: a.complete, last_slot: a.lastSlot, cursor: a.cursor, pass_from: a.passFrom,
   txs_scanned: a.txsScanned, credits: a.credits, payouts: a.payouts, first_at: a.firstAt, last_at: a.lastAt,
   assets: a.assets, days: a.days, recent: a.recent, coins: a.coins, error: a.error,
-  dist_key: a.distKey, unexplained: a.unexplained, by_distributor: a.byDistributor,
+  dist_key: a.distKey, unexplained: a.unexplained, by_distributor: a.byDistributor, quotes_held: a.quotesHeld,
 });
 // 0023 adds dist_key / unexplained / by_distributor; without it the row is saved without them (and never re-read for a
 // changed distributor set, since it cannot remember one).
 let legacyRows = false;
+let noQuotesHeld = false;
 const legacyRow = (row: ReturnType<typeof toRow>) => {
-  const { dist_key: _k, unexplained: _u, by_distributor: _b, ...rest } = row;
-  void _k; void _u; void _b;
+  const { dist_key: _k, unexplained: _u, by_distributor: _b, quotes_held: _q, ...rest } = row;
+  void _k; void _u; void _b; void _q;
   return rest;
 };
 
@@ -138,17 +141,26 @@ export async function pricesFor(mints: string[]): Promise<Record<string, number>
   return prices;
 }
 
+// Community Mode by quote token (§6p): since when community coins have paid its holders. Empty without the DB.
+export async function communityQuotes(): Promise<CommunityQuotes> {
+  const ov = await getCommunityOverview().catch(() => null);
+  const out: CommunityQuotes = {};
+  for (const q of ov?.byQuote ?? []) if (q.firstAt) out[q.quoteMint] = { since: q.firstAt, coins: q.coins };
+  return out;
+}
+
 export async function viewOf(agg: WalletAgg, now = new Date().toISOString()): Promise<WalletView> {
-  if (USE_FIXTURES) return buildView(agg, SAMPLE_PRICES, {}, now);
+  if (USE_FIXTURES) return buildView(agg, SAMPLE_PRICES, {}, now, await communityQuotes());
   const mints = Object.keys(agg.assets);
-  const [prices, symbols] = await Promise.all([pricesFor(mints), symbolsFor(mints)]);
-  return buildView(agg, prices, symbols, now);
+  const [prices, symbols, community] = await Promise.all([pricesFor(mints), symbolsFor(mints), communityQuotes()]);
+  return buildView(agg, prices, symbols, now, community);
 }
 
 // Reward coins the wallet holds now, with their quote asset — the "from" side of the breakdown (inferred: the chain
 // does not say which coin a payout was for) and the empty-state diagnostics.
-async function heldCoins(wallet: string): Promise<{ coins: HeldCoin[]; credits: number }> {
-  const [{ mints, credits }, idx] = await Promise.all([getOwnerMints(wallet), rewardIndex()]);
+async function heldCoins(wallet: string): Promise<{ coins: HeldCoin[]; credits: number; quotesHeld: string[] }> {
+  const [{ mints, credits }, idx, cq] = await Promise.all([getOwnerMints(wallet), rewardIndex(), communityQuotes()]);
+  const quotesHeld = mints.filter((m) => cq[m]);
   const held = mints.filter((m) => idx.has(m));
   const syms = held.length ? await getJupiterTokens(held).catch(() => new Map()) : new Map();
   const coins = held.map((m) => {
@@ -156,7 +168,7 @@ async function heldCoins(wallet: string): Promise<{ coins: HeldCoin[]; credits: 
     return { mint: m, quote: c.quote, quoteSymbol: c.quoteSymbol, symbol: syms.get(m)?.symbol, lastPayoutAt: c.lastPayoutAt };
   });
   coins.sort((a, b) => (b.lastPayoutAt ?? "").localeCompare(a.lastPayoutAt ?? ""));
-  return { coins: coins.slice(0, 50), credits };
+  return { coins: coins.slice(0, 50), credits, quotesHeld };
 }
 
 // ---- Per-coin cards (§6o gallery) ----
@@ -201,6 +213,8 @@ export async function coinCardData(agg: WalletAgg, asset: string, hideWallet: bo
     amount: g.amount,
     usd: g.usd,
     payouts: g.payouts,
+    kind: g.kind,
+    communityCoins: g.communityCoins,
     firstAt: g.first,
     last7dUsd: g.last7dUsd,
     supplyBurnedPct,
@@ -279,7 +293,17 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
     if (!db) return;
     const lock = final ? { lock_until: null } : { lock_until: new Date(Date.now() + LOCK_MS).toISOString() };
     const row = toRow(agg);
-    let { error } = await db.from("wallet_rewards").update({ ...(legacyRows ? legacyRow(row) : row), ...lock }).eq("wallet", wallet);
+    // 0024 adds quotes_held (§6p); without it the row is saved without it (the community attribution then only covers
+    // assets no held coin pays in).
+    const base = noQuotesHeld ? (({ quotes_held: _q, ...r }) => (void _q, r))(row) : row;
+    let { error } = await db.from("wallet_rewards").update({ ...(legacyRows ? legacyRow(row) : base), ...lock }).eq("wallet", wallet);
+    if (error && !noQuotesHeld && /quotes_held/.test(error.message)) {
+      noQuotesHeld = true;
+      console.error(`wallet_rewards without the 0024 column, saving without it: ${error.message}`);
+      const { quotes_held: _q, ...rest } = row;
+      void _q;
+      ({ error } = await db.from("wallet_rewards").update({ ...(legacyRows ? legacyRow(row) : rest), ...lock }).eq("wallet", wallet));
+    }
     if (error && !legacyRows && /dist_key|unexplained|by_distributor/.test(error.message)) {
       legacyRows = true;
       console.error(`wallet_rewards without 0023 columns, saving without them: ${error.message}`);
@@ -304,6 +328,7 @@ export async function* scanWallet(wallet: string, opts: { force?: boolean } = {}
     agg.error = null;
     const held = await heldCoins(wallet);
     agg.coins = held.coins;
+    agg.quotesHeld = held.quotesHeld;
     agg.credits += held.credits;
     meter.credits += held.credits;
 

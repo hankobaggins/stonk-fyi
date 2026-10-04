@@ -19,6 +19,7 @@ import { getJupiterTokens, getPythFeeds, getQuoteBoard, lastQuoteAssetError } fr
 import { PAGE_UNITS_PER_H, pageMeter, TOKEN_HOLDERS_TTL_MIN, TOKEN_PROFILE_UNITS } from "@/lib/token-holders";
 import { getDistributors, REWARDS_CREDITS_PER_H, REWARDS_REFRESH_MIN, rewardsMeter } from "@/lib/wallet-rewards";
 import { distKey } from "@/lib/wallet-rewards-math";
+import { communityHealth } from "@/lib/community";
 
 // Diagnostics: GET /api/health → per-source status so a broken page can be traced to its upstream.
 export const dynamic = "force-dynamic";
@@ -214,6 +215,7 @@ export async function GET() {
       if (PAGE_UNITS_PER_H === 0) return `${note} — disabled on the Standard plan (set HOLDERSCAN_PAGE_UNITS_PER_H to enable)`;
       return note;
     }),
+    run("community", communityHealth),
     run("wallet_rewards", async () => {
       // §6o: the wallet rewards check. Per-instance meter (this instance, this hour) + the stored scans + who pays.
       if (!process.env.HELIUS_API_KEY) throw new Error("HELIUS_API_KEY unset — /rewards/{wallet} cannot read the chain");

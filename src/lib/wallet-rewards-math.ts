@@ -169,11 +169,12 @@ export type WalletAgg = {
   distKey: string | null;                       // distKey() of the distributor set + rules this aggregate was built with
   unexplained: Record<string, number>;          // plain transfers into the wallet from non-distributors, by source (top 20)
   byDistributor: Record<string, number>;        // payout txs by the distributor that sent them
+  quotesHeld: string[];                         // Community Mode quote tokens the wallet held at the last scan (§6p)
 };
 
 export const emptyAgg = (wallet: string): WalletAgg => ({
   wallet, scannedAt: null, complete: false, lastSlot: null, cursor: null, passFrom: null, txsScanned: 0, credits: 0,
-  payouts: 0, firstAt: null, lastAt: null, assets: {}, days: {}, recent: [], coins: [], error: null, distKey: null, unexplained: {}, byDistributor: {},
+  payouts: 0, firstAt: null, lastAt: null, assets: {}, days: {}, recent: [], coins: [], error: null, distKey: null, unexplained: {}, byDistributor: {}, quotesHeld: [],
 });
 
 // Notes a non-payout increase from a plain transfer (a friend, an airdrop — or a distributor this site does not know
@@ -227,7 +228,12 @@ export const toAmount = (raw: string | bigint, decimals: number): number => {
 // One per-coin card (§6o gallery): a reward asset this wallet received, with the held coin(s) that pay in it. One coin
 // → its card is exact; several held coins paying in the same asset → one grouped card (the chain can't split them).
 export const COIN_CARDS_MAX = 10;
-export type CoinGroupView = { asset: string; symbol: string; coins: { mint: string; symbol: string }[]; amount: number; usd: number | null; payouts: number; first: string; last7dUsd: number | null };
+// kind (§6p): "coin" = held reward coin(s) paying in this asset; "community" = no held coin pays in it, but Community Mode
+// coins pay a share to holders of it (the wallet holds / held the asset itself) — counted from the mode's first payout in
+// that asset; "mixed" = both (held coins and the asset itself): not split.
+export type CoinGroupView = { asset: string; symbol: string; coins: { mint: string; symbol: string }[]; amount: number; usd: number | null; payouts: number | null; first: string; last7dUsd: number | null; kind: "coin" | "community" | "mixed"; communityCoins: number };
+// Community Mode by quote token: since when community coins have paid its holders, and how many coins (§6p).
+export type CommunityQuotes = Record<string, { since: string; coins: number }>;
 
 export type AssetView = { mint: string; symbol: string; amount: number; usd: number | null; payouts: number; first: string; last: string; from: string[] };
 export type WalletView = {
@@ -250,13 +256,24 @@ export type WalletView = {
 };
 
 // `prices` = USD per whole token now; `symbols` = mint → ticker (stored symbols win). `now` is passed in (purity).
-export function buildView(agg: WalletAgg, prices: Record<string, number>, symbols: Record<string, string>, now: string): WalletView {
+export function buildView(agg: WalletAgg, prices: Record<string, number>, symbols: Record<string, string>, now: string, community: CommunityQuotes = {}): WalletView {
   const sym = (m: string) => agg.assets[m]?.symbol ?? symbols[m] ?? (m === SOL_MINT ? "SOL" : `${m.slice(0, 4)}…`);
+  const quotesHeld = new Set(agg.quotesHeld ?? []);
+  // Community Mode share for this asset: community coins pay in it, and the wallet holds it (or holds no coin that pays
+  // in it, so it can only have been paid as a holder of the asset — since the mode's first payout in it).
+  const communityFor = (asset: string, heldCoins: number): boolean => {
+    const c = community[asset];
+    if (!c) return false;
+    const a = agg.assets[asset];
+    if (a && a.last < c.since) return false;
+    return heldCoins === 0 || quotesHeld.has(asset);
+  };
   const fromFor = (asset: string): string[] => {
     // A coin that pays in its own token is its own source; otherwise every held reward coin quoted in this asset.
     const own = agg.coins.find((c) => c.mint === asset);
     if (own) return [own.symbol ?? sym(asset)];
-    return agg.coins.filter((c) => c.quote === asset).map((c) => c.symbol ?? `${c.mint.slice(0, 4)}…`);
+    const held = agg.coins.filter((c) => c.quote === asset).map((c) => c.symbol ?? `${c.mint.slice(0, 4)}…`);
+    return communityFor(asset, held.length) ? [...held, "community coins"] : held;
   };
   const assets: AssetView[] = Object.entries(agg.assets).map(([mint, a]) => {
     const amount = toAmount(a.raw, a.decimals);
@@ -291,10 +308,30 @@ export function buildView(agg: WalletAgg, prices: Record<string, number>, symbol
   const groups: CoinGroupView[] = [];
   for (const a of assets) {
     const held = agg.coins.filter((c) => c.mint === a.mint || c.quote === a.mint);
-    if (!held.length) continue;
+    const cm = communityFor(a.mint, held.length);
+    if (!held.length && !cm) continue;
     const mintUsd = (d: Record<string, string>) => (d[a.mint] && prices[a.mint] !== undefined ? toAmount(d[a.mint], dec(a.mint)) * prices[a.mint] : 0);
     const l7 = prices[a.mint] !== undefined ? Object.entries(agg.days).filter(([d]) => d >= cut).reduce((s, [, v]) => s + mintUsd(v), 0) : null;
-    groups.push({ asset: a.mint, symbol: a.symbol, coins: held.map((c) => ({ mint: c.mint, symbol: c.symbol ?? `${c.mint.slice(0, 4)}…` })), amount: a.amount, usd: a.usd, payouts: a.payouts, first: a.first, last7dUsd: l7 });
+    const coins = held.map((c) => ({ mint: c.mint, symbol: c.symbol ?? `${c.mint.slice(0, 4)}…` }));
+    const cq = community[a.mint];
+    if (!held.length && cq) {
+      // Only payouts since community coins started paying this asset's holders. Exact when the wallet's first payout in
+      // it came after that; otherwise summed from its per-day record (payout count unknown for that part).
+      const from = cq.since.slice(0, 10);
+      let amount = a.amount;
+      let payouts: number | null = a.payouts;
+      let first = a.first;
+      if (a.first < cq.since) {
+        const raw = Object.entries(agg.days).filter(([d]) => d >= from).reduce((s, [, v]) => s + BigInt(v[a.mint] ?? "0"), BigInt(0));
+        amount = toAmount(raw, dec(a.mint));
+        payouts = null;
+        first = cq.since;
+      }
+      if (!(amount > 0)) continue;
+      groups.push({ asset: a.mint, symbol: a.symbol, coins, amount, usd: prices[a.mint] !== undefined ? amount * prices[a.mint] : null, payouts, first, last7dUsd: l7, kind: "community", communityCoins: cq.coins });
+    } else {
+      groups.push({ asset: a.mint, symbol: a.symbol, coins, amount: a.amount, usd: a.usd, payouts: a.payouts, first: a.first, last7dUsd: l7, kind: cm ? "mixed" : "coin", communityCoins: cm ? cq?.coins ?? 0 : 0 });
+    }
     if (groups.length >= COIN_CARDS_MAX) break;
   }
 

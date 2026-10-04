@@ -29,6 +29,13 @@ async function fixture<T>(name: string): Promise<ApiEnvelope<T>> {
   return (mod.default ?? mod) as ApiEnvelope<T>;
 }
 
+// Fixture mode: the Community Mode capture (src/fixtures/community.json, §6p) joins the token fixture, so /tokens,
+// token pages and quote-asset pages show community coins offline.
+async function communityFixtureTokens(): Promise<Token[]> {
+  const mod = await import("@/fixtures/community.json");
+  return ((mod.default ?? mod) as unknown as { tokens: Token[] }).tokens;
+}
+
 // No upstream may hold a render open indefinitely (2026-09-16): a page that waits on a hung
 // provider is a page nobody sees. Past this the fetch rejects and the caller's fallback applies.
 export const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS) || 10_000;
@@ -89,7 +96,7 @@ export type TokenQuery = {
 export async function getTokens(query: TokenQuery = {}) {
   if (USE_FIXTURES) {
     const fx = await fixture<TokensResponse>("tokens");
-    let tokens = [...fx.data.tokens];
+    let tokens = [...fx.data.tokens, ...(await communityFixtureTokens())];
     if (query.q) {
       const q = query.q.toLowerCase();
       tokens = tokens.filter((t) => t.name.toLowerCase().includes(q) || t.symbol.toLowerCase().includes(q) || t.mint === query.q);
@@ -134,7 +141,7 @@ function unwrapTokenDetail(data: unknown): TokenDetail | null {
 export async function getToken(mint: string, opts: { fresh?: boolean } = {}): Promise<ApiEnvelope<TokenDetail> | null> {
   if (USE_FIXTURES) {
     const fx = await fixture<TokensResponse>("tokens");
-    const t = fx.data.tokens.find((x) => x.mint === mint);
+    const t = [...fx.data.tokens, ...(await communityFixtureTokens())].find((x) => x.mint === mint);
     if (!t) return null;
     const lx = await fixture<LaunchesResponse>("launches");
     const launch = lx.data.launches.find((l) => l.mint === mint) ?? null;
@@ -172,7 +179,7 @@ export async function getTokenBurns(mint: string, revalidate = 60, opts: { fresh
   }
   return optional<TokenBurns>(`/tokens/${mint}/burns`, revalidate, undefined, opts.fresh);
 }
-export const getTokenRewards = (mint: string) => optional<TokenRewards>(`/tokens/${mint}/rewards`, 60, mint === STONK_MINT ? "token-rewards-standard" : "token-rewards-reward");
+export const getTokenRewards = (mint: string, opts: { fresh?: boolean } = {}) => optional<TokenRewards>(`/tokens/${mint}/rewards`, 60, mint === STONK_MINT ? "token-rewards-standard" : "token-rewards-reward", opts.fresh);
 export const getTokenFees = (mint: string) => optional<TokenFees>(`/tokens/${mint}/fees`, 60, mint === STONK_MINT ? "token-fees-standard" : "token-fees-reward");
 // Only Pump launches have backing; everything else 400s → null. Shape not verified, rendered as JSON.
 export const getTokenBacking = (mint: string) => optional<Record<string, unknown>>(`/tokens/${mint}/backing`);

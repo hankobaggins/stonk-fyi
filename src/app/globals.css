@@ -144,6 +144,8 @@ html[data-cols="essential"] table.data .p3 { display: none; }
 }
 .pill.accent { border-color: color-mix(in oklab, var(--accent) 50%, transparent); color: var(--accent); }
 .pill.up { border-color: color-mix(in oklab, var(--up) 50%, transparent); color: var(--up); }
+/* Community Mode (§6p): series-2, the colour community launches have in the /rewards launches chart. */
+.pill.cm { border-color: color-mix(in oklab, var(--series-2) 55%, transparent); color: var(--series-2); }
 
 .filterbar a, .filterbar button {
   font-size: 12px; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);

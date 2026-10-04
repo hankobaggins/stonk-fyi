@@ -270,6 +270,7 @@ export type QuoteCoin = {
   symbol: string;
   name: string;
   mode?: string;
+  communityMode?: { shareBps: number } | null;
   status: string;
   marketCapUsd: number | null;
   volume24hUsd: number | null;
@@ -316,6 +317,7 @@ export async function getQuoteAssetDetail(mint: string): Promise<QuoteAssetDetai
       symbol: t.symbol,
       name: t.name,
       mode: t.mode,
+      communityMode: t.communityMode ?? null,
       status: t.status,
       marketCapUsd: t.market?.marketCapUsd ?? null,
       volume24hUsd: vol,

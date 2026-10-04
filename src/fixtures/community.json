@@ -1,0 +1,821 @@
+{
+ "capturedAt": "2026-10-04T01:29:05.158Z",
+ "note": "Normalized real capture (2026-10-04, from Chrome): 21 Community Mode coins (the largest paying ones by market cap + one unpaid), their /rewards ledger rows, Jupiter USD prices of their quote tokens, and reward launches per UTC day from the /tokens?mode=reward&sort=newest walk (2026-10-04 partial). imageUrl dropped.",
+ "tokens": [
+  {
+   "mint": "5FKPLjhNrez3iu2oSKfFjy6kNxRVf2jL1jc8dAwCbu9E",
+   "name": "stupidinu",
+   "symbol": "STUPIDINU",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 0.0005142490468288743,
+    "marketCapUsd": 514249.0468288742,
+    "volume24hUsd": 1290278.6682907285,
+    "peakMarketCapUsd": 891027.7958860572
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-02T22:06:18.149Z"
+  },
+  {
+   "mint": "4RbsHw9H3EayjgfWXq2KaLvbREFua8wkER3gdLViLK3T",
+   "name": "BAG",
+   "symbol": "BAG",
+   "quote": {
+    "mint": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+    "symbol": "ZCAT",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 0.00016109205323363334,
+    "marketCapUsd": 161092.05323363334,
+    "volume24hUsd": 207563.07506240148,
+    "peakMarketCapUsd": 542549.2680425912
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-03T00:55:01.571Z"
+  },
+  {
+   "mint": "HNHJV7RVhQDdXhxa7PfHYSsEdMR1WLz81Dq3VA7Ldht2",
+   "name": "♾️",
+   "symbol": "♾️",
+   "quote": {
+    "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+    "symbol": "STONK",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 1.9379972416724307e-05,
+    "marketCapUsd": 19379.972416724308,
+    "volume24hUsd": 25749.199951191953,
+    "peakMarketCapUsd": 31827.928243979182
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T00:55:01.571Z"
+  },
+  {
+   "mint": "8svf3G1X4mnAX3Xm71jFXgiHydbvc5XKQKicbnokRUky",
+   "name": "Commie Coin",
+   "symbol": "COMMIE",
+   "quote": {
+    "mint": "AMC1qwR9KhiyrQBRPrxnfo4JfMeMZqEBvt5tgTytNNoc",
+    "symbol": "AMC",
+    "category": "backpack"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 1.9022595937462435e-05,
+    "marketCapUsd": 19022.595937462433,
+    "volume24hUsd": 53474.67808468327,
+    "peakMarketCapUsd": 957931.5960439089
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-02T00:13:18.667Z"
+  },
+  {
+   "mint": "GDeKVeV3cs6UCTRDmHqZHugBmUbLLRW7hi9P91XXeLNT",
+   "name": "USEFUL COIN",
+   "symbol": "USEFUL",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 1.679101031358559e-05,
+    "marketCapUsd": 16791.01031358559,
+    "volume24hUsd": 79629.49155410878,
+    "peakMarketCapUsd": 75796.66238537441
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-03T23:17:36.248Z"
+  },
+  {
+   "mint": "J4NA8iuh94hUaCSrg2udURs4VBwTpK7r2q8b21LeMd5r",
+   "name": "The Huddle",
+   "symbol": "Huddle",
+   "quote": {
+    "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+    "symbol": "PENGU",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 9.495833079670745e-06,
+    "marketCapUsd": 9495.833079670745,
+    "volume24hUsd": 21587.0683684376,
+    "peakMarketCapUsd": 72663.69170048407
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "7C4WR4gHkSm1ztDSSFC78catz22qbNkJs1Y8pytwRwJX",
+   "name": "Football Inu",
+   "symbol": "Footballinu",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 8.915162568218314e-06,
+    "marketCapUsd": 8915.162568218315,
+    "volume24hUsd": 12207.128903006704,
+    "peakMarketCapUsd": 13124.276936190798
+   },
+   "status": "new",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "7HyaDc4nE8tt1tKnjvca4cDUctiV8yHmaLUMPy4iMiDN",
+   "name": "Brick by Brick",
+   "symbol": "BBB",
+   "quote": {
+    "mint": "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy",
+    "symbol": "BP",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 6.759561360331561e-06,
+    "marketCapUsd": 6759.561360331561,
+    "volume24hUsd": 1813.9302037572443,
+    "peakMarketCapUsd": 7273.354190397846
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T18:37:48.565Z"
+  },
+  {
+   "mint": "7XnYSFYkWtB8PjtGAFtLoiRgHBUeJyJVX7ag9LLvPspZ",
+   "name": "i am the dealer",
+   "symbol": "RAKE",
+   "quote": {
+    "mint": "4MMQY9bwkxxTtsK3W227Q5ABT6yFY8Pmn9Ze7wmAXKY8",
+    "symbol": "ALLINU",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 6.694264864222823e-06,
+    "marketCapUsd": 6694.264864222822,
+    "volume24hUsd": 10206.835694216146,
+    "peakMarketCapUsd": 9912.93369652279
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T14:31:00.863Z"
+  },
+  {
+   "mint": "FjDfowQuAZ4UyiX7gqDnkydmDBHVGJca6YKHvH2zutbe",
+   "name": "Iam Now Useless",
+   "symbol": "INU",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 5.225131962999096e-06,
+    "marketCapUsd": 5225.131962999097,
+    "volume24hUsd": 35146.435521299805,
+    "peakMarketCapUsd": 15261.828323097938
+   },
+   "status": "new",
+   "createdAt": "2026-10-02T23:01:59.772Z"
+  },
+  {
+   "mint": "A4UjnEDSBFhuMDgiwzUwmhnnLPaCbGHYEXRGujhUNf84",
+   "name": "ひきこもり",
+   "symbol": "HIKIKOMORI",
+   "quote": {
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "symbol": "neet",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 4.84332231872429e-06,
+    "marketCapUsd": 4843.322318724291,
+    "volume24hUsd": 61101.02815748395,
+    "peakMarketCapUsd": 34675.64360595593
+   },
+   "status": "new",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "BpmKnQsEcSUEVeGwcq1z4fkwLEmbg4j1YivhyX3AVnik",
+   "name": "delusional bulls",
+   "symbol": "BULLS",
+   "quote": {
+    "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    "symbol": "ANSEM",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 4.464400749010995e-06,
+    "marketCapUsd": 4464.400749010995,
+    "volume24hUsd": 1883.1154493627853,
+    "peakMarketCapUsd": 7583.623345006581
+   },
+   "status": "new",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "EPimCMUmaRyCc2aqKKKuHWvZye85w7LxpHHPcrq471Yr",
+   "name": "A Bruh For Purr",
+   "symbol": "BRUH",
+   "quote": {
+    "mint": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
+    "symbol": "PURR",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 4.3394253969663415e-06,
+    "marketCapUsd": 4339.425396966341,
+    "volume24hUsd": 10048.690452858142,
+    "peakMarketCapUsd": 10818.657121169532
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T16:17:33.093Z"
+  },
+  {
+   "mint": "GhE3yZiC2NvzFKQeMNCeh4t7AdnJQxUfV8vds7UyXcuL",
+   "name": "Shareholders",
+   "symbol": "SHODL",
+   "quote": {
+    "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+    "symbol": "STONK",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 4.0997556008069446e-06,
+    "marketCapUsd": 4099.755600806945,
+    "volume24hUsd": 53884.505611332126,
+    "peakMarketCapUsd": 56081.337230234596
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-03T00:55:01.571Z"
+  },
+  {
+   "mint": "Cz2Xu8UPvSUv8pYeXrsZZcVM3grkkFXmcKVQvLSwbUB",
+   "name": "The Bag Stays On",
+   "symbol": "BAG",
+   "quote": {
+    "mint": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+    "symbol": "ZCAT",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 3.9173848390583425e-06,
+    "marketCapUsd": 3917.384839058343,
+    "volume24hUsd": 2026.988653365164,
+    "peakMarketCapUsd": 9327.601877441253
+   },
+   "status": "new",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "6Y3BN7twb5CYaxw1ow14UXZvVLyo1FV6oXzjJ5qkC4wd",
+   "name": "Ghosti",
+   "symbol": "Ghosti",
+   "quote": {
+    "mint": "pSo1f9nQXWgXibFtKf7NWYxb5enAM4qfP6UJSiXRQfL",
+    "symbol": "PSOL",
+    "category": "solana"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 3.843171696020547e-06,
+    "marketCapUsd": 3843.1716960205467,
+    "volume24hUsd": 199963.13764908622,
+    "peakMarketCapUsd": 49017.32504058058
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-03T04:21:29.989Z"
+  },
+  {
+   "mint": "EK3wq43rYaPxdyAh7ANp2fB4w56K82C1r3w3LEs5uHFd",
+   "name": "The Huddlers",
+   "symbol": "HUDL",
+   "quote": {
+    "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+    "symbol": "PENGU",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 3.823681924959167e-06,
+    "marketCapUsd": 3823.6819249591667,
+    "volume24hUsd": 1944.7215374622897,
+    "peakMarketCapUsd": 6154.513078938375
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "4XazC7Pp4cZSQbJKUdzpCXdMMNYH7BKSMiJh5v6fRQLo",
+   "name": "Proudly Evading Paid Employment",
+   "symbol": "PEPE",
+   "quote": {
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "symbol": "neet",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 3.7993376970873258e-06,
+    "marketCapUsd": 3799.3376970873255,
+    "volume24hUsd": 533.4965440123834,
+    "peakMarketCapUsd": 4336.200861242533
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T00:55:01.571Z"
+  },
+  {
+   "mint": "BwtjypNz6P8jrvucoy5V1HaewM2ftwY4Jm4S55BXLSBu",
+   "name": "Stupid Inu",
+   "symbol": "SI",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 3.7691640571233134e-06,
+    "marketCapUsd": 3769.1640571233133,
+    "volume24hUsd": 842.0008601124698,
+    "peakMarketCapUsd": 6938.004722242035
+   },
+   "status": "graduated",
+   "createdAt": "2026-10-02T22:58:24.782Z"
+  },
+  {
+   "mint": "boooRSj11szm3aimPZPXEAWAcmZ5kxsLxaFQTr8d9eP",
+   "name": "boocat",
+   "symbol": "boocat",
+   "quote": {
+    "mint": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+    "symbol": "POPCAT",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 100
+   },
+   "market": {
+    "priceUsd": 3.7573200417623807e-06,
+    "marketCapUsd": 3757.3200417623807,
+    "volume24hUsd": 6354.15024464615,
+    "peakMarketCapUsd": 3780.301603152631
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T05:34:36.724Z"
+  },
+  {
+   "mint": "J88CxxMm3eEVjpZTodEu6X91Sjsgh8NeZeWnAmM46NyP",
+   "name": "Generational Wealth",
+   "symbol": "GENNY",
+   "quote": {
+    "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    "symbol": "ANSEM",
+    "category": "custom"
+   },
+   "mode": "reward",
+   "communityMode": {
+    "shareBps": 3300
+   },
+   "transferFee": {
+    "bps": 300
+   },
+   "market": {
+    "priceUsd": 4.551425623964092e-06,
+    "marketCapUsd": 4551.425623964092,
+    "volume24hUsd": 1711.8684173966535,
+    "peakMarketCapUsd": 4585.7664377474675
+   },
+   "status": "new",
+   "createdAt": "2026-10-03T15:22:29.855Z"
+  }
+ ],
+ "launches": [
+  {
+   "mint": "5FKPLjhNrez3iu2oSKfFjy6kNxRVf2jL1jc8dAwCbu9E",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "decimals": 6
+   },
+   "distributedRaw": "99219055239",
+   "distributedTokens": 99219.055239,
+   "payoutCount": 52708,
+   "holderCount": 4390,
+   "lastPayoutAt": "2026-10-03T23:06:37.990Z"
+  },
+  {
+   "mint": "4RbsHw9H3EayjgfWXq2KaLvbREFua8wkER3gdLViLK3T",
+   "quote": {
+    "mint": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+    "symbol": "ZCAT",
+    "decimals": 9
+   },
+   "distributedRaw": "356577368762235",
+   "distributedTokens": 356577.368762235,
+   "payoutCount": 39973,
+   "holderCount": 1865,
+   "lastPayoutAt": "2026-10-03T21:32:47.328Z"
+  },
+  {
+   "mint": "HNHJV7RVhQDdXhxa7PfHYSsEdMR1WLz81Dq3VA7Ldht2",
+   "quote": {
+    "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+    "symbol": "STONK",
+    "decimals": 9
+   },
+   "distributedRaw": "4342103498899",
+   "distributedTokens": 4342.103498899,
+   "payoutCount": 3199,
+   "holderCount": 567,
+   "lastPayoutAt": "2026-10-03T14:38:55.756Z"
+  },
+  {
+   "mint": "8svf3G1X4mnAX3Xm71jFXgiHydbvc5XKQKicbnokRUky",
+   "quote": {
+    "mint": "AMC1qwR9KhiyrQBRPrxnfo4JfMeMZqEBvt5tgTytNNoc",
+    "symbol": "AMC",
+    "decimals": 6
+   },
+   "distributedRaw": "10258898160",
+   "distributedTokens": 10258.89816,
+   "payoutCount": 38308,
+   "holderCount": 1344,
+   "lastPayoutAt": "2026-10-03T21:27:00.601Z"
+  },
+  {
+   "mint": "GDeKVeV3cs6UCTRDmHqZHugBmUbLLRW7hi9P91XXeLNT",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "decimals": 6
+   },
+   "distributedRaw": "10859262710",
+   "distributedTokens": 10859.26271,
+   "payoutCount": 6110,
+   "holderCount": 557,
+   "lastPayoutAt": "2026-10-04T01:20:12.550Z"
+  },
+  {
+   "mint": "J4NA8iuh94hUaCSrg2udURs4VBwTpK7r2q8b21LeMd5r",
+   "quote": {
+    "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+    "symbol": "PENGU",
+    "decimals": 6
+   },
+   "distributedRaw": "371071599269",
+   "distributedTokens": 371071.599269,
+   "payoutCount": 5172,
+   "holderCount": 1987,
+   "lastPayoutAt": "2026-10-03T13:43:14.264Z"
+  },
+  {
+   "mint": "7C4WR4gHkSm1ztDSSFC78catz22qbNkJs1Y8pytwRwJX",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "decimals": 6
+   },
+   "distributedRaw": "2979755426",
+   "distributedTokens": 2979.755426,
+   "payoutCount": 1467,
+   "holderCount": 296,
+   "lastPayoutAt": "2026-10-03T19:25:19.363Z"
+  },
+  {
+   "mint": "7HyaDc4nE8tt1tKnjvca4cDUctiV8yHmaLUMPy4iMiDN",
+   "quote": {
+    "mint": "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy",
+    "symbol": "BP",
+    "decimals": 9
+   },
+   "distributedRaw": "54923432538",
+   "distributedTokens": 54.923432538,
+   "payoutCount": 188,
+   "holderCount": 188,
+   "lastPayoutAt": "2026-10-03T18:34:34.025Z"
+  },
+  {
+   "mint": "7XnYSFYkWtB8PjtGAFtLoiRgHBUeJyJVX7ag9LLvPspZ",
+   "quote": {
+    "mint": "4MMQY9bwkxxTtsK3W227Q5ABT6yFY8Pmn9Ze7wmAXKY8",
+    "symbol": "ALLINU",
+    "decimals": 6
+   },
+   "distributedRaw": "48126552310",
+   "distributedTokens": 48126.55231,
+   "payoutCount": 978,
+   "holderCount": 288,
+   "lastPayoutAt": "2026-10-03T22:08:28.138Z"
+  },
+  {
+   "mint": "FjDfowQuAZ4UyiX7gqDnkydmDBHVGJca6YKHvH2zutbe",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "decimals": 6
+   },
+   "distributedRaw": "7328881749",
+   "distributedTokens": 7328.881749,
+   "payoutCount": 3552,
+   "holderCount": 514,
+   "lastPayoutAt": "2026-10-03T19:57:36.167Z"
+  },
+  {
+   "mint": "A4UjnEDSBFhuMDgiwzUwmhnnLPaCbGHYEXRGujhUNf84",
+   "quote": {
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "symbol": "neet",
+    "decimals": 6
+   },
+   "distributedRaw": "59114105500",
+   "distributedTokens": 59114.1055,
+   "payoutCount": 8452,
+   "holderCount": 1024,
+   "lastPayoutAt": "2026-10-03T15:38:37.282Z"
+  },
+  {
+   "mint": "BpmKnQsEcSUEVeGwcq1z4fkwLEmbg4j1YivhyX3AVnik",
+   "quote": {
+    "mint": "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump",
+    "symbol": "ANSEM",
+    "decimals": 6
+   },
+   "distributedRaw": "2773792420",
+   "distributedTokens": 2773.79242,
+   "payoutCount": 521,
+   "holderCount": 339,
+   "lastPayoutAt": "2026-10-02T23:33:27.385Z"
+  },
+  {
+   "mint": "EPimCMUmaRyCc2aqKKKuHWvZye85w7LxpHHPcrq471Yr",
+   "quote": {
+    "mint": "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ",
+    "symbol": "PURR",
+    "decimals": 9
+   },
+   "distributedRaw": "118974474287127",
+   "distributedTokens": 118974.474287127,
+   "payoutCount": 754,
+   "holderCount": 256,
+   "lastPayoutAt": "2026-10-03T16:25:43.531Z"
+  },
+  {
+   "mint": "GhE3yZiC2NvzFKQeMNCeh4t7AdnJQxUfV8vds7UyXcuL",
+   "quote": {
+    "mint": "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx",
+    "symbol": "STONK",
+    "decimals": 9
+   },
+   "distributedRaw": "14241576112827",
+   "distributedTokens": 14241.576112827,
+   "payoutCount": 10368,
+   "holderCount": 1527,
+   "lastPayoutAt": "2026-10-03T19:01:18.368Z"
+  },
+  {
+   "mint": "Cz2Xu8UPvSUv8pYeXrsZZcVM3grkkFXmcKVQvLSwbUB",
+   "quote": {
+    "mint": "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR",
+    "symbol": "ZCAT",
+    "decimals": 9
+   },
+   "distributedRaw": "13868140303604",
+   "distributedTokens": 13868.140303604,
+   "payoutCount": 1416,
+   "holderCount": 494,
+   "lastPayoutAt": "2026-10-02T23:28:17.777Z"
+  },
+  {
+   "mint": "6Y3BN7twb5CYaxw1ow14UXZvVLyo1FV6oXzjJ5qkC4wd",
+   "quote": {
+    "mint": "pSo1f9nQXWgXibFtKf7NWYxb5enAM4qfP6UJSiXRQfL",
+    "symbol": "PSOL",
+    "decimals": 9
+   },
+   "distributedRaw": "9037422295",
+   "distributedTokens": 9.037422295,
+   "payoutCount": 3277,
+   "holderCount": 1091,
+   "lastPayoutAt": "2026-10-03T16:18:27.832Z"
+  },
+  {
+   "mint": "EK3wq43rYaPxdyAh7ANp2fB4w56K82C1r3w3LEs5uHFd",
+   "quote": {
+    "mint": "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv",
+    "symbol": "PENGU",
+    "decimals": 6
+   },
+   "distributedRaw": "53725243902",
+   "distributedTokens": 53725.243902,
+   "payoutCount": 591,
+   "holderCount": 487,
+   "lastPayoutAt": "2026-10-03T00:06:58.763Z"
+  },
+  {
+   "mint": "4XazC7Pp4cZSQbJKUdzpCXdMMNYH7BKSMiJh5v6fRQLo",
+   "quote": {
+    "mint": "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump",
+    "symbol": "neet",
+    "decimals": 6
+   },
+   "distributedRaw": "15444169650",
+   "distributedTokens": 15444.16965,
+   "payoutCount": 2388,
+   "holderCount": 460,
+   "lastPayoutAt": "2026-10-03T00:11:47.467Z"
+  },
+  {
+   "mint": "BwtjypNz6P8jrvucoy5V1HaewM2ftwY4Jm4S55BXLSBu",
+   "quote": {
+    "mint": "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk",
+    "symbol": "USELESS",
+    "decimals": 6
+   },
+   "distributedRaw": "5203320365",
+   "distributedTokens": 5203.320365,
+   "payoutCount": 2197,
+   "holderCount": 775,
+   "lastPayoutAt": "2026-10-02T22:45:51.288Z"
+  },
+  {
+   "mint": "boooRSj11szm3aimPZPXEAWAcmZ5kxsLxaFQTr8d9eP",
+   "quote": {
+    "mint": "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr",
+    "symbol": "POPCAT",
+    "decimals": 9
+   },
+   "distributedRaw": "1011064217052",
+   "distributedTokens": 1011.064217052,
+   "payoutCount": 90,
+   "holderCount": 90,
+   "lastPayoutAt": "2026-10-03T05:08:34.120Z"
+  }
+ ],
+ "prices": {
+  "2zMMhcVQEXDtdE6vsFS7S7D5oUodfJHE8vd1gnBouauv": 0.009177586822146285,
+  "4MMQY9bwkxxTtsK3W227Q5ABT6yFY8Pmn9Ze7wmAXKY8": 0.006267848760634075,
+  "6GmAFSYs4gk3FDao5FzzySQpPZaWsa4rUJHacpMpUNgx": 0.20417616687856316,
+  "7GCihgDB8fe6KNjn2MYtkzZcRjQy3t9GHdC8uHYmW2hr": 0.053497902726674,
+  "8RNUw4N655VSrZKuhGdywhbSMDTrheguFPfxbpE2NZHQ": 0.0019539885125040802,
+  "9cRCn9rGT8V2imeM2BaKs13yhMEais3ruM3rPvTGpump": 0.1465928073882313,
+  "AMC1qwR9KhiyrQBRPrxnfo4JfMeMZqEBvt5tgTytNNoc": 2.763678451394165,
+  "BPxxfRCXkUVhig4HS1Lh7kZqV6SPJhzfEk4x6fVBjPCy": 1.2136666323546952,
+  "Ce2gx9KGXJ6C9Mp5b5x1sn9Mg87JwEbrQby4Zqo3pump": 0.03683373508306658,
+  "Dz9mQ9NzkBcCsuGPFJ3r1bS4wgqKMHBPiVuniW8Mbonk": 0.2407459154416556,
+  "HcRLc9VDgjLeK154xDawfb1dmVJ98DoSqcwTHGqiDeJR": 0.036918030117336124,
+  "pSo1f9nQXWgXibFtKf7NWYxb5enAM4qfP6UJSiXRQfL": 131.9234170574162
+ },
+ "launchDays": {
+  "2026-10-02": {
+   "launches": 3433,
+   "community": 246
+  },
+  "2026-10-03": {
+   "launches": 2055,
+   "community": 643
+  },
+  "2026-10-04": {
+   "launches": 45,
+   "community": 3
+  }
+ }
+}

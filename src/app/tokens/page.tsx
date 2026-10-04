@@ -18,6 +18,7 @@ const PAGE_SIZE = 50;
 // Deeper than the pool needs a narrower filter or search.
 const POOL = 500;
 const API_PAGE = 100;
+const COMMUNITY_PAGES = 10; // mode=community: Community Mode coins among the 1,000 reward coins first in the chosen order
 const SORTS = [
   { v: "marketCap", label: "Market cap" },
   { v: "volume", label: "24h volume" },
@@ -33,6 +34,7 @@ const MODES = [
   { v: "", label: "Any mode" },
   { v: "standard", label: "Standard" },
   { v: "reward", label: "Reward" },
+  { v: "community", label: "Community" },
 ];
 const CATEGORIES = [
   { v: "", label: "Any pair" },
@@ -73,6 +75,9 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
   const byParam = str(sp.by);
   const by: SortKey | null = SORT_KEYS.some((k) => k === byParam) ? (byParam as SortKey) : null;
   const dir: "asc" | "desc" = str(sp.dir) === "asc" ? "asc" : str(sp.dir) === "desc" ? "desc" : by ? DEFAULT_DIR[by] : "desc";
+  // "community" (Community Mode, §6p) is not a StonkFun filter: the API ignores mode=community and returns every mode,
+  // so the page asks for reward coins and keeps the ones in the mode from a deeper pool (COMMUNITY_PAGES requests).
+  const community = str(sp.mode) === "community";
   const q: TokenQuery = {
     q: str(sp.q) || undefined,
     sort,
@@ -85,19 +90,24 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
   const now = nowMs();
 
   // The pool: first page tells us the total; the rest of the pool only if there is more.
-  const first = await getTokens({ ...q, page: 1, pageSize: API_PAGE });
-  const total = first.data.pagination.total;
-  const morePages = Math.min(Math.ceil(Math.min(total, POOL) / API_PAGE), POOL / API_PAGE) - 1;
-  const rest = morePages > 0 ? await Promise.all(Array.from({ length: morePages }, (_, i) => getTokens({ ...q, page: i + 2, pageSize: API_PAGE }))) : [];
+  const apiQ: TokenQuery = community ? { ...q, mode: "reward" } : q;
+  const poolPages = community ? COMMUNITY_PAGES : POOL / API_PAGE;
+  const first = await getTokens({ ...apiQ, page: 1, pageSize: API_PAGE });
+  const scanned = first.data.pagination.total;
+  const morePages = Math.min(Math.ceil(Math.min(scanned, poolPages * API_PAGE) / API_PAGE), poolPages) - 1;
+  const rest = morePages > 0 ? await Promise.all(Array.from({ length: morePages }, (_, i) => getTokens({ ...apiQ, page: i + 2, pageSize: API_PAGE }))) : [];
   const seen = new Set<string>();
   const pool: Token[] = [];
   for (const r of [first, ...rest]) {
     for (const t of r.data.tokens) {
       if (seen.has(t.mint)) continue;
+      if (community && !(t.communityMode && t.communityMode.shareBps > 0)) continue;
       seen.add(t.mint);
       pool.push(t);
     }
   }
+  const scannedAll = !community || scanned <= poolPages * API_PAGE;
+  const total = community ? pool.length : scanned;
 
   const [apr, holders] = await Promise.all([getAprForTokens(pool), getHolderCounts()]);
   const sorted = by ? sortTokens(pool, apr.byMint, by, dir, holders) : pool;
@@ -124,7 +134,7 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
   const tableSort = { key: by ?? (sort === "volume" ? "vol" : sort === "newest" ? "age" : "mcap"), dir: by ? dir : sort === "newest" ? ("asc" as const) : ("desc" as const), href: (key: SortKey, d: "asc" | "desc") => href({ by: key, dir: d, page: 1 }) };
 
   const subtitle = [
-    `${fmtNum(total)} tokens match`,
+    community ? `${fmtNum(total)} Community Mode coins${scannedAll ? "" : ` among the ${fmtNum(COMMUNITY_PAGES * API_PAGE)} ${POOL_LABEL[sort]} reward coins`}` : `${fmtNum(total)} tokens match`,
     truncated ? `showing the ${fmtNum(pool.length)} ${POOL_LABEL[sort]}` : null,
     by ? `sorted by ${COL_LABEL[by]} ${dir === "desc" ? "▼" : "▲"}` : null,
     `page ${page} of ${totalPages}`,
@@ -214,8 +224,10 @@ export default async function TokensPage({ searchParams }: PageProps<"/tokens">)
           <div className="method-body">
             {apr.status === "no-db" && <p className="text-caution">The APR columns need the site&apos;s payout snapshots (Postgres), which this deployment does not have.</p>}
             {apr.status === "db-error" && <p className="text-caution">The payout readings could not be read just now (the snapshot store did not answer). The worker keeps recording; try again in a minute, or check <Link href="/api/health" className="underline underline-offset-2">/api/health</Link> → reward_windows.</p>}
+            {community && !scannedAll && <p>Community Mode is not a filter StonkFun offers, so this view keeps the community coins among the {fmtNum(COMMUNITY_PAGES * API_PAGE)} {POOL_LABEL[sort]} reward coins. Every community coin, ranked by what it has sent to quote-token holders, is on <Link href="/rewards?mode=community">Holder rewards → Community mode</Link>.</p>}
             {truncated && <p>Sorting covers the {fmtNum(pool.length)} {POOL_LABEL[sort]} that match the filters, not all {fmtNum(total)}; narrow the filters or search to reach the rest.</p>}
             <p>Only reward-mode coins pay holders, and only the {YIELD_TRACKED} largest by market cap are snapshotted, so the columns read &ldquo;—&rdquo; for standard coins and &ldquo;not tracked&rdquo; for smaller reward coins. Payouts over each window come from this site&apos;s own 5-minute readings of StonkFun&apos;s reward ledger, valued at the quote asset&apos;s Jupiter price now (STONK at StonkFun&apos;s price), divided by the coin&apos;s market cap now. No compounding, no price change of the coin or its quote asset.</p>
+            <p>Community Mode coins (marked <span className="pill cm !text-[10px] !py-0">cm</span>) send 33% of every holder payout to holders of their quote token; their APR counts only the coin holders&apos; 67%.</p>
             <p>3d-based APR averages daily payouts over 72 hours, so a single large payout moves it less; the 24h column moves with the last day alone. Coins with under 72h of history read &ldquo;collecting&rdquo;; &ldquo;unpriced&rdquo; means Jupiter has no route for the quote asset. Hover an APR cell for the raw inputs: USD paid, hours covered, UTC window.</p>
             <p>Holders is StonkFun&apos;s count of reward-eligible wallets for reward coins (standard coins carry none), live. Average per holder divides the coin&apos;s market cap by it; a few large wallets pull it up, so a high figure on a coin with few holders is concentration, not a broad base.</p>
             <p>Market cap is the denominator because it is the one figure both you and this site can check. Payouts go only to eligible wallets (pools and program accounts are excluded), so a holder&apos;s own yield on eligible balance is higher than the figure shown. Sources: StonkFun tokens &amp; rewards · stonk.fyi snapshots · Jupiter.</p>

@@ -10,6 +10,7 @@ import TokenHistoryChart from "@/components/TokenHistoryChart";
 import { getTokenHistory } from "@/lib/db";
 import TokenHolders, { TokenHoldersSkeleton } from "@/components/TokenHolders";
 import BuyButton from "@/components/BuyButton";
+import { getCommunitySet } from "@/lib/community";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,13 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
   const drawdown = m.peakMarketCapUsd && m.marketCapUsd ? ((m.marketCapUsd - m.peakMarketCapUsd) / m.peakMarketCapUsd) * 100 : undefined;
   const timeToGraduate = t.graduatedAt ? (Date.parse(t.graduatedAt) - Date.parse(t.createdAt)) / 60000 : undefined;
   const rw = rewards.data?.rewards ?? null;
+  // Community Mode (§6p): StonkFun's distributed total holds both shares. This site's split (15-min) covers a coin that
+  // switched in after launch; without it, a coin in the mode is split from its whole total (as if launched in the mode).
+  const cmBps = t.communityMode && t.communityMode.shareBps > 0 ? t.communityMode.shareBps : null;
+  const cmTag = cmBps || t.mode === "reward" ? (await getCommunitySet().catch(() => new Map())).get(mint) ?? null : null;
+  // Launched in the mode and still in it: the live total × the share (exact). A switcher, or a coin that left the mode:
+  // this site's split as of its last read, clamped to the live total.
+  const cmToQuote = !rw || !(cmBps || cmTag) ? null : cmBps && cmTag?.firstKind !== "switch" ? (rw.distributedTokens * cmBps) / 10_000 : Math.min(cmTag?.toQuoteTokens ?? 0, rw.distributedTokens);
   const quote = rewards.data?.quote ?? null;
   // Reward payouts arrive in native quote units; mark them to Jupiter's current price (5 min cache). Best-effort: null when unpriced.
   const quotePrice = rw && quote?.mint ? ((await getUsdPrices([quote.mint]))[quote.mint] ?? null) : null;
@@ -78,7 +86,7 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
             </h1>
             <div className="flex flex-wrap gap-1.5">
               <StatusPill status={t.status} progress={t.graduationProgress} />
-              <ModePill mode={t.mode} bps={t.transferFee?.bps} />
+              <ModePill mode={t.mode} bps={t.transferFee?.bps} cm={t.communityMode?.shareBps} />
               {t.flywheel?.active && <span className="pill">flywheel</span>}
               {t.launchpad && <span className="pill">{t.launchpad}</span>}
               {t.quote.categoryLabel && <span className="pill">{t.quote.categoryLabel} pair</span>}
@@ -161,9 +169,17 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
                 <Mini label="Payouts" value={fmtNum(rw.payoutCount)} />
                 <Mini label="Holders paid" value={fmtNum(rw.holderCount)} />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
-                <Mini label="Market cap per holder paid" value={avgPerHolder !== null ? fmtUsd(avgPerHolder) : "—"} />
-              </div>
+              {cmToQuote !== null ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 mt-2.5">
+                  <Mini label={`To ${quote?.symbol ?? "quote"} holders`} value={`${fmtNum(cmToQuote, 2)}${quotePrice != null ? ` · ${fmtUsd(cmToQuote * quotePrice)}` : ""}`} />
+                  <Mini label={`To ${t.symbol} holders`} value={`${fmtNum(rw.distributedTokens - cmToQuote, 2)}${quotePrice != null ? ` · ${fmtUsd((rw.distributedTokens - cmToQuote) * quotePrice)}` : ""}`} />
+                  <Mini label="Market cap per holder paid" value={avgPerHolder !== null ? fmtUsd(avgPerHolder) : "—"} />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2.5">
+                  <Mini label="Market cap per holder paid" value={avgPerHolder !== null ? fmtUsd(avgPerHolder) : "—"} />
+                </div>
+              )}
               <div className="method">
                 <strong>
                   {quotePrice != null
@@ -172,6 +188,13 @@ export default async function TokenPage({ params }: PageProps<"/tokens/[mint]">)
                 </strong>
                 <span className="num text-[11px] text-muted ml-auto">StonkFun rewards · 60s{rw ? " · Jupiter · 5 min" : ""}</span>
               </div>
+              {cmToQuote !== null && (
+                <p className="text-xs text-secondary mt-2">
+                  <span className="pill cm mr-1.5">community{cmBps ? ` ${cmBps / 100}%` : ""}</span>
+                  {cmBps ? <>Community Mode: {cmBps / 100}% of every payout goes to wallets holding {quote?.symbol ?? "the quote token"}, the rest to {t.symbol} holders.</> : <>{t.symbol} has left Community Mode; the split covers the time it was in it.</>}{" "}
+                  StonkFun reports one total for both; the split is its rule applied {cmTag ? (cmTag.firstKind === "switch" ? "from when this site saw the switch" : "since launch") : "to the whole total"}. <Link href={`/pairs/${t.quote.mint}`} className="underline">All community payouts to {quote?.symbol ?? "its"} holders →</Link>
+                </p>
+              )}
               <p className="text-xs text-muted mt-2">Trading fees paid to holders in {quote?.symbol ?? "the quote asset"}, pro rata. Market cap per holder paid is market cap ÷ holders paid (the reward-eligible count StonkFun reports for {t.symbol}, not HolderScan&apos;s), so pool-held supply is in the numerator.</p>
             </>
           ) : (

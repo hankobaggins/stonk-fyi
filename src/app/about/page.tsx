@@ -84,6 +84,7 @@ const TOC: [string, string][] = [
   ["yield", "Holder-fee APR"],
   ["holderbase", "The $STONK holder base"],
   ["wallet-rewards", "Wallet rewards check"],
+  ["community-mode", "Community Mode"],
   ["holders", "Holders across the ecosystem"],
   ["runners", "Runners"],
   ["quote-assets", "Quote assets"],
@@ -241,6 +242,15 @@ export default function AboutPage() {
           <p>A payout is a transaction one of those wallets signed that does nothing but move one token from its own account into holders&apos; accounts (token-program transfers, plus creating an account when the holder has none). The operations wallet also swaps, sweeps transfer fees and funds the payout wallet; none of those have that shape, so none are counted. The check reads the wallet&apos;s history through Helius (its token accounts included) and sums what such transactions added, by asset. Amounts are exact on-chain figures. Every hour the site also reads who paid StonkFun&apos;s own latest distributions, so if StonkFun moves payouts to a new wallet the check picks it up and re-reads stored wallets.</p>
           <p><span className="text-primary">USD</span> is today&apos;s price (Jupiter; STONK at StonkFun&apos;s price), the same convention StonkFun&apos;s own rewards page uses, so a total moves with the assets it was paid in. <span className="text-primary">&ldquo;From&rdquo;</span> is inferred: a payout transaction names the asset paid, not the coin that earned it, so the check lists the reward coins the wallet holds now that pay in that asset. A coin sold since leaves its payouts with no source named; two coins paying in the same asset share one row.</p>
           <p>A wallet is read in full the first time someone looks it up and only its new transactions after that; the result is stored (totals per asset and per day, and the newest 25 payouts, nothing else about the wallet) so the share cards and link previews do not read the chain again.</p>
+        </div>
+      </Section>
+
+      <Section title="Community Mode" id="community-mode">
+        <div className="text-sm text-secondary space-y-2 leading-relaxed">
+          <p>StonkFun launched Community Mode on 2026-10-02. A reward coin in the mode splits every holder payout: 33% goes to wallets holding the coin&apos;s quote token, 67% to the coin&apos;s own holders. The <Link href="/rewards?mode=community" className="underline underline-offset-2 hover:text-primary">Community mode view</Link> of Holder rewards shows what has been sent to the holders of each quote token, by which coins, and how many reward launches choose the mode each day.</p>
+          <p>StonkFun reports one payout total per coin, and for a community coin that total holds both shares: payouts filed under such a coin go partly to wallets that hold none of it but hold its quote token (checked on-chain on 2026-10-03). Neither the API nor the chain labels which share a payout belongs to, so the split shown is StonkFun&apos;s 33% rule applied to that total, not two reported figures.</p>
+          <p>A coin can switch into the mode after launch. The site records each reward coin&apos;s mode at launch, re-reads the mode of every reward coin that trades every hour, and keeps the time a coin spends in the mode as periods. A coin launched in the mode is split from its first payout; a coin that switched is split from the moment the site saw the switch (confirmed with a fresh read), so its earlier payouts stay plain and its quote-holder share can be understated by up to an hour of payouts, never overstated. A coin that leaves the mode is handled the same way. The <span className="text-primary">Plain reward mode</span> view leaves out what coins paid while in the mode; payout and holder counts of a coin that switched stay whole, since they cannot be split.</p>
+          <p><span className="text-primary">USD</span> is at today&apos;s prices (Jupiter; STONK at StonkFun&apos;s), re-valued every 15 minutes, like the rest of the rewards page. The <Link href="/tokens?mode=community" className="underline underline-offset-2 hover:text-primary">holder-fee APR</Link> of a community coin counts only its holders&apos; 67%. In the <Link href="/rewards#check" className="underline underline-offset-2 hover:text-primary">wallet check</Link>, payouts in a token that no held coin pays in, received since community coins started paying that token&apos;s holders, are labelled as Community Mode payouts for holding it.</p>
         </div>
       </Section>
 
