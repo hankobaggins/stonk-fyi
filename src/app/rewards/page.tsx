@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getRevenueHistory } from "@/lib/api";
-import { getRewardsOverview, parseRewardsMode, type RewardsMode } from "@/lib/rewards";
+import { getRewardsOverview, parseRewardsMode, type RewardsMode, type RewardsOverview } from "@/lib/rewards";
 import { getCommunityCoins, getCommunityOverview, getCommunitySet, getCommunityTraction } from "@/lib/community";
 import { fmtNum, fmtUsd, nowMs, shortAddr, timeAgo } from "@/lib/format";
 import { ExplorerLink, KpiTile, PageHeader, Section, TokenLink } from "@/components/ui";
@@ -25,13 +25,20 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
   const now = nowMs();
   const mode = parseRewardsMode((await searchParams).mode);
   const cmSet = await getCommunitySet();
-  const [o, history, cm, cmCoins, traction] = await Promise.all([
-    getRewardsOverview(mode, cmSet),
-    mode === "all" ? getRevenueHistory() : Promise.resolve(null),
+  // StonkFun's ledger is ~20 MB; if it can't be read (no copy on this instance yet and the download fails), the page
+  // still renders — the community view from this site's own records, the others with a notice — instead of erroring.
+  const [ledger, history, cm, cmCoins, traction] = await Promise.all([
+    getRewardsOverview(mode, cmSet).catch((e: Error) => {
+      console.error(`rewards ledger unavailable: ${e.message}`);
+      return null;
+    }),
+    mode === "all" ? getRevenueHistory().catch(() => null) : Promise.resolve(null),
     getCommunityOverview(),
     mode === "community" ? getCommunityCoins(50, null) : Promise.resolve([]),
     mode === "community" ? getCommunityTraction(30) : Promise.resolve({ days: [], paidPerDay: [] }),
   ]);
+  const ledgerDown = ledger === null;
+  const o: RewardsOverview = ledger ?? { generatedAt: new Date(now).toISOString(), coins: 0, coinsPaying: 0, payouts: 0, holdersPaid: 0, usdNow: 0, usdPricedShare: 0, rows: [], byQuote: [], recent: [], prices: {} };
   const days = history?.data.days ?? [];
   const notionalLifetime = days.reduce((s, d) => s + d.dailyHoldersRevenue, 0);
   const holdersSeries = days.map((d) => ({ date: d.date, value: d.dailyHoldersRevenue }));
@@ -89,6 +96,10 @@ export default async function RewardsPage({ searchParams }: { searchParams: Prom
           </Link>
         ))}
       </nav>
+
+      {ledgerDown && (
+        <p className="card p-4 text-[13px] text-caution">StonkFun&apos;s rewards ledger didn&apos;t load just now (it is a ~20 MB file and the download timed out). {mode === "community" ? "Community figures below come from this site's own records; recent payouts are missing." : "Reload in a minute; the Community mode view works from this site's own records."}</p>
+      )}
 
       {mode === "community" ? (
         <CommunityRewards ov={cm} coins={cmCoins} traction={traction} recent={o.recent} version={Math.floor(now / 300_000)} />

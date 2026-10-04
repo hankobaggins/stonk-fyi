@@ -504,7 +504,10 @@ export async function communityHealth(): Promise<string> {
   if (!lastLaunch) throw new Error(`not seeded yet: ${note}`);
   if ((age(lastLaunch) ?? 0) > 60) throw new Error(`no reward launch recorded for over an hour (worker stalled, or StonkFun's index stopped listing new launches): ${note}`);
   if ((open.count ?? 0) > 0 && (age(t?.priced_at) ?? 999) > 40) throw new Error(`totals / prices older than 40 min: ${note}`);
-  if ((open.count ?? 0) > 0 && (age(s) ?? 999) > 150) throw new Error(`hourly snapshot older than 2.5 h: ${note}`);
+  // The first snapshot is taken on the first :50 tick after go-live; before that a missing one is not a failure.
+  const firstPeriod = await db.from("community_periods").select("created_at").order("created_at").limit(1);
+  const live = age((firstPeriod.data?.[0] as { created_at: string } | undefined)?.created_at) ?? 0;
+  if ((open.count ?? 0) > 0 && (s ? (age(s) ?? 0) > 150 : live > 90)) throw new Error(`hourly snapshot ${s ? "older than 2.5 h" : "missing 90 min after the first period"}: ${note}`);
   return note;
 }
 

@@ -76,8 +76,54 @@ export async function getRevenueHistory() {
   return USE_FIXTURES ? fixture<RevenueHistory>("revenue-history") : get<RevenueHistory>("/revenue/history", undefined, 300);
 }
 
-export async function getRewards() {
-  return USE_FIXTURES ? fixture<RewardsResponse>("rewards") : get<RewardsResponse>("/rewards", undefined, 120);
+// /rewards is ~20 MB since StonkFun added baseDistributions (48K launches, 2026-10-03): over Next's 2 MB data-cache
+// limit, so every call downloaded it again and a slow transfer hit the 10 s upstream deadline — /rewards failed to
+// render with a TimeoutError (digest 4101894172). It is kept per instance instead: fresh for REWARDS_FRESH_MS, served
+// stale (refreshing in the background) up to REWARDS_STALE_MS, one download at a time with its own deadline, and only
+// the parts the site reads are kept (baseDistributions dropped — unused, and half the size).
+const REWARDS_FRESH_MS = 2 * 60_000;
+const REWARDS_STALE_MS = 30 * 60_000;
+const REWARDS_TIMEOUT_MS = Number(process.env.REWARDS_TIMEOUT_MS) || 45_000;
+type RewardsCache = { at: number; data: ApiEnvelope<RewardsResponse> | null; inflight: Promise<ApiEnvelope<RewardsResponse>> | null };
+const gRewards = globalThis as typeof globalThis & { __rewardsLedger?: RewardsCache };
+
+async function fetchRewardsLedger(): Promise<ApiEnvelope<RewardsResponse>> {
+  const url = new URL(API_BASE + "/rewards");
+  const res = await fetch(url, {
+    headers: { accept: "application/json", "user-agent": "stonkfun-dashboard/0.1" },
+    cache: "no-store",
+    signal: AbortSignal.timeout(REWARDS_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText} for ${url.pathname}`);
+  const body = (await res.json()) as ApiEnvelope<RewardsResponse>;
+  return { ...body, data: { launches: body.data.launches, recentDistributions: body.data.recentDistributions } };
+}
+
+export async function getRewards(): Promise<ApiEnvelope<RewardsResponse>> {
+  if (USE_FIXTURES) return fixture<RewardsResponse>("rewards");
+  const c = (gRewards.__rewardsLedger ??= { at: 0, data: null, inflight: null });
+  const refresh = () =>
+    (c.inflight ??= fetchRewardsLedger()
+      .then((d) => {
+        c.data = d;
+        c.at = Date.now();
+        return d;
+      })
+      .finally(() => {
+        c.inflight = null;
+      }));
+  const age = Date.now() - c.at;
+  if (c.data && age < REWARDS_FRESH_MS) return c.data;
+  if (c.data && age < REWARDS_STALE_MS) {
+    refresh().catch(() => {});
+    return c.data;
+  }
+  try {
+    return await refresh();
+  } catch (e) {
+    if (c.data) return c.data;
+    throw e;
+  }
 }
 
 // ---------- Tokens ----------
