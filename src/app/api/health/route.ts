@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getLaunches, getPairs, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
+import { getLaunches, getPairs, getRewards, getRevenue, getRevenueHistory, getStats, getStonkPriceHistory, getToken, getTokenBurns, getTokens, STONK_MINT } from "@/lib/api";
 import { getPoolInfo } from "@/lib/raydium";
 import { DB_BREAKER_MS, dbBreakerOpen, getDb, getLaunchVelocity, getRewardWindows } from "@/lib/db";
 import { BURN_ALERT_COOLDOWN_MIN, BURN_ALERT_THRESHOLD_USD, BURN_ALERT_WINDOW_MIN, recentBurnAlerts } from "@/lib/burn-alerts";
@@ -65,6 +65,16 @@ export async function GET() {
     run("stonkfun:/tokens?quoteMint=STONK", async () => `${(await getTokens({ quoteMint: STONK_MINT, pageSize: 1 })).data.pagination.total} quoted`),
     run("stonkfun:/launches", async () => `${(await getLaunches({ pageSize: 1 })).data.pagination.total} launches`),
     run("stonkfun:/pairs", async () => `${(await getPairs()).length} pairs`),
+    // the rewards ledger is paged (2026-10-15): one page read as the whole ledger made every rewards/holders figure ~0.2% of the truth
+    run("stonkfun:/rewards", async () => {
+      const [r, s] = await Promise.all([getRewards(), getStats()]);
+      const l = r.data.launches;
+      const quotes = new Set(l.map((x) => x.quote.mint)).size;
+      const slots = l.reduce((a, x) => a + x.holderCount, 0);
+      const note = `${l.length} reward coins with payouts · ${quotes} quote assets · ${slots} holder-slots · StonkFun counts ${s.data.tokens.rewardLaunches} reward launches`;
+      if (s.data.tokens.rewardLaunches > 5000 && l.length < 2000) throw new Error(`ledger looks truncated: ${note}`);
+      return note;
+    }),
     run("pyth:feed_list", async () => {
       const f = await getPythFeeds();
       if (!f) throw new Error(lastQuoteAssetError() ?? "null");
