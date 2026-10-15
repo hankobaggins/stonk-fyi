@@ -54,6 +54,27 @@ export function getDb(opts?: { timeoutMs?: number; retry?: boolean }): SupabaseC
   });
 }
 
+// PostgREST answers at most 1,000 rows a request (Supabase's `max-rows`), whatever `.limit()` asks for,
+// and says nothing when it cuts: the response is just short. Found 2026-10-15: the token page's 7-day
+// history asked for 10,000 rows oldest-first, got the oldest 1,000 (≈3.5 days at 5-min snapshots) and
+// the chart ended three days ago. Any read that can pass 1,000 rows pages through here. `page` builds
+// the query for one `.range(from, to)` slice and must have a total order (add a tiebreak column when
+// the sort key is not unique), or rows can repeat or go missing between pages.
+export const PAGE_ROWS = 1000;
+export async function readAllRows<T>(
+  page: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+  maxRows = 50_000,
+): Promise<{ data: T[] | null; error: { message: string } | null }> {
+  const out: T[] = [];
+  for (let from = 0; from < maxRows; from += PAGE_ROWS) {
+    const { data, error } = await page(from, Math.min(from + PAGE_ROWS, maxRows) - 1);
+    if (error) return { data: null, error };
+    if (data) out.push(...data);
+    if (!data || data.length < PAGE_ROWS) break;
+  }
+  return { data: out, error: null };
+}
+
 // Shared cache for page-side DB reads (2026-09-16). supabase-js queries bypass Next's fetch cache, so
 // before this every render of every tab re-ran its reads against Postgres — /holders alone is ~30
 // PostgREST requests (three quote_holder_window RPCs over ~320 mints, ten holderscan_series RPCs, the
@@ -149,13 +170,16 @@ async function getTokenHistoryImpl(mint: string, days = 7, maxPoints = 600): Pro
   const db = getDb();
   if (!db) return null;
   const since = new Date(Date.now() - days * 86_400_000).toISOString();
-  const { data, error } = await db
-    .from("token_snapshots")
-    .select("ts, price_usd, market_cap_usd, volume_24h_usd")
-    .eq("mint", mint)
-    .gte("ts", since)
-    .order("ts", { ascending: true })
-    .limit(10_000);
+  // ~2,100 rows a week for a coin snapshotted every 5 min: paged (one (mint, ts) per row, so ts orders it totally).
+  const { data, error } = await readAllRows((from, to) =>
+    db
+      .from("token_snapshots")
+      .select("ts, price_usd, market_cap_usd, volume_24h_usd")
+      .eq("mint", mint)
+      .gte("ts", since)
+      .order("ts", { ascending: true })
+      .range(from, to),
+  );
   if (error || !data || data.length < 2) return null;
   const step = Math.max(1, Math.ceil(data.length / maxPoints));
   const rows = data.filter((_, i) => i % step === 0 || i === data.length - 1);

@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPairs, getRewards } from "./api";
-import { getDb, memoDb } from "./db";
+import { getDb, memoDb, readAllRows } from "./db";
 import { getMintOwners, HELIUS_PAID } from "./helius";
 import { getStockQuoteAssets, isStockCategory, STOCK_CATEGORIES, type StockCategory } from "./holders";
 import { getUniverse } from "./universe";
@@ -99,7 +99,10 @@ async function getWalletCensusImpl(days = WALLET_HISTORY_DAYS): Promise<CensusSe
   if (!db) return { status: "no-db", runs: [], latest: null, quoteAssets: quotes.length };
   const since = new Date(Date.now() - days * 864e5).toISOString();
   const [runs, meta] = await Promise.all([
-    db.from("wallet_runs").select("ts, mask, wallets").gte("ts", since).order("ts", { ascending: true }).limit(5000),
+    // Up to 15 masks a run × 4 runs a day × 31 days ≈ 1,900 rows: paged, (ts, mask) is the key.
+    readAllRows((from, to) =>
+      db.from("wallet_runs").select("ts, mask, wallets").gte("ts", since).order("ts", { ascending: true }).order("mask", { ascending: true }).range(from, to),
+    ),
     db.from("wallet_run_meta").select("ts, mints_ok, mints_failed, accounts, first_error, duration_ms").order("ts", { ascending: false }).limit(1),
   ]);
   if (runs.error || meta.error) {
